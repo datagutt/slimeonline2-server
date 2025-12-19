@@ -332,14 +332,25 @@ fn build_login_success(player: &Player) -> Vec<u8> {
 
 ## Variable-Length Message Handling
 
-### Challenge: No Explicit Length Header
+### 39dll Length Framing
 
-The protocol does **not** include a message length field. Messages are variable length due to strings.
+**UPDATE:** The client uses the 39dll library which adds a **2-byte length prefix** to every message.
+This prefix is **NOT encrypted** - only the payload is encrypted with RC4.
 
-### Solution: Parse Until Complete
+Wire format:
+```
+┌─────────────────────────────────────────────┐
+│ Payload Length (u16, little-endian)         │  <- NOT encrypted
+├─────────────────────────────────────────────┤
+│ Encrypted Payload                           │  <- RC4 encrypted
+│   ├─ Message Type (u16)                     │
+│   └─ Message Data (variable)                │
+└─────────────────────────────────────────────┘
+```
+
+### Solution: Read Length, Then Payload
 
 ```rust
-// Keep accumulating bytes until a complete message can be parsed
 pub struct MessageBuffer {
     buffer: BytesMut,
 }
@@ -350,44 +361,32 @@ impl MessageBuffer {
     }
     
     pub fn try_parse(&mut self) -> Result<Option<Vec<u8>>> {
+        // Need at least 2 bytes for length prefix
         if self.buffer.len() < 2 {
-            return Ok(None); // Need at least message type
+            return Ok(None);
         }
         
-        let msg_type = u16::from_le_bytes([self.buffer[0], self.buffer[1]]);
+        // Read length prefix (NOT encrypted)
+        let payload_len = u16::from_le_bytes([self.buffer[0], self.buffer[1]]) as usize;
         
-        // Try to parse based on known structure
-        // This requires knowing the expected format for each message type
-        match msg_type {
-            MSG_LOGIN => self.try_parse_login(),
-            MSG_CHAT => self.try_parse_chat(),
-            MSG_PING => self.try_parse_ping(),
-            // ... handle all message types
-            _ => Err("Unknown message type".into()),
+        // Check if we have complete message
+        if self.buffer.len() < 2 + payload_len {
+            return Ok(None); // Wait for more data
         }
+        
+        // Extract length prefix
+        let _ = self.buffer.split_to(2);
+        
+        // Extract and decrypt payload
+        let mut payload = self.buffer.split_to(payload_len).to_vec();
+        decrypt_client_message(&mut payload);
+        
+        Ok(Some(payload))
     }
-    
-    fn try_parse_login(&mut self) -> Result<Option<Vec<u8>>> {
-        let mut pos = 2; // Skip message type
-        
-        // Try to parse all 4 strings
-        for _ in 0..4 {
-            match find_null_terminator(&self.buffer[pos..]) {
-                Some(offset) => pos += offset + 1,
-                None => return Ok(None), // Incomplete, need more data
-            }
-        }
-        
-        // Complete message found
-        let message = self.buffer.split_to(pos).to_vec();
-        Ok(Some(message))
-    }
-}
-
-fn find_null_terminator(data: &[u8]) -> Option<usize> {
-    data.iter().position(|&b| b == 0)
 }
 ```
+
+This is much simpler than the original assumption that required parsing each message type to determine length.
 
 ### Fixed-Length Messages
 

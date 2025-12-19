@@ -18,10 +18,11 @@ Authentication is the first interaction between client and server. The client mu
 
 ### Client Request
 
+**IMPORTANT:** Unlike MSG_LOGIN, the registration message does NOT include a version string.
+
 ```rust
 struct RegisterRequest {
     msg_type: u16,      // 7
-    version: String,    // "0.106"
     username: String,   // 3-20 characters
     password: String,   // Plaintext
     mac_address: String // Hardware ID
@@ -30,19 +31,26 @@ struct RegisterRequest {
 
 **Binary Layout:**
 ```
-[u16: 7][string: "0.106"][string: username][string: password][string: mac]
+[u16: 7][string: username][string: password][string: mac]
+```
+
+**Client code (acc_controller.object.gmx):**
+```gml
+clearbuffer()
+    writeushort(MSG_REGISTER)
+    writestring(obj_inputfield_name.value)
+    writestring(obj_inputfield_pass.value)
+    writestring(mac)
+send_message()
 ```
 
 ### Server Validation
 
 ```rust
 async fn validate_register(req: RegisterRequest, ip: IpAddr) -> Result<()> {
-    // 1. Version check
-    if req.version != "0.106" {
-        return Err(ValidationError::VersionMismatch);
-    }
+    // NOTE: Registration does NOT include version string (unlike login)
     
-    // 2. Username validation
+    // 1. Username validation
     if req.username.len() < 3 || req.username.len() > 20 {
         return Err(ValidationError::InvalidUsername);
     }

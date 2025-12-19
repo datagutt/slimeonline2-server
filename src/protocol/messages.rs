@@ -139,9 +139,9 @@ pub fn write_login_failure(writer: &mut MessageWriter, error_code: u8) {
 }
 
 /// Client registration request (MSG_REGISTER = 7)
+/// Note: Unlike login, registration does NOT include a version string.
 #[derive(Debug, Clone)]
 pub struct RegisterRequest {
-    pub version: String,
     pub username: String,
     pub password: String,
     pub mac_address: String,
@@ -150,9 +150,9 @@ pub struct RegisterRequest {
 impl RegisterRequest {
     /// Parse a register request from the message buffer.
     /// Assumes the message type (u16) has already been read.
+    /// Format: username + password + mac_address (no version string)
     pub fn parse(reader: &mut MessageReader) -> ReadResult<Self> {
         Ok(Self {
-            version: reader.read_string()?,
             username: reader.read_string()?,
             password: reader.read_string()?,
             mac_address: reader.read_string()?,
@@ -161,9 +161,6 @@ impl RegisterRequest {
 
     /// Validate the registration request fields.
     pub fn validate(&self) -> Result<(), &'static str> {
-        if self.version != PROTOCOL_VERSION {
-            return Err("Invalid client version");
-        }
         if self.username.len() < MIN_USERNAME_LENGTH || self.username.len() > MAX_USERNAME_LENGTH {
             return Err("Invalid username length");
         }

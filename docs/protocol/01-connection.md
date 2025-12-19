@@ -166,31 +166,55 @@ pub struct ClientConnection {
 
 ### Read/Write Patterns
 
+**IMPORTANT: 39dll Message Framing**
+
+The client uses the 39dll library for networking, which adds a **2-byte length prefix** to each message. This prefix is **NOT encrypted**.
+
+Message format:
+```
+┌─────────────────────────────────────────────┐
+│ Payload Length (u16, 2 bytes, NOT encrypted)│
+├─────────────────────────────────────────────┤
+│ Encrypted Payload (RC4 encrypted)           │
+│   - Message Type (u16, 2 bytes)             │
+│   - Message-specific data...                │
+└─────────────────────────────────────────────┘
+```
+
 **Reading Messages:**
 ```rust
 async fn read_message(socket: &mut TcpStream) -> Result<Vec<u8>> {
-    // Read message length or until natural boundary
-    // Client uses variable-length messages with null-terminated strings
-    // No explicit length header in protocol
+    // 1. Read 2-byte length prefix (NOT encrypted)
+    let mut len_buf = [0u8; 2];
+    socket.read_exact(&mut len_buf).await?;
+    let payload_len = u16::from_le_bytes(len_buf) as usize;
     
-    // Read available bytes
-    let mut buffer = vec![0u8; 4096];
-    let n = socket.read(&mut buffer).await?;
-    buffer.truncate(n);
+    // 2. Read encrypted payload
+    let mut payload = vec![0u8; payload_len];
+    socket.read_exact(&mut payload).await?;
     
-    // Decrypt
-    decrypt_client_message(&mut buffer);
+    // 3. Decrypt payload
+    decrypt_client_message(&mut payload);
     
-    Ok(buffer)
+    Ok(payload)
 }
 ```
 
 **Writing Messages:**
 ```rust
 async fn send_message(socket: &mut TcpStream, data: Vec<u8>) -> Result<()> {
+    // 1. Encrypt the payload
     let mut encrypted = data;
     encrypt_server_message(&mut encrypted);
-    socket.write_all(&encrypted).await?;
+    
+    // 2. Prepend 2-byte length (NOT encrypted)
+    let len = encrypted.len() as u16;
+    let mut message = Vec::with_capacity(2 + encrypted.len());
+    message.extend_from_slice(&len.to_le_bytes());
+    message.extend_from_slice(&encrypted);
+    
+    // 3. Send
+    socket.write_all(&message).await?;
     socket.flush().await?;
     Ok(())
 }

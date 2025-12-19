@@ -1,0 +1,60 @@
+-- Create inventories table
+CREATE TABLE IF NOT EXISTS inventories (
+    character_id INTEGER PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
+    
+    -- Emote Slots (5)
+    emote_1 INTEGER NOT NULL DEFAULT 0,
+    emote_2 INTEGER NOT NULL DEFAULT 0,
+    emote_3 INTEGER NOT NULL DEFAULT 0,
+    emote_4 INTEGER NOT NULL DEFAULT 0,
+    emote_5 INTEGER NOT NULL DEFAULT 0,
+    
+    -- Outfit Slots (9)
+    outfit_1 INTEGER NOT NULL DEFAULT 0,
+    outfit_2 INTEGER NOT NULL DEFAULT 0,
+    outfit_3 INTEGER NOT NULL DEFAULT 0,
+    outfit_4 INTEGER NOT NULL DEFAULT 0,
+    outfit_5 INTEGER NOT NULL DEFAULT 0,
+    outfit_6 INTEGER NOT NULL DEFAULT 0,
+    outfit_7 INTEGER NOT NULL DEFAULT 0,
+    outfit_8 INTEGER NOT NULL DEFAULT 0,
+    outfit_9 INTEGER NOT NULL DEFAULT 0,
+    
+    -- Accessory Slots (9)
+    accessory_1 INTEGER NOT NULL DEFAULT 0,
+    accessory_2 INTEGER NOT NULL DEFAULT 0,
+    accessory_3 INTEGER NOT NULL DEFAULT 0,
+    accessory_4 INTEGER NOT NULL DEFAULT 0,
+    accessory_5 INTEGER NOT NULL DEFAULT 0,
+    accessory_6 INTEGER NOT NULL DEFAULT 0,
+    accessory_7 INTEGER NOT NULL DEFAULT 0,
+    accessory_8 INTEGER NOT NULL DEFAULT 0,
+    accessory_9 INTEGER NOT NULL DEFAULT 0,
+    
+    -- Item Slots (9)
+    item_1 INTEGER NOT NULL DEFAULT 0,
+    item_2 INTEGER NOT NULL DEFAULT 0,
+    item_3 INTEGER NOT NULL DEFAULT 0,
+    item_4 INTEGER NOT NULL DEFAULT 0,
+    item_5 INTEGER NOT NULL DEFAULT 0,
+    item_6 INTEGER NOT NULL DEFAULT 0,
+    item_7 INTEGER NOT NULL DEFAULT 0,
+    item_8 INTEGER NOT NULL DEFAULT 0,
+    item_9 INTEGER NOT NULL DEFAULT 0,
+    
+    -- Tool Slots (9)
+    tool_1 INTEGER NOT NULL DEFAULT 0,
+    tool_2 INTEGER NOT NULL DEFAULT 0,
+    tool_3 INTEGER NOT NULL DEFAULT 0,
+    tool_4 INTEGER NOT NULL DEFAULT 0,
+    tool_5 INTEGER NOT NULL DEFAULT 0,
+    tool_6 INTEGER NOT NULL DEFAULT 0,
+    tool_7 INTEGER NOT NULL DEFAULT 0,
+    tool_8 INTEGER NOT NULL DEFAULT 0,
+    tool_9 INTEGER NOT NULL DEFAULT 0,
+    
+    -- Equipped Tool
+    equipped_tool INTEGER NOT NULL DEFAULT 0,
+    
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
