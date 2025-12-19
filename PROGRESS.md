@@ -4,7 +4,7 @@
 
 This document tracks the implementation progress of the Slime Online 2 private server.
 
-**Last Updated:** 2024-12-19
+**Last Updated:** 2024-12-20
 
 ## Phase 1: Foundation (Week 1-2)
 
@@ -37,13 +37,12 @@ This document tracks the implementation progress of the Slime Online 2 private s
 
 ### Phase 1 Testing Checklist
 
-- [ ] Client can connect to server on port 5555
-- [ ] Client can register new account
-- [ ] Client can login with registered account
-- [ ] Server rejects wrong password
-- [ ] Server rejects duplicate login
-- [ ] Server responds to PING messages
-- [ ] Connection times out after inactivity
+- [x] Client can connect to server on port 5555
+- [x] Client can register new account
+- [x] Client can login with registered account
+- [x] Server rejects wrong password
+- [x] Server responds to PING messages
+- [x] Connection times out after inactivity
 
 ## Phase 2: Core Gameplay (Week 3-5)
 
@@ -51,24 +50,27 @@ This document tracks the implementation progress of the Slime Online 2 private s
 
 | Task | Status | File(s) |
 |------|--------|---------|
-| MSG_MOVE_PLAYER handler | Done | `src/handlers/connection.rs` |
-| MSG_CHAT handler | Done | `src/handlers/connection.rs` |
-| MSG_PLAYER_TYPING handler | Done | `src/handlers/connection.rs` |
-| MSG_EMOTE handler | Done | `src/handlers/connection.rs` |
-| MSG_ACTION handler | Done | `src/handlers/connection.rs` |
-| MSG_CHANGE_OUT handler | Done | `src/handlers/connection.rs` |
-| MSG_CHANGE_ACS1 handler | Done | `src/handlers/connection.rs` |
-| MSG_CHANGE_ACS2 handler | Done | `src/handlers/connection.rs` |
+| MSG_MOVE_PLAYER handler | Done | `src/handlers/movement.rs` |
+| MSG_CHAT handler | Done | `src/handlers/chat.rs` |
+| MSG_PLAYER_TYPING handler | Done | `src/handlers/chat.rs` |
+| MSG_EMOTE handler | Done | `src/handlers/chat.rs` |
+| MSG_ACTION handler | Done | `src/handlers/chat.rs` |
+| MSG_CHANGE_OUT handler | Done | `src/handlers/appearance.rs` |
+| MSG_CHANGE_ACS1 handler | Done | `src/handlers/appearance.rs` |
+| MSG_CHANGE_ACS2 handler | Done | `src/handlers/appearance.rs` |
+| MSG_POINT handler | Done | `src/handlers/gameplay.rs` |
+| MSG_WARP handler | Done | `src/handlers/warp.rs` |
 | Room player tracking | Done | `src/game/mod.rs` |
-| Player broadcast to room | Done | `src/handlers/connection.rs` |
+| Player broadcast to room | Done | Various handlers |
 | New player notification | Done | `src/handlers/auth.rs` |
 | Player leave notification | Done | `src/handlers/connection.rs` |
+| Points persistence | Done | `src/handlers/gameplay.rs`, `src/db/characters.rs` |
+| Room/position persistence | Done | `src/handlers/warp.rs`, `src/db/characters.rs` |
 
 ### Pending
 
 | Task | Status | Notes |
 |------|--------|-------|
-| MSG_WARP handler | Pending | Room change functionality |
 | Movement validation | Pending | Physics-based validation |
 | Chat profanity filter | Pending | Configurable word list |
 | Rate limiting per message type | Pending | Prevent spam |
@@ -138,7 +140,12 @@ src/
 ├── handlers/
 │   ├── mod.rs           # Handler module exports
 │   ├── connection.rs    # Connection lifecycle and message routing
-│   └── auth.rs          # Login/register handlers
+│   ├── auth.rs          # Login/register handlers
+│   ├── movement.rs      # Movement message handler
+│   ├── chat.rs          # Chat, emote, action, typing handlers
+│   ├── appearance.rs    # Outfit and accessory change handlers
+│   ├── gameplay.rs      # Points collection and gameplay handlers
+│   └── warp.rs          # Room change/warp handler
 ├── game/
 │   └── mod.rs           # Game state, rooms, sessions
 └── db/
@@ -194,7 +201,9 @@ Currently uses default configuration in `src/main.rs`:
 | 10 | MSG_LOGIN | C→S, S→C | Done |
 | 12 | MSG_ACTION | C→S, S→C | Done |
 | 13 | MSG_CHANGE_OUT | C→S, S→C | Done |
+| 14 | MSG_WARP | C→S, S→C | Done |
 | 17 | MSG_CHAT | C→S, S→C | Done |
+| 18 | MSG_POINT | C→S, S→C | Done |
 | 23 | MSG_EMOTE | C→S, S→C | Done |
 | 25 | MSG_CHANGE_ACS1 | C→S, S→C | Done |
 | 26 | MSG_CHANGE_ACS2 | C→S, S→C | Done |
@@ -202,9 +211,8 @@ Currently uses default configuration in `src/main.rs`:
 
 ## Known Issues
 
-1. Message queue delivery is per-session but not yet sent to clients (need polling loop)
-2. Room changes (warping) not yet implemented
-3. No movement validation (position/speed checks)
+1. No movement validation (position/speed checks)
+2. Appearance changes use slot index instead of actual item ID lookup
 
 ## Protocol Findings (from 39dll source analysis)
 
@@ -226,13 +234,21 @@ Wire format:
 - **MSG_REGISTER (7)**: Does NOT include version string
   - Format: `[msg_type][username][password][mac]`
 
+### MSG_WARP Format
+- **Client → Server**: `[msg_type(2)][room_id(2)][x(2)][y(2)]`
+- **Server → Client (enter)**: `[msg_type(2)][player_id(2)][case=1(1)][x(2)][y(2)]`
+- **Server → Client (leave)**: `[msg_type(2)][player_id(2)][case=2(1)]`
+
+### MSG_POINT Format
+- **Client → Server**: `[msg_type(2)][point_index(1)]`
+- Points are incremented server-side and persisted to database
+
 ### RC4 Implementation
 The 39dll `bufferencrypt` function uses standard RC4. Our implementation matches exactly.
 
 ## Next Steps
 
-1. Add message queue polling to send queued messages to clients
-2. Implement MSG_WARP for room changes
+1. Implement item system handlers (MSG_USE_ITEM, MSG_DISCARD_ITEM, etc.)
+2. Add shop/bank handlers
 3. Add basic movement validation
-4. Implement item system handlers
-5. Add shop/bank handlers
+4. Implement clan system
