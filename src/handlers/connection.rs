@@ -49,6 +49,9 @@ pub async fn handle_connection(
     result
 }
 
+/// Server-initiated ping interval (20 seconds, client times out at 30)
+const PING_INTERVAL: Duration = Duration::from_secs(20);
+
 /// Main message loop for a client.
 /// 
 /// Message format from 39dll (format=0, the default):
@@ -65,7 +68,13 @@ async fn handle_client_messages(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<()> {
     let mut recv_buffer = BytesMut::with_capacity(MAX_MESSAGE_SIZE);
-    let read_timeout = Duration::from_secs(CONNECTION_TIMEOUT_SECS);
+    
+    // Create ping interval timer - client expects server to send pings to keep alive
+    let mut ping_interval = tokio::time::interval(PING_INTERVAL);
+    ping_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    
+    // Skip the first immediate tick
+    ping_interval.tick().await;
 
     loop {
         // Check for timeout
@@ -77,92 +86,107 @@ async fn handle_client_messages(
             }
         }
 
-        // Read data with timeout
+        // Use select! to handle both incoming data and ping timer
         let mut temp_buf = [0u8; 4096];
-        let read_result = timeout(read_timeout, socket.read(&mut temp_buf)).await;
-
-        match read_result {
-            Ok(Ok(0)) => {
-                // Connection closed
-                debug!("Client {} disconnected", addr);
-                return Ok(());
-            }
-            Ok(Ok(n)) => {
-                // Add raw bytes to buffer (we'll decrypt per-message, not per-read)
-                recv_buffer.extend_from_slice(&temp_buf[..n]);
-                debug!("Received {} bytes, buffer now has {} bytes", n, recv_buffer.len());
-
-                // Update activity
-                session.write().await.update_activity();
-
-                // Process all complete messages in buffer
-                // Format: [2-byte length][encrypted payload]
-                while recv_buffer.len() >= 2 {
-                    // Read the 2-byte length prefix (NOT encrypted)
-                    let payload_len = u16::from_le_bytes([recv_buffer[0], recv_buffer[1]]) as usize;
-                    
-                    debug!("Payload length from header: {} bytes", payload_len);
-                    
-                    // Sanity check on length
-                    if payload_len > MAX_MESSAGE_SIZE {
-                        error!("Invalid payload length {} from {}", payload_len, addr);
-                        return Ok(());
-                    }
-                    
-                    // Check if we have the complete message
-                    if recv_buffer.len() < 2 + payload_len {
-                        debug!("Waiting for more data: have {}, need {}", recv_buffer.len(), 2 + payload_len);
-                        break;
-                    }
-                    
-                    // Extract the length prefix
-                    let _ = recv_buffer.split_to(2);
-                    
-                    // Extract the encrypted payload
-                    let mut payload = recv_buffer.split_to(payload_len).to_vec();
-                    
-                    debug!("Raw encrypted payload ({} bytes): {:02X?}", payload.len(), &payload[..std::cmp::min(payload.len(), 32)]);
-                    
-                    // Decrypt the payload
-                    decrypt_client_message(&mut payload);
-                    
-                    debug!("Decrypted payload: {:02X?}", &payload[..std::cmp::min(payload.len(), 32)]);
-                    
-                    // Parse message type (first 2 bytes of decrypted payload)
-                    if payload.len() < 2 {
-                        warn!("Payload too short after decryption");
-                        continue;
-                    }
-                    
-                    let msg_type = u16::from_le_bytes([payload[0], payload[1]]);
-                    debug!("Message type: {} (0x{:04X})", msg_type, msg_type);
-                    
-                    // Handle the message (payload includes message type)
-                    let responses = handle_message(
-                        msg_type,
-                        &payload[2..], // Skip message type bytes
-                        server,
-                        session.clone(),
-                    ).await?;
-
-                    // Send all responses
-                    for response in responses {
-                        send_message(socket, response).await?;
-                    }
-
-                    // Check if we should disconnect (logout)
-                    if msg_type == MSG_LOGOUT {
-                        return Ok(());
+        
+        tokio::select! {
+            // Ping timer fired - send ping to client
+            _ = ping_interval.tick() => {
+                // Only send pings to authenticated clients
+                let is_authenticated = session.read().await.is_authenticated;
+                if is_authenticated {
+                    debug!("Sending keepalive ping to {}", addr);
+                    let mut writer = MessageWriter::new();
+                    crate::protocol::write_ping(&mut writer);
+                    if let Err(e) = send_message(socket, writer.into_bytes()).await {
+                        error!("Failed to send ping to {}: {}", addr, e);
+                        return Err(e);
                     }
                 }
             }
-            Ok(Err(e)) => {
-                error!("Read error from {}: {}", addr, e);
-                return Err(e.into());
-            }
-            Err(_) => {
-                // Read timeout - just continue and check timeout flag
-                continue;
+            
+            // Data available to read
+            read_result = socket.read(&mut temp_buf) => {
+                match read_result {
+                    Ok(0) => {
+                        // Connection closed
+                        debug!("Client {} disconnected", addr);
+                        return Ok(());
+                    }
+                    Ok(n) => {
+                        // Add raw bytes to buffer (we'll decrypt per-message, not per-read)
+                        recv_buffer.extend_from_slice(&temp_buf[..n]);
+                        debug!("Received {} bytes, buffer now has {} bytes", n, recv_buffer.len());
+
+                        // Update activity
+                        session.write().await.update_activity();
+
+                        // Process all complete messages in buffer
+                        // Format: [2-byte length][encrypted payload]
+                        while recv_buffer.len() >= 2 {
+                            // Read the 2-byte length prefix (NOT encrypted)
+                            let payload_len = u16::from_le_bytes([recv_buffer[0], recv_buffer[1]]) as usize;
+                            
+                            debug!("Payload length from header: {} bytes", payload_len);
+                            
+                            // Sanity check on length
+                            if payload_len > MAX_MESSAGE_SIZE {
+                                error!("Invalid payload length {} from {}", payload_len, addr);
+                                return Ok(());
+                            }
+                            
+                            // Check if we have the complete message
+                            if recv_buffer.len() < 2 + payload_len {
+                                debug!("Waiting for more data: have {}, need {}", recv_buffer.len(), 2 + payload_len);
+                                break;
+                            }
+                            
+                            // Extract the length prefix
+                            let _ = recv_buffer.split_to(2);
+                            
+                            // Extract the encrypted payload
+                            let mut payload = recv_buffer.split_to(payload_len).to_vec();
+                            
+                            debug!("Raw encrypted payload ({} bytes): {:02X?}", payload.len(), &payload[..std::cmp::min(payload.len(), 32)]);
+                            
+                            // Decrypt the payload
+                            decrypt_client_message(&mut payload);
+                            
+                            debug!("Decrypted payload: {:02X?}", &payload[..std::cmp::min(payload.len(), 32)]);
+                            
+                            // Parse message type (first 2 bytes of decrypted payload)
+                            if payload.len() < 2 {
+                                warn!("Payload too short after decryption");
+                                continue;
+                            }
+                            
+                            let msg_type = u16::from_le_bytes([payload[0], payload[1]]);
+                            debug!("Message type: {} (0x{:04X})", msg_type, msg_type);
+                            
+                            // Handle the message (payload includes message type)
+                            let responses = handle_message(
+                                msg_type,
+                                &payload[2..], // Skip message type bytes
+                                server,
+                                session.clone(),
+                            ).await?;
+
+                            // Send all responses
+                            for response in responses {
+                                send_message(socket, response).await?;
+                            }
+
+                            // Check if we should disconnect (logout)
+                            if msg_type == MSG_LOGOUT {
+                                return Ok(());
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Read error from {}: {}", addr, e);
+                        return Err(e.into());
+                    }
+                }
             }
         }
     }
