@@ -14,7 +14,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::constants::*;
 use crate::crypto::{decrypt_client_message, encrypt_server_message};
 use crate::game::PlayerSession;
-use crate::protocol::{MessageWriter, write_player_left};
+use crate::protocol::{MessageWriter, write_player_left, MessageType, describe_message};
 use crate::Server;
 
 use super::{auth, movement, chat, appearance, gameplay, warp};
@@ -159,8 +159,16 @@ async fn handle_client_messages(
                                 continue;
                             }
                             
-                            let msg_type = u16::from_le_bytes([payload[0], payload[1]]);
-                            trace!("Message type: {} (0x{:04X})", msg_type, msg_type);
+                            let msg_type_id = u16::from_le_bytes([payload[0], payload[1]]);
+                            let msg_type = MessageType::from_id(msg_type_id);
+                            
+                            // Log message with parsed fields (skip high-frequency messages)
+                            if !msg_type.is_high_frequency() {
+                                let description = describe_message(msg_type_id, &payload[2..]);
+                                debug!("{}", description);
+                            } else {
+                                trace!("Message: {}", msg_type);
+                            }
                             
                             // Handle the message (payload includes message type)
                             let responses = handle_message(
@@ -176,7 +184,7 @@ async fn handle_client_messages(
                             }
 
                             // Check if we should disconnect (logout)
-                            if msg_type == MSG_LOGOUT {
+                            if matches!(msg_type, MessageType::Logout) {
                                 return Ok(());
                             }
                         }
@@ -193,82 +201,77 @@ async fn handle_client_messages(
 
 /// Handle a single message. Returns a list of response messages to send.
 async fn handle_message(
-    msg_type: u16,
+    msg_type: MessageType,
     payload: &[u8],
     server: &Arc<Server>,
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
-    // Skip logging for high-frequency messages (PING)
-    if msg_type != MSG_PING {
-        debug!("Handling message type {}", msg_type);
-    }
-
     match msg_type {
-        MSG_PING => {
+        MessageType::Ping => {
             let mut writer = MessageWriter::new();
             crate::protocol::write_ping(&mut writer);
             Ok(vec![writer.into_bytes()])
         }
 
-        MSG_LOGIN => {
+        MessageType::Login => {
             auth::handle_login(payload, server, session).await
         }
 
-        MSG_REGISTER => {
+        MessageType::Register => {
             auth::handle_register(payload, server, session).await
         }
 
-        MSG_LOGOUT => {
+        MessageType::Logout => {
             // Session cleanup is handled in the main loop
             Ok(vec![])
         }
 
-        MSG_MOVE_PLAYER => {
+        MessageType::MovePlayer => {
             movement::handle_movement(payload, server, session).await
         }
 
-        MSG_CHAT => {
+        MessageType::Chat => {
             chat::handle_chat(payload, server, session).await
         }
 
-        MSG_PLAYER_TYPING => {
+        MessageType::PlayerTyping => {
             chat::handle_typing(server, session).await
         }
 
-        MSG_NEW_PLAYER => {
+        MessageType::NewPlayer => {
             chat::handle_new_player_response(payload, server, session).await
         }
 
-        MSG_EMOTE => {
+        MessageType::Emote => {
             chat::handle_emote(payload, server, session).await
         }
 
-        MSG_ACTION => {
+        MessageType::Action => {
             chat::handle_action(payload, server, session).await
         }
 
-        MSG_CHANGE_OUT => {
+        MessageType::ChangeOutfit => {
             appearance::handle_change_outfit(payload, server, session).await
         }
 
-        MSG_CHANGE_ACS1 => {
+        MessageType::ChangeAccessory1 => {
             appearance::handle_change_accessory1(payload, server, session).await
         }
 
-        MSG_CHANGE_ACS2 => {
+        MessageType::ChangeAccessory2 => {
             appearance::handle_change_accessory2(payload, server, session).await
         }
 
-        MSG_POINT => {
+        MessageType::Point => {
             gameplay::handle_point_collection(payload, server, session).await
         }
 
-        MSG_WARP => {
+        MessageType::Warp => {
             warp::handle_warp(payload, server, session).await
         }
 
         _ => {
-            debug!("Unhandled message type: {}", msg_type);
+            debug!("Unhandled: [{}] {}", msg_type.category(), msg_type);
             Ok(vec![])
         }
     }

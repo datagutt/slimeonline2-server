@@ -5,7 +5,9 @@
 mod reader;
 mod writer;
 mod messages;
+pub mod types;
 
 pub use reader::MessageReader;
 pub use writer::MessageWriter;
 pub use messages::*;
+pub use types::{MessageType, describe_message};

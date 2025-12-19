@@ -1,6 +1,12 @@
 //! Game constants for Slime Online 2 server
 //! 
 //! All values are based on the v0.106 client and cannot be changed.
+//! 
+//! Many constants are defined here for future use and documentation purposes.
+//! The `MessageType` enum in `protocol/types.rs` is now the primary way to
+//! identify message types, but these constants are kept for reference.
+
+#![allow(dead_code)]
 
 // =============================================================================
 // ENCRYPTION KEYS - CRITICAL: Must match client hardcoded keys

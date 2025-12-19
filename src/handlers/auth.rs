@@ -111,7 +111,7 @@ pub async fn handle_login(
         Ok(None) => {
             // Create new character for this account
             match db::create_character(&server.db, account.id, &login.username).await {
-                Ok(char_id) => {
+                Ok(_char_id) => {
                     match db::find_character_by_account(&server.db, account.id).await {
                         Ok(Some(char)) => char,
                         _ => {
