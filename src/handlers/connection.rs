@@ -9,7 +9,7 @@ use bytes::BytesMut;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::constants::*;
 use crate::crypto::{decrypt_client_message, encrypt_server_message};
@@ -115,7 +115,7 @@ async fn handle_client_messages(
                     Ok(n) => {
                         // Add raw bytes to buffer (we'll decrypt per-message, not per-read)
                         recv_buffer.extend_from_slice(&temp_buf[..n]);
-                        debug!("Received {} bytes, buffer now has {} bytes", n, recv_buffer.len());
+                        trace!("Received {} bytes, buffer now has {} bytes", n, recv_buffer.len());
 
                         // Update activity
                         session.write().await.update_activity();
@@ -126,7 +126,7 @@ async fn handle_client_messages(
                             // Read the 2-byte length prefix (NOT encrypted)
                             let payload_len = u16::from_le_bytes([recv_buffer[0], recv_buffer[1]]) as usize;
                             
-                            debug!("Payload length from header: {} bytes", payload_len);
+                            trace!("Payload length from header: {} bytes", payload_len);
                             
                             // Sanity check on length
                             if payload_len > MAX_MESSAGE_SIZE {
@@ -136,7 +136,7 @@ async fn handle_client_messages(
                             
                             // Check if we have the complete message
                             if recv_buffer.len() < 2 + payload_len {
-                                debug!("Waiting for more data: have {}, need {}", recv_buffer.len(), 2 + payload_len);
+                                trace!("Waiting for more data: have {}, need {}", recv_buffer.len(), 2 + payload_len);
                                 break;
                             }
                             
@@ -146,12 +146,12 @@ async fn handle_client_messages(
                             // Extract the encrypted payload
                             let mut payload = recv_buffer.split_to(payload_len).to_vec();
                             
-                            debug!("Raw encrypted payload ({} bytes): {:02X?}", payload.len(), &payload[..std::cmp::min(payload.len(), 32)]);
+                            trace!("Raw encrypted payload ({} bytes): {:02X?}", payload.len(), &payload[..std::cmp::min(payload.len(), 32)]);
                             
                             // Decrypt the payload
                             decrypt_client_message(&mut payload);
                             
-                            debug!("Decrypted payload: {:02X?}", &payload[..std::cmp::min(payload.len(), 32)]);
+                            trace!("Decrypted payload: {:02X?}", &payload[..std::cmp::min(payload.len(), 32)]);
                             
                             // Parse message type (first 2 bytes of decrypted payload)
                             if payload.len() < 2 {
@@ -160,7 +160,7 @@ async fn handle_client_messages(
                             }
                             
                             let msg_type = u16::from_le_bytes([payload[0], payload[1]]);
-                            debug!("Message type: {} (0x{:04X})", msg_type, msg_type);
+                            trace!("Message type: {} (0x{:04X})", msg_type, msg_type);
                             
                             // Handle the message (payload includes message type)
                             let responses = handle_message(
@@ -198,7 +198,10 @@ async fn handle_message(
     server: &Arc<Server>,
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
-    debug!("Handling message type {}", msg_type);
+    // Skip logging for high-frequency messages (PING)
+    if msg_type != MSG_PING {
+        debug!("Handling message type {}", msg_type);
+    }
 
     match msg_type {
         MSG_PING => {

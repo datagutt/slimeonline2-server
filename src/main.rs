@@ -9,8 +9,8 @@ use anyhow::Result;
 use dashmap::DashMap;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error, Level};
-use tracing_subscriber::FmtSubscriber;
+use tracing::{info, warn, error};
+use tracing_subscriber::{EnvFilter, fmt};
 use uuid::Uuid;
 
 mod constants;
@@ -130,8 +130,12 @@ impl Server {
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::DEBUG)
+    // Default to INFO, override with RUST_LOG env var (e.g., RUST_LOG=debug or RUST_LOG=trace)
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+    
+    let subscriber = fmt::Subscriber::builder()
+        .with_env_filter(filter)
         .with_target(false)
         .with_thread_ids(true)
         .with_line_number(true)
