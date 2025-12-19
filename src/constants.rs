@@ -338,6 +338,31 @@ pub const SATURDAY: u8 = 7;
 
 pub const DEFAULT_SPAWN_X: u16 = 160;
 pub const DEFAULT_SPAWN_Y: u16 = 120;
-pub const DEFAULT_SPAWN_ROOM: u16 = 1;
+/// Room ID for rm_around_new_1 (the main spawn area)
+/// GameMaker room IDs are 0-indexed based on project room order.
+/// rm_around_new_1 is at position 38 in the project (index 37).
+pub const DEFAULT_SPAWN_ROOM: u16 = 37;
 pub const DEFAULT_BODY_ID: u16 = 1;
 pub const DEFAULT_POINTS: u32 = 0;
+
+// =============================================================================
+// ROOM ID CONSTANTS (GameMaker room indices)
+// =============================================================================
+
+// Menu/System rooms (0-8)
+pub const ROOM_LOAD: u16 = 0;
+pub const ROOM_MENU: u16 = 1;
+pub const ROOM_INTRO: u16 = 2;
+pub const ROOM_NEW_ACC: u16 = 3;
+pub const ROOM_LOGIN: u16 = 4;
+pub const ROOM_SERV_LIST: u16 = 5;
+pub const ROOM_CREDITS: u16 = 6;
+pub const ROOM_OPTIONS: u16 = 7;
+pub const ROOM_SET_CONTROLS: u16 = 8;
+
+// Main world rooms (rm_around_new_*)
+pub const ROOM_AROUND_NEW_1: u16 = 37;
+pub const ROOM_AROUND_NEW_2: u16 = 38;
+pub const ROOM_AROUND_NEW_3: u16 = 39;
+pub const ROOM_AROUND_NEW_4: u16 = 40;
+pub const ROOM_AROUND_NEW_5: u16 = 41;
