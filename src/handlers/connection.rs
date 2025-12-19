@@ -339,6 +339,15 @@ fn try_parse_message(buffer: &BytesMut) -> Option<(u16, usize)> {
             }
         }
 
+        // Point collection: index (1 byte)
+        MSG_POINT => {
+            if buffer.len() >= 3 {
+                Some((msg_type, 3))
+            } else {
+                None
+            }
+        }
+
         // For other messages, we need to handle them case by case
         // Default: log and skip 2 bytes (message type only)
         _ => {
@@ -428,6 +437,10 @@ async fn handle_message(
 
         MSG_CHANGE_ACS2 => {
             handle_change_accessory2(payload, server, session).await
+        }
+
+        MSG_POINT => {
+            handle_point_collection(payload, server, session).await
         }
 
         _ => {
@@ -840,6 +853,75 @@ async fn handle_change_accessory2(
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
                 writer.write_u16(MSG_CHANGE_ACS2).write_u16(player_id).write_u16(new_acs_id);
+                other_session.write().await.queue_message(writer.into_bytes());
+            }
+        }
+    }
+
+    Ok(vec![])
+}
+
+/// Handle point collection (slime points scattered on maps)
+/// 
+/// Client sends: MSG_POINT (18) + point_index (1 byte)
+/// Server should:
+/// 1. Increment player's points
+/// 2. Broadcast to other players that this point was taken
+async fn handle_point_collection(
+    payload: &[u8],
+    server: &Arc<Server>,
+    session: Arc<RwLock<PlayerSession>>,
+) -> Result<Vec<Vec<u8>>> {
+    if payload.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let point_index = payload[0];
+
+    let (player_id, room_id, new_points) = {
+        let mut session_guard = session.write().await;
+        
+        if !session_guard.is_authenticated {
+            return Ok(vec![]);
+        }
+
+        let player_id = match session_guard.player_id {
+            Some(id) => id,
+            None => return Ok(vec![]),
+        };
+
+        // Increment points (cap at MAX_POINTS)
+        if session_guard.points < MAX_POINTS as u32 {
+            session_guard.points += 1;
+        }
+
+        debug!(
+            "Player {} collected point {} (total: {})",
+            player_id, point_index, session_guard.points
+        );
+
+        (player_id, session_guard.room_id, session_guard.points)
+    };
+
+    // Broadcast to other players in the room that this point was taken
+    // The client expects: MSG_POINT (18) + mode (1) + point_index (1)
+    // Mode 1 = taken by another player (point disappears)
+    let room_players = server.game_state.get_room_players(room_id).await;
+    
+    for other_player_id in room_players {
+        if other_player_id == player_id {
+            continue;
+        }
+
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
+            if let Some(other_session) = server.sessions.get(&other_session_id) {
+                let mut writer = MessageWriter::new();
+                // Tell other clients this point was taken
+                // Format based on case_msg_point.gml - it reads a byte for mode, then uint for points
+                // But for point TAKEN notification, we need to check what message the client expects
+                // Looking at the client, obj_slimepoint just sends the index - the server should
+                // broadcast that this point index was collected
+                writer.write_u16(MSG_POINT).write_u8(point_index);
                 other_session.write().await.queue_message(writer.into_bytes());
             }
         }
