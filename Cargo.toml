@@ -1,0 +1,54 @@
+[package]
+name = "slime_server"
+version = "0.1.0"
+edition = "2021"
+authors = ["Slime Online 2 Dev Team"]
+description = "Private server implementation for Slime Online 2 (v0.106 client)"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "migrate"] }
+
+# Encryption
+rc4 = "0.1"
+
+# Password hashing
+bcrypt = "0.15"
+
+# Binary data handling
+bytes = "1"
+
+# Concurrent data structures
+dashmap = "5"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+
+# UUID for session tokens
+uuid = { version = "1", features = ["v4"] }
+
+# Date/time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Configuration
+toml = "0.8"
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
+
+[dev-dependencies]
+rand = "0.8"
+hex = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
