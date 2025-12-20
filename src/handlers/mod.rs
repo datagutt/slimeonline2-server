@@ -10,5 +10,6 @@ pub mod warp;
 pub mod items;
 pub mod shop;
 pub mod bank;
+pub mod mail;
 
 pub use connection::handle_connection;

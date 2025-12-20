@@ -7,9 +7,11 @@ use std::time::Duration;
 
 mod accounts;
 mod characters;
+mod mail;
 
 pub use accounts::*;
 pub use characters::*;
+pub use mail::*;
 
 /// Database connection pool type.
 pub type DbPool = SqlitePool;

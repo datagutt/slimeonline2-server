@@ -17,7 +17,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageWriter, write_player_left, MessageType, describe_message};
 use crate::Server;
 
-use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank};
+use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail};
 
 /// Handle a client connection.
 pub async fn handle_connection(
@@ -308,6 +308,18 @@ async fn handle_message(
 
         MessageType::BankProcess => {
             bank::handle_bank_process(payload, server, session).await
+        }
+
+        MessageType::Mailbox => {
+            mail::handle_mailbox(payload, server, session).await
+        }
+
+        MessageType::MailSend => {
+            mail::handle_mail_send(payload, server, session).await
+        }
+
+        MessageType::MailReceiverCheck => {
+            mail::handle_mail_receiver_check(payload, server, session).await
         }
 
         MessageType::PingReq => {

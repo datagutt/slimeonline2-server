@@ -109,13 +109,23 @@ This document tracks the implementation progress of the Slime Online 2 private s
 
 ## Phase 4: Social Features (Week 9-11)
 
+### Completed
+
+| Task | Status | File(s) |
+|------|--------|---------|
+| Mail database schema | Done | `migrations/20240101000007_create_mail.sql` |
+| Mail database operations | Done | `src/db/mail.rs` |
+| MSG_MAILBOX handler | Done | `src/handlers/mail.rs` |
+| MSG_MAIL_SEND handler | Done | `src/handlers/mail.rs` |
+| MSG_MAIL_RECEIVER_CHECK handler | Done | `src/handlers/mail.rs` |
+| Mail item/points attachments | Done | `src/handlers/mail.rs` |
+
 ### Pending
 
 | Task | Status | Notes |
 |------|--------|-------|
 | Clan creation/dissolution | Pending | MSG_CLAN_CREATE, MSG_CLAN_DISSOLVE |
 | Clan invites/kicks | Pending | MSG_CLAN_INVITE, MSG_CLAN_LEAVE |
-| Mail system | Pending | MSG_MAILBOX, MSG_MAIL_SEND |
 | BBS system | Pending | MSG_BBS_* handlers |
 
 ## Phase 5: Game Systems (Week 12-14)
@@ -192,13 +202,15 @@ src/
 │   ├── shop/            # Shop system handlers
 │   │   ├── mod.rs
 │   │   └── buy.rs       # MSG_SHOP_BUY, MSG_ROOM_SHOP_INFO
-│   └── bank.rs          # MSG_REQUEST_STATUS, MSG_BANK_PROCESS
+│   ├── bank.rs          # MSG_REQUEST_STATUS, MSG_BANK_PROCESS
+│   └── mail.rs          # MSG_MAILBOX, MSG_MAIL_SEND, MSG_MAIL_RECEIVER_CHECK
 ├── game/
 │   └── mod.rs           # Game state, rooms, sessions, dropped items
 └── db/
     ├── mod.rs           # Database pool and migrations
     ├── accounts.rs      # Account queries
-    └── characters.rs    # Character queries (position, points, appearance, bank)
+    ├── characters.rs    # Character queries (position, points, appearance, bank)
+    └── mail.rs          # Mail queries (send, get mailbox, claim)
 
 sor_tool/                # SOR archive tool
 ├── src/main.rs
@@ -211,7 +223,8 @@ migrations/
 ├── 20240101000003_create_inventories.sql
 ├── 20240101000004_create_clans.sql
 ├── 20240101000005_create_bans.sql
-└── 20240101000006_create_shops.sql
+├── 20240101000006_create_shops.sql
+└── 20240101000007_create_mail.sql
 ```
 
 ## Database Schema
@@ -222,6 +235,7 @@ migrations/
 - **clans**: Clan information (name, leader, colors, level)
 - **bans**: IP/MAC/account bans
 - **shop_items**: Dynamic shop inventory (room_id, slot_id, category, item_id, price, stock)
+- **mail**: Player mail (sender, recipient, message, item_id, points, read status)
 
 ## Running the Server
 
@@ -274,6 +288,9 @@ Currently uses default configuration in `src/main.rs`:
 | 81 | MSG_TOOL_EQUIP | C→S | Done |
 | 82 | MSG_TOOL_UNEQUIP | C→S | Done |
 | 117 | MSG_PING_REQ | C→S, S→C | Done |
+| 47 | MSG_MAILBOX | C→S, S→C | Done |
+| 78 | MSG_MAIL_SEND | C→S, S→C | Done |
+| 80 | MSG_MAIL_RECEIVER_CHECK | C→S, S→C | Done |
 | 133 | MSG_PLAYER_TYPING | C→S, S→C | Done |
 
 ## Fixes Applied
@@ -325,11 +342,19 @@ Wire format:
 ### RC4 Implementation
 The 39dll `bufferencrypt` function uses standard RC4. Our implementation matches exactly.
 
+### Session 3
+- Added full mail system (MSG_MAILBOX, MSG_MAIL_SEND, MSG_MAIL_RECEIVER_CHECK)
+  - Send mail with text message to other players
+  - Attach items from inventory to mail
+  - Attach points to mail
+  - Receive mailbox (paginated, 5 per page)
+  - Claim item/points attachments from mail
+  - Username validation before sending
+
 ## Next Steps
 
-1. Implement bank system (MSG_BANK_PROCESS, MSG_REQUEST_STATUS)
-2. Implement sell handler (MSG_SELL)
-3. Add basic movement validation
-4. Implement quest system (MSG_QUEST_NPC_REQ, etc.)
-5. Implement mail system (MSG_MAILBOX, etc.)
-6. Implement clan system
+1. Implement sell handler (MSG_SELL)
+2. Add basic movement validation
+3. Implement quest system (MSG_QUEST_NPC_REQ, etc.)
+4. Implement clan system (MSG_CLAN_*, etc.)
+5. Implement BBS system (MSG_BBS_*, etc.)
