@@ -6,10 +6,12 @@ use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::time::Duration;
 
 mod accounts;
+mod bbs;
 mod characters;
 mod mail;
 
 pub use accounts::*;
+pub use bbs::*;
 pub use characters::*;
 pub use mail::*;
 

@@ -17,7 +17,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageWriter, write_player_left, MessageType, describe_message};
 use crate::Server;
 
-use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail, collectibles};
+use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail, collectibles, bbs};
 
 /// Handle a client connection.
 pub async fn handle_connection(
@@ -346,6 +346,39 @@ async fn handle_message(
 
         MessageType::CollectibleTakeSelf => {
             collectibles::handle_collectible_take(payload, server, session).await
+        }
+
+        // BBS (Bulletin Board System)
+        MessageType::BbsRequestGui => {
+            bbs::handle_bbs_request_gui(payload, server, session).await
+        }
+
+        MessageType::BbsRequestCategories => {
+            bbs::handle_bbs_request_categories(payload, server, session).await
+        }
+
+        MessageType::BbsRequestMaxPages => {
+            bbs::handle_bbs_request_max_pages(payload, server, session).await
+        }
+
+        MessageType::BbsRequestMessages => {
+            bbs::handle_bbs_request_messages(payload, server, session).await
+        }
+
+        MessageType::BbsRequestMessageContent => {
+            bbs::handle_bbs_request_message_content(payload, server, session).await
+        }
+
+        MessageType::BbsReportMessage => {
+            bbs::handle_bbs_report_message(payload, server, session).await
+        }
+
+        MessageType::BbsRequestPost => {
+            bbs::handle_bbs_request_post(payload, server, session).await
+        }
+
+        MessageType::BbsPost => {
+            bbs::handle_bbs_post(payload, server, session).await
         }
 
         MessageType::Save => {
