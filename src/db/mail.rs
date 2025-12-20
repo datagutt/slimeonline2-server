@@ -181,3 +181,41 @@ pub async fn clear_mail_attachments(
 
     Ok(result.rows_affected() > 0)
 }
+
+/// Clear just the item from mail after claiming
+pub async fn clear_mail_item(
+    pool: &DbPool,
+    mail_id: i64,
+    character_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        r#"
+        UPDATE mail SET item_id = 0 WHERE id = ? AND to_character_id = ?
+        "#,
+    )
+    .bind(mail_id)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// Clear just the points from mail after claiming
+pub async fn clear_mail_points(
+    pool: &DbPool,
+    mail_id: i64,
+    character_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        r#"
+        UPDATE mail SET points = 0 WHERE id = ? AND to_character_id = ?
+        "#,
+    )
+    .bind(mail_id)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}

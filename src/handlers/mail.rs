@@ -14,14 +14,13 @@ use crate::constants::{MAX_MAIL_BODY, MAX_POINTS};
 /// Handle MSG_MAILBOX (47)
 /// Client requests mailbox contents (paginated)
 /// 
-/// Client sends:
-/// - case (u8): 1 = get mailbox page, 2 = claim mail attachments
-/// 
-/// For case 1 (get mailbox):
-/// - page (u8): page number (0-indexed)
-/// 
-/// For case 2 (claim attachments):
-/// - mail_id (u16): mail to claim from
+/// Client sends different cases:
+/// - case 1: Check for new mail (no additional params) - auto-sent on room enter
+/// - case 3: Get mailbox page - page (u8)
+/// - case 5: Get specific mail content - mail_slot (u8)
+/// - case 2: Claim mail item attachment - mail_slot (u8)  
+/// - case 4: Claim mail points attachment - mail_slot (u8)
+/// - case 6: Delete mail - mail_slot (u8)
 pub async fn handle_mailbox(
     payload: &[u8],
     server: &Arc<Server>,
@@ -39,14 +38,34 @@ pub async fn handle_mailbox(
     
     match case {
         1 => {
+            // Check for new mail count (auto-sent on room enter when mailbox object exists)
+            // No additional parameters
+            get_new_mail_count(server, char_id).await
+        }
+        3 => {
             // Get mailbox page
             let page = reader.read_u8()? as i64;
             get_mailbox_page(server, char_id, page).await
         }
+        5 => {
+            // Get specific mail content
+            let mail_slot = reader.read_u8()? as i64;
+            get_mail_content(server, char_id, mail_slot).await
+        }
         2 => {
-            // Claim mail attachments (item/points)
-            let mail_id = reader.read_u16()? as i64;
-            claim_mail_attachments(server, char_id, mail_id, session).await
+            // Claim mail item attachment
+            let mail_slot = reader.read_u8()? as i64;
+            claim_mail_item(server, char_id, mail_slot, session).await
+        }
+        4 => {
+            // Claim mail points attachment
+            let mail_slot = reader.read_u8()? as i64;
+            claim_mail_points(server, char_id, mail_slot, session).await
+        }
+        6 => {
+            // Delete mail
+            let mail_slot = reader.read_u8()? as i64;
+            delete_mail(server, char_id, mail_slot).await
         }
         _ => {
             debug!("Unknown mailbox case: {}", case);
@@ -55,151 +74,237 @@ pub async fn handle_mailbox(
     }
 }
 
-/// Get a page of mails from the mailbox
+/// Check for new mail count (case 1 response)
+/// Response format: case (1), has_mail (u8): 0 = empty, 1 = has mail
+async fn get_new_mail_count(
+    server: &Arc<Server>,
+    character_id: i64,
+) -> Result<Vec<Vec<u8>>> {
+    let count = db::get_mail_count(&server.db, character_id).await.unwrap_or(0);
+    
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::Mailbox.id())
+        .write_u8(1) // case 1 response
+        .write_u8(if count > 0 { 1 } else { 0 }); // 1 = has mail, 0 = empty
+    
+    debug!("Mail count check for character {}: {} mails", character_id, count);
+    
+    Ok(vec![writer.into_bytes()])
+}
+
+/// Get a page of mails from the mailbox (case 3 response)
+/// Response format: case (3), mail_count (u8), then for each mail:
+///   slot (u8), sender_name (string), date (string)
 async fn get_mailbox_page(
     server: &Arc<Server>,
     character_id: i64,
     page: i64,
 ) -> Result<Vec<Vec<u8>>> {
-    // Get total mail count for pagination
-    let total_count = db::get_mail_count(&server.db, character_id).await.unwrap_or(0);
-    let total_pages = ((total_count + 4) / 5) as u8; // Ceiling division, 5 per page
-    
-    // Get mails for this page
+    // Get mails for this page (5 per page)
     let mails = db::get_mailbox(&server.db, character_id, page).await.unwrap_or_default();
     
-    // Build response
-    // Format: case (1), page, total_pages, mail_count, then for each mail:
-    //   mail_id (u16), sender_name (string), message (string), item_id (u16), points (u32), is_read (u8)
     let mut writer = MessageWriter::new();
     writer.write_u16(MessageType::Mailbox.id())
-        .write_u8(1) // case: mailbox response
-        .write_u8(page as u8)
-        .write_u8(total_pages)
+        .write_u8(3) // case 3 response
         .write_u8(mails.len() as u8);
     
-    for mail in &mails {
-        writer.write_u16(mail.id as u16)
+    for (i, mail) in mails.iter().enumerate() {
+        let slot = (i + 1) as u8; // 1-5 for the page
+        writer.write_u8(slot)
             .write_string(&mail.sender_name)
-            .write_string(&mail.message)
-            .write_u16(mail.item_id as u16)
-            .write_u32(mail.points as u32)
-            .write_u8(mail.is_read as u8);
+            .write_string(&mail.created_at); // date string
     }
     
-    debug!("Sending mailbox page {} with {} mails (total {} pages)", page, mails.len(), total_pages);
+    debug!("Sending mailbox page {} with {} mails", page, mails.len());
     
     Ok(vec![writer.into_bytes()])
 }
 
-/// Claim attachments (item/points) from a mail
-async fn claim_mail_attachments(
+/// Get specific mail content (case 5 response)
+/// Response format: case (5), sender (string), date (string), text (string),
+///   points (u16), present_cat (u8), present_id (u16), paper (u8), font (u8)
+async fn get_mail_content(
     server: &Arc<Server>,
     character_id: i64,
-    mail_id: i64,
-    session: Arc<RwLock<PlayerSession>>,
+    mail_slot: i64,
 ) -> Result<Vec<Vec<u8>>> {
-    // Get the mail
-    let mail = match db::get_mail(&server.db, mail_id, character_id).await {
-        Ok(Some(m)) => m,
-        Ok(None) => {
-            debug!("Mail {} not found for character {}", mail_id, character_id);
-            return Ok(vec![build_claim_failed_response()]);
-        }
-        Err(e) => {
-            warn!("Failed to get mail: {}", e);
-            return Ok(vec![build_claim_failed_response()]);
-        }
-    };
+    // mail_slot is 1-indexed position across all mails (page*5 + slot)
+    // We need to calculate page and slot
+    let page = (mail_slot - 1) / 5;
+    let slot_in_page = ((mail_slot - 1) % 5) as usize;
     
-    // Check if there's anything to claim
-    if mail.item_id == 0 && mail.points == 0 {
-        debug!("Mail {} has nothing to claim", mail_id);
-        return Ok(vec![build_claim_failed_response()]);
+    let mails = db::get_mailbox(&server.db, character_id, page).await.unwrap_or_default();
+    
+    if slot_in_page >= mails.len() {
+        debug!("Mail slot {} not found", mail_slot);
+        return Ok(vec![]);
     }
     
-    let mut responses = Vec::new();
+    let mail = &mails[slot_in_page];
     
-    // Handle item attachment
-    if mail.item_id > 0 {
-        // Find empty item slot
-        if let Ok(Some(inventory)) = db::get_inventory(&server.db, character_id).await {
-            let items = inventory.items();
-            let empty_slot = items.iter().position(|&id| id == 0);
-            
-            if let Some(slot_idx) = empty_slot {
-                let slot = (slot_idx + 1) as u8;
-                // Add item to inventory
-                if let Err(e) = db::update_item_slot(&server.db, character_id, slot, mail.item_id as i16).await {
-                    warn!("Failed to add item from mail: {}", e);
-                    return Ok(vec![build_claim_failed_response()]);
-                }
-                
-                // Send MSG_GET_ITEM to notify client
-                let mut item_writer = MessageWriter::new();
-                item_writer.write_u16(MessageType::GetItem.id())
-                    .write_u8(slot)
-                    .write_u16(mail.item_id as u16);
-                responses.push(item_writer.into_bytes());
-                
-                debug!("Claimed item {} from mail {} to slot {}", mail.item_id, mail_id, slot);
-            } else {
-                warn!("No empty slot for item from mail {}", mail_id);
-                // Continue - we might still claim points
-            }
-        }
-    }
+    // Mark as read
+    let _ = db::mark_mail_read(&server.db, mail.id, character_id).await;
     
-    // Handle points attachment
-    if mail.points > 0 {
-        let current_points = session.read().await.points;
-        let new_points = (current_points as i64 + mail.points).min(MAX_POINTS as i64) as u32;
-        
-        // Update points in database
-        if let Err(e) = db::update_points(&server.db, character_id, new_points as i64).await {
-            warn!("Failed to add points from mail: {}", e);
-            return Ok(vec![build_claim_failed_response()]);
-        }
-        
-        // Update session
-        {
-            let mut session_guard = session.write().await;
-            session_guard.points = new_points;
-        }
-        
-        // Send points update to client (using MSG_POINT)
-        let mut points_writer = MessageWriter::new();
-        points_writer.write_u16(MessageType::Point.id())
-            .write_u32(new_points);
-        responses.push(points_writer.into_bytes());
-        
-        debug!("Claimed {} points from mail {}", mail.points, mail_id);
-    }
+    // Determine present category: 0=none, 1=outfits, 2=items, 3=accessories, 4=cards
+    let present_cat = if mail.item_id > 0 { 2u8 } else { 0u8 }; // Assume items for now
     
-    // Clear the attachments from the mail (or delete it entirely)
-    if let Err(e) = db::clear_mail_attachments(&server.db, mail_id, character_id).await {
-        warn!("Failed to clear mail attachments: {}", e);
-    }
-    
-    // Mark mail as read
-    let _ = db::mark_mail_read(&server.db, mail_id, character_id).await;
-    
-    // Send claim success response
     let mut writer = MessageWriter::new();
     writer.write_u16(MessageType::Mailbox.id())
-        .write_u8(2) // case: claim success
-        .write_u16(mail_id as u16);
-    responses.push(writer.into_bytes());
+        .write_u8(5) // case 5 response
+        .write_string(&mail.sender_name)
+        .write_string(&mail.created_at)
+        .write_string(&mail.message)
+        .write_u16(mail.points as u16)
+        .write_u8(present_cat)
+        .write_u16(mail.item_id as u16)
+        .write_u8(0) // paper style
+        .write_u8(1); // font color (1 = black)
     
-    Ok(responses)
+    debug!("Sending mail content for slot {}", mail_slot);
+    
+    Ok(vec![writer.into_bytes()])
 }
 
-/// Build claim failed response
-fn build_claim_failed_response() -> Vec<u8> {
+/// Claim mail item attachment (case 2 -> response case 8)
+async fn claim_mail_item(
+    server: &Arc<Server>,
+    character_id: i64,
+    mail_slot: i64,
+    _session: Arc<RwLock<PlayerSession>>,
+) -> Result<Vec<Vec<u8>>> {
+    let page = (mail_slot - 1) / 5;
+    let slot_in_page = ((mail_slot - 1) % 5) as usize;
+    
+    let mails = db::get_mailbox(&server.db, character_id, page).await.unwrap_or_default();
+    
+    if slot_in_page >= mails.len() {
+        return Ok(vec![]);
+    }
+    
+    let mail = &mails[slot_in_page];
+    
+    if mail.item_id == 0 {
+        return Ok(vec![]);
+    }
+    
+    // Find empty item slot
+    if let Ok(Some(inventory)) = db::get_inventory(&server.db, character_id).await {
+        let items = inventory.items();
+        if let Some(slot_idx) = items.iter().position(|&id| id == 0) {
+            let slot = (slot_idx + 1) as u8;
+            
+            // Add item to inventory
+            if let Err(e) = db::update_item_slot(&server.db, character_id, slot, mail.item_id as i16).await {
+                warn!("Failed to add item from mail: {}", e);
+                return Ok(vec![]);
+            }
+            
+            // Clear item from mail
+            if let Err(e) = db::clear_mail_item(&server.db, mail.id, character_id).await {
+                warn!("Failed to clear mail item: {}", e);
+            }
+            
+            // Send MSG_GET_ITEM to add item to inventory
+            let mut item_writer = MessageWriter::new();
+            item_writer.write_u16(MessageType::GetItem.id())
+                .write_u8(slot)
+                .write_u16(mail.item_id as u16);
+            
+            // Send case 8 response (return to read screen)
+            let mut writer = MessageWriter::new();
+            writer.write_u16(MessageType::Mailbox.id())
+                .write_u8(8);
+            
+            debug!("Claimed item {} from mail to slot {}", mail.item_id, slot);
+            
+            return Ok(vec![item_writer.into_bytes(), writer.into_bytes()]);
+        }
+    }
+    
+    warn!("No empty slot for mail item");
+    Ok(vec![])
+}
+
+/// Claim mail points attachment (case 4 -> response case 6 or 7)
+async fn claim_mail_points(
+    server: &Arc<Server>,
+    character_id: i64,
+    mail_slot: i64,
+    session: Arc<RwLock<PlayerSession>>,
+) -> Result<Vec<Vec<u8>>> {
+    let page = (mail_slot - 1) / 5;
+    let slot_in_page = ((mail_slot - 1) % 5) as usize;
+    
+    let mails = db::get_mailbox(&server.db, character_id, page).await.unwrap_or_default();
+    
+    if slot_in_page >= mails.len() {
+        return Ok(vec![]);
+    }
+    
+    let mail = &mails[slot_in_page];
+    
+    if mail.points == 0 {
+        return Ok(vec![]);
+    }
+    
+    let current_points = session.read().await.points;
+    let points_to_add = mail.points as u32;
+    let new_points = (current_points as u64 + points_to_add as u64).min(MAX_POINTS as u64) as u32;
+    let actually_added = new_points - current_points;
+    
+    // Update points in database
+    if let Err(e) = db::update_points(&server.db, character_id, new_points as i64).await {
+        warn!("Failed to add points from mail: {}", e);
+        return Ok(vec![]);
+    }
+    
+    // Update session
+    {
+        let mut session_guard = session.write().await;
+        session_guard.points = new_points;
+    }
+    
+    // Clear points from mail
+    if let Err(e) = db::clear_mail_points(&server.db, mail.id, character_id).await {
+        warn!("Failed to clear mail points: {}", e);
+    }
+    
+    // Response case 6 = points added directly (with amount), case 7 = points to bank
     let mut writer = MessageWriter::new();
     writer.write_u16(MessageType::Mailbox.id())
-        .write_u8(3); // case: claim failed
-    writer.into_bytes()
+        .write_u8(6) // case 6 = points added
+        .write_u16(actually_added as u16);
+    
+    debug!("Claimed {} points from mail (added {} to wallet)", points_to_add, actually_added);
+    
+    Ok(vec![writer.into_bytes()])
+}
+
+/// Delete a mail (case 6)
+async fn delete_mail(
+    server: &Arc<Server>,
+    character_id: i64,
+    mail_slot: i64,
+) -> Result<Vec<Vec<u8>>> {
+    let page = (mail_slot - 1) / 5;
+    let slot_in_page = ((mail_slot - 1) % 5) as usize;
+    
+    let mails = db::get_mailbox(&server.db, character_id, page).await.unwrap_or_default();
+    
+    if slot_in_page >= mails.len() {
+        return Ok(vec![]);
+    }
+    
+    let mail = &mails[slot_in_page];
+    
+    if let Err(e) = db::delete_mail(&server.db, mail.id, character_id).await {
+        warn!("Failed to delete mail: {}", e);
+    } else {
+        debug!("Deleted mail {}", mail.id);
+    }
+    
+    // No response needed - client just refreshes the page
+    Ok(vec![])
 }
 
 /// Handle MSG_MAIL_SEND (78)
