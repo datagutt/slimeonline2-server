@@ -9,6 +9,8 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::anticheat::validate_position_bounds;
+use crate::constants::ITEM_SLOTS;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::Server;
@@ -30,9 +32,15 @@ pub async fn handle_discard_item(
     let drop_x = reader.read_u16()?;
     let drop_y = reader.read_u16()?;
 
-    // Validate slot (1-9)
-    if slot < 1 || slot > 9 {
+    // Validate slot
+    if slot < 1 || slot > ITEM_SLOTS as u8 {
         warn!("Invalid discard slot: {}", slot);
+        return Ok(vec![]);
+    }
+
+    // Validate drop position
+    if !validate_position_bounds(drop_x, drop_y) {
+        warn!("Invalid discard position: ({}, {})", drop_x, drop_y);
         return Ok(vec![]);
     }
 

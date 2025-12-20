@@ -11,8 +11,11 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::anticheat::validate_position_bounds;
+use crate::constants::ITEM_SLOTS;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::rate_limit::ActionType;
 use crate::Server;
 
 use super::database::{get_item_info, ItemType};
@@ -30,13 +33,13 @@ pub async fn handle_use_item(
     let mut reader = MessageReader::new(payload);
     let slot = reader.read_u8()?;
 
-    // Validate slot (1-9)
-    if slot < 1 || slot > 9 {
+    // Validate slot
+    if slot < 1 || slot > ITEM_SLOTS as u8 {
         warn!("Invalid item slot: {}", slot);
         return Ok(vec![]);
     }
 
-    let (character_id, player_id, room_id, session_x, session_y) = {
+    let (character_id, player_id, room_id, session_id, session_x, session_y) = {
         let session_guard = session.read().await;
         if !session_guard.is_authenticated {
             return Ok(vec![]);
@@ -45,10 +48,20 @@ pub async fn handle_use_item(
             session_guard.character_id,
             session_guard.player_id,
             session_guard.room_id,
+            session_guard.session_id,
             session_guard.x,
             session_guard.y,
         )
     };
+
+    // Rate limit item usage
+    if !server.rate_limiter.check_player(session_id.as_u128() as u64, ActionType::UseItem)
+        .await
+        .is_allowed()
+    {
+        debug!("Item use rate limited for player {:?}", player_id);
+        return Ok(vec![]);
+    }
 
     let character_id = match character_id {
         Some(id) => id,
@@ -96,8 +109,18 @@ pub async fn handle_use_item(
         (None, None)
     };
 
-    let x = use_x.unwrap_or(session_x);
-    let y = use_y.unwrap_or(session_y);
+    // Validate and use provided coordinates, fall back to session position
+    let (x, y) = match (use_x, use_y) {
+        (Some(ux), Some(uy)) => {
+            if validate_position_bounds(ux, uy) {
+                (ux, uy)
+            } else {
+                warn!("Invalid item use position: ({}, {}), using session position", ux, uy);
+                (session_x, session_y)
+            }
+        }
+        _ => (session_x, session_y),
+    };
 
     // Handle item effects based on type
     match item_info.item_type {

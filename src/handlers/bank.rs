@@ -7,6 +7,7 @@ use tracing::{debug, warn};
 
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageWriter, MessageType};
+use crate::rate_limit::ActionType;
 use crate::Server;
 use crate::db;
 use crate::constants::{MAX_POINTS, MAX_BANK_BALANCE};
@@ -58,15 +59,24 @@ pub async fn handle_bank_process(
     
     let case = reader.read_u8()?;
     
-    let character_id = {
+    let (character_id, session_id) = {
         let session_guard = session.read().await;
-        session_guard.character_id
+        (session_guard.character_id, session_guard.session_id)
     };
     
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
+
+    // Rate limit bank transactions
+    if !server.rate_limiter.check_player(session_id.as_u128() as u64, ActionType::Bank)
+        .await
+        .is_allowed()
+    {
+        debug!("Bank transaction rate limited for character {}", char_id);
+        return Ok(vec![]);
+    }
     
     match case {
         1 => handle_deposit(&mut reader, server, char_id, session).await,
