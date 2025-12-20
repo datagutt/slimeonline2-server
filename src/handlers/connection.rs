@@ -322,6 +322,46 @@ async fn handle_message(
             mail::handle_mail_receiver_check(payload, server, session).await
         }
 
+        MessageType::Save => {
+            // Player interacted with a save point - save their data to database
+            let (character_id, x, y, room_id, points) = {
+                let session_guard = session.read().await;
+                (
+                    session_guard.character_id,
+                    session_guard.x,
+                    session_guard.y,
+                    session_guard.room_id,
+                    session_guard.points,
+                )
+            };
+
+            if let Some(char_id) = character_id {
+                // Save position
+                if let Err(e) = crate::db::update_position(
+                    &server.db,
+                    char_id,
+                    x as i16,
+                    y as i16,
+                    room_id as i16,
+                ).await {
+                    error!("Failed to save position: {}", e);
+                }
+
+                // Save points
+                if let Err(e) = crate::db::update_points(&server.db, char_id, points as i64).await {
+                    error!("Failed to save points: {}", e);
+                }
+
+                debug!("Saved player data at save point (char_id: {}, room: {}, pos: {},{}, points: {})", 
+                       char_id, room_id, x, y, points);
+            }
+
+            // Send confirmation back to client
+            let mut writer = MessageWriter::new();
+            writer.write_u16(MessageType::Save.id());
+            Ok(vec![writer.into_bytes()])
+        }
+
         MessageType::PingReq => {
             // Client is requesting latency measurement - echo back PingReq
             let mut writer = MessageWriter::new();
@@ -458,23 +498,29 @@ async fn cleanup_session(
 
     if let Some(player_id) = player_id {
         // Get current position for saving
-        let (x, y, points) = {
-            let session_guard = session.read().await;
-            (session_guard.x, session_guard.y, session_guard.points)
-        };
+        let points = session.read().await.points;
 
         // Save player data to database
         if let Some(char_id) = character_id {
-            if let Err(e) = crate::db::update_position(
-                &server.db,
-                char_id,
-                x as i16,
-                y as i16,
-                room_id as i16,
-            ).await {
-                error!("Failed to save position for character {}: {}", char_id, e);
+            // Only save position if auto_save_position is enabled
+            if server.config.auto_save_position {
+                let (x, y) = {
+                    let session_guard = session.read().await;
+                    (session_guard.x, session_guard.y)
+                };
+                
+                if let Err(e) = crate::db::update_position(
+                    &server.db,
+                    char_id,
+                    x as i16,
+                    y as i16,
+                    room_id as i16,
+                ).await {
+                    error!("Failed to save position for character {}: {}", char_id, e);
+                }
             }
 
+            // Always save points
             if let Err(e) = crate::db::update_points(&server.db, char_id, points as i64).await {
                 error!("Failed to save points for character {}: {}", char_id, e);
             }

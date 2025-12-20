@@ -70,16 +70,18 @@ pub async fn handle_warp(
         )
     };
 
-    // Save new position to database
-    if let Some(char_id) = character_id {
-        if let Err(e) = crate::db::update_position(
-            &server.db,
-            char_id,
-            new_x as i16,
-            new_y as i16,
-            new_room_id as i16,
-        ).await {
-            error!("Failed to save position for character {}: {}", char_id, e);
+    // Save new position to database (only if auto_save_position is enabled)
+    if server.config.auto_save_position {
+        if let Some(char_id) = character_id {
+            if let Err(e) = crate::db::update_position(
+                &server.db,
+                char_id,
+                new_x as i16,
+                new_y as i16,
+                new_room_id as i16,
+            ).await {
+                error!("Failed to save position for character {}: {}", char_id, e);
+            }
         }
     }
 

@@ -33,6 +33,10 @@ pub struct ServerConfig {
     pub motd: String,
     pub max_connections: usize,
     pub max_connections_per_ip: usize,
+    /// If true, position/room is auto-saved on disconnect and periodically.
+    /// If false, position/room is ONLY saved at manual save points (MSG_SAVE).
+    /// Points and inventory are always auto-saved regardless of this setting.
+    pub auto_save_position: bool,
 }
 
 impl Default for ServerConfig {
@@ -44,6 +48,7 @@ impl Default for ServerConfig {
             motd: "Welcome to Slime Online 2 Private Server!".to_string(),
             max_connections: MAX_TOTAL_CONNECTIONS,
             max_connections_per_ip: MAX_CONNECTIONS_PER_IP,
+            auto_save_position: false, // Save points only by default
         }
     }
 }
@@ -162,6 +167,44 @@ async fn main() -> Result<()> {
     // Spawn background tasks
     spawn_background_tasks(server.clone());
 
+    // Setup shutdown signal handler
+    let shutdown_server = server.clone();
+    tokio::spawn(async move {
+        // Wait for Ctrl+C
+        tokio::signal::ctrl_c().await.expect("Failed to install Ctrl+C handler");
+        
+        info!("Shutdown signal received, saving all player data...");
+        
+        // Save ALL player data on shutdown (position + points) regardless of config
+        for session_ref in shutdown_server.sessions.iter() {
+            let session = session_ref.value().read().await;
+            if let (Some(char_id), true) = (session.character_id, session.is_authenticated) {
+                // Always save position on server shutdown
+                if let Err(e) = db::update_position(
+                    &shutdown_server.db,
+                    char_id,
+                    session.x as i16,
+                    session.y as i16,
+                    session.room_id as i16,
+                ).await {
+                    error!("Failed to save position for character {}: {}", char_id, e);
+                }
+                
+                // Always save points
+                if let Err(e) = db::update_points(&shutdown_server.db, char_id, session.points as i64).await {
+                    error!("Failed to save points for character {}: {}", char_id, e);
+                }
+                
+                if let Some(username) = &session.username {
+                    info!("Saved data for player {}", username);
+                }
+            }
+        }
+        
+        info!("All player data saved. Shutting down.");
+        std::process::exit(0);
+    });
+
     // Accept connections
     loop {
         match listener.accept().await {
@@ -200,6 +243,8 @@ fn spawn_background_tasks(server: Arc<Server>) {
     let save_server = server.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(SAVE_INTERVAL_SECS));
+        let auto_save_position = save_server.config.auto_save_position;
+        
         loop {
             interval.tick().await;
             info!("Running periodic save...");
@@ -208,16 +253,20 @@ fn spawn_background_tasks(server: Arc<Server>) {
             for session_ref in save_server.sessions.iter() {
                 let session = session_ref.value().read().await;
                 if let (Some(char_id), true) = (session.character_id, session.is_authenticated) {
-                    if let Err(e) = db::update_position(
-                        &save_server.db,
-                        char_id,
-                        session.x as i16,
-                        session.y as i16,
-                        session.room_id as i16,
-                    ).await {
-                        error!("Failed to save position for character {}: {}", char_id, e);
+                    // Only save position if auto_save_position is enabled
+                    if auto_save_position {
+                        if let Err(e) = db::update_position(
+                            &save_server.db,
+                            char_id,
+                            session.x as i16,
+                            session.y as i16,
+                            session.room_id as i16,
+                        ).await {
+                            error!("Failed to save position for character {}: {}", char_id, e);
+                        }
                     }
                     
+                    // Always save points
                     if let Err(e) = db::update_points(&save_server.db, char_id, session.points as i64).await {
                         error!("Failed to save points for character {}: {}", char_id, e);
                     }
