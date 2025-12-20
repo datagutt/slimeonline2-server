@@ -6,10 +6,7 @@ CREATE TABLE IF NOT EXISTS mail (
     sender_name TEXT NOT NULL,
     message TEXT NOT NULL,
     item_id INTEGER DEFAULT 0,
-    item_cat INTEGER DEFAULT 0,
     points INTEGER DEFAULT 0,
-    paper INTEGER DEFAULT 0,
-    font_color INTEGER DEFAULT 1,
     is_read INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT (datetime('now')),
     
