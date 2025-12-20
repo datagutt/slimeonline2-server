@@ -4,11 +4,13 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::sync::RwLock;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::constants::MAX_CHAT_LENGTH;
 use crate::game::PlayerSession;
 use crate::protocol::{ChatMessage, MessageReader, MessageWriter, MessageType};
+use crate::rate_limit::ActionType;
+use crate::validation::{sanitize_chat, validate_chat_message};
 use crate::Server;
 
 /// Handle chat message
@@ -20,12 +22,8 @@ pub async fn handle_chat(
     let mut reader = MessageReader::new(payload);
     let chat = ChatMessage::parse(&mut reader)?;
 
-    // Validate message length
-    if chat.message.len() > MAX_CHAT_LENGTH {
-        return Ok(vec![]);
-    }
-
-    let (player_id, room_id, username) = {
+    // Get session info for rate limiting
+    let (player_id, room_id, session_id, username) = {
         let session_guard = session.read().await;
         
         if !session_guard.is_authenticated {
@@ -40,11 +38,41 @@ pub async fn handle_chat(
         (
             player_id,
             session_guard.room_id,
+            session_guard.session_id,
             session_guard.username.clone().unwrap_or_default(),
         )
     };
 
-    info!("[CHAT] {}: {}", username, chat.message);
+    // Rate limit chat messages
+    let rate_result = server.rate_limiter.check_player(
+        session_id.as_u128() as u64,
+        ActionType::Chat,
+    ).await;
+
+    if !rate_result.is_allowed() {
+        warn!("Chat rate limited for player {}", username);
+        return Ok(vec![]);
+    }
+
+    // Validate and sanitize message
+    let message = match validate_chat_message(&chat.message) {
+        Ok(msg) => msg.to_string(),
+        Err(e) => {
+            warn!("Invalid chat message from {}: {}", username, e.message);
+            // Sanitize and use anyway if it's just too long
+            if chat.message.len() > MAX_CHAT_LENGTH {
+                sanitize_chat(&chat.message)
+            } else {
+                return Ok(vec![]);
+            }
+        }
+    };
+
+    if message.is_empty() {
+        return Ok(vec![]);
+    }
+
+    info!("[CHAT] {}: {}", username, message);
 
     // Broadcast to all players in room (including sender)
     let room_players = server.game_state.get_room_players(room_id).await;
@@ -53,7 +81,7 @@ pub async fn handle_chat(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                ChatMessage::write_broadcast(&mut writer, player_id, &chat.message);
+                ChatMessage::write_broadcast(&mut writer, player_id, &message);
                 other_session.write().await.queue_message(writer.into_bytes());
             }
         }
@@ -112,6 +140,11 @@ pub async fn handle_emote(
 
     let emote_id = payload[0];
 
+    // Validate emote ID (there are only a handful of valid emotes)
+    if emote_id > 20 {
+        return Ok(vec![]);
+    }
+
     let (player_id, room_id) = {
         let session_guard = session.read().await;
         
@@ -156,6 +189,11 @@ pub async fn handle_action(
     }
 
     let action_id = payload[0];
+
+    // Validate action ID
+    if action_id > 10 {
+        return Ok(vec![]);
+    }
 
     let (player_id, room_id) = {
         let session_guard = session.read().await;
