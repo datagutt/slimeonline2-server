@@ -311,10 +311,13 @@ async fn delete_mail(
 /// Send a mail to another player
 /// 
 /// Client sends:
-/// - receiver_name (string)
-/// - message (string)
-/// - item_slot (u8): 0 = no item, 1-9 = item slot
-/// - points (u32): points to attach
+/// - paper (u8): paper style
+/// - col_number (u8): font color (1-10)
+/// - receiver (string): receiver username
+/// - presentcat (u8): present category (0=none, 1=outfits, 2=items, 3=acs, 4=tools)
+/// - presentid (u16): present slot number
+/// - points (u16): points to attach
+/// - message (string): the message text (lines joined by #)
 pub async fn handle_mail_send(
     payload: &[u8],
     server: &Arc<Server>,
@@ -322,10 +325,16 @@ pub async fn handle_mail_send(
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     
+    let paper = reader.read_u8()?;
+    let font_color = reader.read_u8()?;
     let receiver_name = reader.read_string()?;
+    let present_cat = reader.read_u8()?;
+    let present_id = reader.read_u16()?;
+    let points = reader.read_u16()? as u32;
     let message = reader.read_string()?;
-    let item_slot = reader.read_u8()?;
-    let points = reader.read_u32()?;
+    
+    debug!("Mail send: receiver='{}', message_len={}, present_cat={}, present_id={}, points={}, paper={}, font={}", 
+           receiver_name, message.len(), present_cat, present_id, points, paper, font_color);
     
     let (character_id, username) = {
         let session_guard = session.read().await;
@@ -366,16 +375,30 @@ pub async fn handle_mail_send(
     let mut item_id: i64 = 0;
     let mut actual_points: i64 = 0;
     
-    // Handle item attachment
-    if item_slot >= 1 && item_slot <= 9 {
+    // Handle item attachment based on present_cat
+    // present_cat: 0=none, 1=outfits, 2=items, 3=accessories, 4=tools
+    // present_id: slot number (1-9)
+    if present_cat > 0 && present_id >= 1 && present_id <= 9 {
         if let Ok(Some(inventory)) = db::get_inventory(&server.db, char_id).await {
-            let items = inventory.items();
-            let slot_item = items[(item_slot - 1) as usize];
+            let slot_item: u16 = match present_cat {
+                1 => inventory.outfits()[(present_id - 1) as usize],
+                2 => inventory.items()[(present_id - 1) as usize],
+                3 => inventory.accessories()[(present_id - 1) as usize],
+                4 => inventory.tools()[(present_id - 1) as usize] as u16,
+                _ => 0,
+            };
             
             if slot_item > 0 {
                 item_id = slot_item as i64;
-                // Remove item from sender's inventory
-                if let Err(e) = db::update_item_slot(&server.db, char_id, item_slot, 0).await {
+                // Remove item from sender's inventory based on category
+                let remove_result = match present_cat {
+                    1 => db::update_outfit_slot(&server.db, char_id, present_id as u8, 0).await,
+                    2 => db::update_item_slot(&server.db, char_id, present_id as u8, 0).await,
+                    3 => db::update_accessory_slot(&server.db, char_id, present_id as u8, 0).await,
+                    4 => db::update_tool_slot(&server.db, char_id, present_id as u8, 0).await,
+                    _ => Ok(()),
+                };
+                if let Err(e) = remove_result {
                     warn!("Failed to remove item for mail: {}", e);
                     return Ok(vec![build_mail_send_response(false)]);
                 }
@@ -421,18 +444,8 @@ pub async fn handle_mail_send(
                 .write_u8(1) // success
                 .write_u32(session.read().await.points);
             
-            // If we removed an item, also send item slot update
-            let mut responses = vec![writer.into_bytes()];
-            
-            if item_id > 0 {
-                let mut item_writer = MessageWriter::new();
-                item_writer.write_u16(MessageType::ReturnItem.id())
-                    .write_u8(item_slot)
-                    .write_u16(0); // item removed
-                responses.push(item_writer.into_bytes());
-            }
-            
-            Ok(responses)
+            // The client already removes the item locally, no need to send update
+            Ok(vec![writer.into_bytes()])
         }
         Err(e) => {
             warn!("Failed to send mail: {}", e);
