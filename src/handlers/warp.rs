@@ -10,6 +10,8 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::Server;
 
+use super::shop;
+
 /// Handle warp/room change
 /// 
 /// Client sends: MSG_WARP (14) + room_id (2) + x (2) + y (2)
@@ -148,6 +150,11 @@ pub async fn handle_warp(
                 }
             }
         }
+    }
+
+    // Send shop info for the new room (if any shops exist)
+    if let Err(e) = shop::send_room_shop_info(server, &session, new_room_id).await {
+        error!("Failed to send shop info for room {}: {}", new_room_id, e);
     }
 
     Ok(responses)

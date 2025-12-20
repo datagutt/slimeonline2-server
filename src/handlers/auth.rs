@@ -16,6 +16,8 @@ use crate::protocol::{
 };
 use crate::Server;
 
+use super::shop;
+
 /// Handle login request
 pub async fn handle_login(
     payload: &[u8],
@@ -287,6 +289,11 @@ pub async fn handle_login(
                 }
             }
         }
+    }
+
+    // Send shop info for the spawn room (if any shops exist)
+    if let Err(e) = shop::send_room_shop_info(server, &session, character.room_id as u16).await {
+        error!("Failed to send shop info for room {}: {}", character.room_id, e);
     }
 
     Ok(responses)

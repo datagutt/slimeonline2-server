@@ -8,5 +8,6 @@ pub mod appearance;
 pub mod gameplay;
 pub mod warp;
 pub mod items;
+pub mod shop;
 
 pub use connection::handle_connection;

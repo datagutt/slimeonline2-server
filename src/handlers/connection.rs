@@ -17,7 +17,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageWriter, write_player_left, MessageType, describe_message};
 use crate::Server;
 
-use super::{auth, movement, chat, appearance, gameplay, warp, items};
+use super::{auth, movement, chat, appearance, gameplay, warp, items, shop};
 
 /// Handle a client connection.
 pub async fn handle_connection(
@@ -280,6 +280,10 @@ async fn handle_message(
 
         MessageType::DiscardedItemTake => {
             items::handle_take_dropped_item(payload, server, session).await
+        }
+
+        MessageType::ShopBuy => {
+            shop::handle_shop_buy(payload, server, session).await
         }
 
         _ => {
