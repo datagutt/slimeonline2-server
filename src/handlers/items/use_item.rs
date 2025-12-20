@@ -238,56 +238,65 @@ async fn handle_slimebag(
 }
 
 /// Broadcast visual effect to room (smokebomb, applebomb, gum)
+/// Includes the sender - they need to receive the message to show the effect
 async fn broadcast_visual_effect(server: &Arc<Server>, room_id: u16, item_id: u16, x: u16, y: u16) {
+    let mut writer = MessageWriter::new();
+    writer
+        .write_u16(MessageType::UseItem.id())
+        .write_u16(item_id)
+        .write_u16(x)
+        .write_u16(y);
+    let msg = writer.into_bytes();
+    
     let room_players = server.game_state.get_room_players(room_id).await;
-    for other_player_id in room_players {
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::UseItem.id())
-                    .write_u16(item_id)
-                    .write_u16(x)
-                    .write_u16(y);
-                other_session.write().await.queue_message(writer.into_bytes());
+    for player_id in room_players {
+        if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
+            if let Some(session) = server.sessions.get(&session_id) {
+                session.write().await.queue_message(msg.clone());
             }
         }
     }
 }
 
 /// Broadcast bubbles effect to room
+/// Includes the sender - they need to receive the message to show the effect
 async fn broadcast_bubbles(server: &Arc<Server>, room_id: u16, item_id: u16, x: u16, y: u16, direction: u8) {
     let amount = 5u8;
+    let mut writer = MessageWriter::new();
+    writer
+        .write_u16(MessageType::UseItem.id())
+        .write_u16(item_id)
+        .write_u16(x)
+        .write_u16(y)
+        .write_u8(direction)
+        .write_u8(amount);
+    let msg = writer.into_bytes();
+    
     let room_players = server.game_state.get_room_players(room_id).await;
-    for other_player_id in room_players {
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::UseItem.id())
-                    .write_u16(item_id)
-                    .write_u16(x)
-                    .write_u16(y)
-                    .write_u8(direction)
-                    .write_u8(amount);
-                other_session.write().await.queue_message(writer.into_bytes());
+    for player_id in room_players {
+        if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
+            if let Some(session) = server.sessions.get(&session_id) {
+                session.write().await.queue_message(msg.clone());
             }
         }
     }
 }
 
 /// Broadcast soundmaker to room
-async fn broadcast_soundmaker(server: &Arc<Server>, room_id: u16, item_id: u16, player_id: u16) {
+/// Includes the sender - they need to receive the message to play the sound
+async fn broadcast_soundmaker(server: &Arc<Server>, room_id: u16, item_id: u16, user_player_id: u16) {
+    let mut writer = MessageWriter::new();
+    writer
+        .write_u16(MessageType::UseItem.id())
+        .write_u16(item_id)
+        .write_u16(user_player_id);
+    let msg = writer.into_bytes();
+    
     let room_players = server.game_state.get_room_players(room_id).await;
-    for other_player_id in room_players {
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::UseItem.id())
-                    .write_u16(item_id)
-                    .write_u16(player_id);
-                other_session.write().await.queue_message(writer.into_bytes());
+    for pid in room_players {
+        if let Some(session_id) = server.game_state.players_by_id.get(&pid) {
+            if let Some(session) = server.sessions.get(&session_id) {
+                session.write().await.queue_message(msg.clone());
             }
         }
     }
