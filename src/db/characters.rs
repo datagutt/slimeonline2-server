@@ -203,3 +203,140 @@ pub async fn update_points(
 
     Ok(())
 }
+
+/// Update a specific item slot in inventory (slots 1-9)
+pub async fn update_item_slot(
+    pool: &DbPool,
+    character_id: i64,
+    slot: u8,
+    item_id: i16,
+) -> Result<(), sqlx::Error> {
+    // Build the column name based on slot
+    let column = match slot {
+        1 => "item_1",
+        2 => "item_2",
+        3 => "item_3",
+        4 => "item_4",
+        5 => "item_5",
+        6 => "item_6",
+        7 => "item_7",
+        8 => "item_8",
+        9 => "item_9",
+        _ => return Ok(()), // Invalid slot, silently ignore
+    };
+
+    let query = format!(
+        "UPDATE inventories SET {} = ?, updated_at = datetime('now') WHERE character_id = ?",
+        column
+    );
+
+    sqlx::query(&query)
+        .bind(item_id)
+        .bind(character_id)
+        .execute(pool)
+        .await?;
+
+    Ok(())
+}
+
+/// Update a specific outfit slot in inventory (slots 1-9)
+pub async fn update_outfit_slot(
+    pool: &DbPool,
+    character_id: i64,
+    slot: u8,
+    outfit_id: i16,
+) -> Result<(), sqlx::Error> {
+    let column = match slot {
+        1 => "outfit_1",
+        2 => "outfit_2",
+        3 => "outfit_3",
+        4 => "outfit_4",
+        5 => "outfit_5",
+        6 => "outfit_6",
+        7 => "outfit_7",
+        8 => "outfit_8",
+        9 => "outfit_9",
+        _ => return Ok(()),
+    };
+
+    let query = format!(
+        "UPDATE inventories SET {} = ?, updated_at = datetime('now') WHERE character_id = ?",
+        column
+    );
+
+    sqlx::query(&query)
+        .bind(outfit_id)
+        .bind(character_id)
+        .execute(pool)
+        .await?;
+
+    Ok(())
+}
+
+/// Update a specific accessory slot in inventory (slots 1-9)
+pub async fn update_accessory_slot(
+    pool: &DbPool,
+    character_id: i64,
+    slot: u8,
+    accessory_id: i16,
+) -> Result<(), sqlx::Error> {
+    let column = match slot {
+        1 => "accessory_1",
+        2 => "accessory_2",
+        3 => "accessory_3",
+        4 => "accessory_4",
+        5 => "accessory_5",
+        6 => "accessory_6",
+        7 => "accessory_7",
+        8 => "accessory_8",
+        9 => "accessory_9",
+        _ => return Ok(()),
+    };
+
+    let query = format!(
+        "UPDATE inventories SET {} = ?, updated_at = datetime('now') WHERE character_id = ?",
+        column
+    );
+
+    sqlx::query(&query)
+        .bind(accessory_id)
+        .bind(character_id)
+        .execute(pool)
+        .await?;
+
+    Ok(())
+}
+
+/// Update a specific tool slot in inventory (slots 1-9)
+pub async fn update_tool_slot(
+    pool: &DbPool,
+    character_id: i64,
+    slot: u8,
+    tool_id: i16,
+) -> Result<(), sqlx::Error> {
+    let column = match slot {
+        1 => "tool_1",
+        2 => "tool_2",
+        3 => "tool_3",
+        4 => "tool_4",
+        5 => "tool_5",
+        6 => "tool_6",
+        7 => "tool_7",
+        8 => "tool_8",
+        9 => "tool_9",
+        _ => return Ok(()),
+    };
+
+    let query = format!(
+        "UPDATE inventories SET {} = ?, updated_at = datetime('now') WHERE character_id = ?",
+        column
+    );
+
+    sqlx::query(&query)
+        .bind(tool_id)
+        .bind(character_id)
+        .execute(pool)
+        .await?;
+
+    Ok(())
+}

@@ -1,7 +1,8 @@
 //! Game state management for Slime Online 2
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Instant;
 
 use dashmap::DashMap;
@@ -10,11 +11,23 @@ use uuid::Uuid;
 
 use crate::constants::*;
 
+/// A dropped item on the ground
+#[derive(Debug, Clone)]
+pub struct DroppedItem {
+    pub instance_id: u16,
+    pub item_id: u16,
+    pub x: u16,
+    pub y: u16,
+    pub dropped_at: Instant,
+}
+
 /// Room state
 #[derive(Debug)]
 pub struct Room {
     pub id: u16,
     pub players: RwLock<HashSet<u16>>,
+    /// Items dropped on the ground in this room
+    pub dropped_items: RwLock<HashMap<u16, DroppedItem>>,
 }
 
 impl Room {
@@ -22,6 +35,7 @@ impl Room {
         Self {
             id,
             players: RwLock::new(HashSet::new()),
+            dropped_items: RwLock::new(HashMap::new()),
         }
     }
 
@@ -39,6 +53,21 @@ impl Room {
 
     pub async fn get_players(&self) -> Vec<u16> {
         self.players.read().await.iter().copied().collect()
+    }
+
+    /// Add a dropped item to the room
+    pub async fn add_dropped_item(&self, item: DroppedItem) {
+        self.dropped_items.write().await.insert(item.instance_id, item);
+    }
+
+    /// Remove and return a dropped item by instance ID
+    pub async fn take_dropped_item(&self, instance_id: u16) -> Option<DroppedItem> {
+        self.dropped_items.write().await.remove(&instance_id)
+    }
+
+    /// Get all dropped items in the room
+    pub async fn get_dropped_items(&self) -> Vec<DroppedItem> {
+        self.dropped_items.read().await.values().cloned().collect()
     }
 }
 
@@ -125,6 +154,8 @@ impl PlayerSession {
 pub struct GameState {
     pub rooms: DashMap<u16, Arc<Room>>,
     pub players_by_id: DashMap<u16, Uuid>,  // player_id -> session_id
+    /// Counter for generating unique dropped item instance IDs
+    next_dropped_item_id: AtomicU16,
 }
 
 impl GameState {
@@ -132,7 +163,13 @@ impl GameState {
         Self {
             rooms: DashMap::new(),
             players_by_id: DashMap::new(),
+            next_dropped_item_id: AtomicU16::new(1),
         }
+    }
+
+    /// Generate a unique instance ID for a dropped item
+    fn next_instance_id(&self) -> u16 {
+        self.next_dropped_item_id.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Get or create a room
@@ -167,6 +204,59 @@ impl GameState {
     pub async fn get_room_players(&self, room_id: u16) -> Vec<u16> {
         if let Some(room) = self.get_room(room_id) {
             room.get_players().await
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Add a dropped item to a room and return the instance ID
+    pub async fn add_dropped_item(&self, room_id: u16, x: u16, y: u16, item_id: u16) -> u16 {
+        let instance_id = self.next_instance_id();
+        let room = self.get_or_create_room(room_id);
+        let item = DroppedItem {
+            instance_id,
+            item_id,
+            x,
+            y,
+            dropped_at: Instant::now(),
+        };
+        room.add_dropped_item(item).await;
+        instance_id
+    }
+
+    /// Add a dropped item with a specific instance ID (for putting items back)
+    pub async fn add_dropped_item_with_id(
+        &self,
+        room_id: u16,
+        x: u16,
+        y: u16,
+        item_id: u16,
+        instance_id: u16,
+    ) {
+        let room = self.get_or_create_room(room_id);
+        let item = DroppedItem {
+            instance_id,
+            item_id,
+            x,
+            y,
+            dropped_at: Instant::now(),
+        };
+        room.add_dropped_item(item).await;
+    }
+
+    /// Take a dropped item from a room
+    pub async fn take_dropped_item(&self, room_id: u16, instance_id: u16) -> Option<DroppedItem> {
+        if let Some(room) = self.get_room(room_id) {
+            room.take_dropped_item(instance_id).await
+        } else {
+            None
+        }
+    }
+
+    /// Get all dropped items in a room
+    pub async fn get_dropped_items(&self, room_id: u16) -> Vec<DroppedItem> {
+        if let Some(room) = self.get_room(room_id) {
+            room.get_dropped_items().await
         } else {
             Vec::new()
         }

@@ -17,7 +17,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageWriter, write_player_left, MessageType, describe_message};
 use crate::Server;
 
-use super::{auth, movement, chat, appearance, gameplay, warp};
+use super::{auth, movement, chat, appearance, gameplay, warp, items};
 
 /// Handle a client connection.
 pub async fn handle_connection(
@@ -268,6 +268,18 @@ async fn handle_message(
 
         MessageType::Warp => {
             warp::handle_warp(payload, server, session).await
+        }
+
+        MessageType::UseItem => {
+            items::handle_use_item(payload, server, session).await
+        }
+
+        MessageType::DiscardItem => {
+            items::handle_discard_item(payload, server, session).await
+        }
+
+        MessageType::DiscardedItemTake => {
+            items::handle_take_dropped_item(payload, server, session).await
         }
 
         _ => {

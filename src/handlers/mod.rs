@@ -7,5 +7,6 @@ pub mod chat;
 pub mod appearance;
 pub mod gameplay;
 pub mod warp;
+pub mod items;
 
 pub use connection::handle_connection;
