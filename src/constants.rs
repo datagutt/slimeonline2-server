@@ -259,6 +259,90 @@ pub const DEFAULT_BODY_ID: u16 = 1;
 pub const DEFAULT_POINTS: u32 = 0;
 
 // =============================================================================
+// ANTI-CHEAT CONSTANTS
+// =============================================================================
+
+/// Maximum distance a player can move per update (pixels)
+/// Based on: max speed ~10 pixels/frame * 30fps * 2 seconds for lag tolerance
+pub const MAX_MOVEMENT_DISTANCE_PER_UPDATE: f64 = 600.0;
+
+/// Maximum reasonable speed (pixels per second)
+/// Based on: hspmax=3 * 30fps = 90, with generous margin for lag
+pub const MAX_PLAYER_SPEED: f64 = 300.0;
+
+/// Maximum valid X coordinate in any room
+pub const MAX_ROOM_X: u16 = 5000;
+
+/// Maximum valid Y coordinate in any room
+pub const MAX_ROOM_Y: u16 = 3000;
+
+/// Number of cheat violations before flagging player
+pub const CHEAT_VIOLATION_THRESHOLD: u32 = 5;
+
+/// Time window for counting violations (seconds)
+pub const CHEAT_VIOLATION_WINDOW_SECS: u64 = 60;
+
+/// Number of flags before kicking player
+pub const CHEAT_FLAGS_TO_KICK: u32 = 3;
+
+/// Number of flags before banning player
+pub const CHEAT_FLAGS_TO_BAN: u32 = 10;
+
+// =============================================================================
+// RATE LIMITING CONSTANTS
+// =============================================================================
+
+/// Chat: max messages per window
+pub const RATE_LIMIT_CHAT_MAX: u32 = 10;
+/// Chat: time window (seconds)
+pub const RATE_LIMIT_CHAT_WINDOW_SECS: u64 = 10;
+/// Chat: cooldown after exceeding limit (seconds)
+pub const RATE_LIMIT_CHAT_COOLDOWN_SECS: u64 = 5;
+
+/// Movement: max updates per window (very lenient for client at 30fps)
+pub const RATE_LIMIT_MOVEMENT_MAX: u32 = 120;
+/// Movement: time window (seconds)
+pub const RATE_LIMIT_MOVEMENT_WINDOW_SECS: u64 = 1;
+
+/// Item use: max per window
+pub const RATE_LIMIT_ITEM_USE_MAX: u32 = 5;
+/// Item use: time window (seconds)
+pub const RATE_LIMIT_ITEM_USE_WINDOW_SECS: u64 = 10;
+
+/// Shop: max purchases per window
+pub const RATE_LIMIT_SHOP_MAX: u32 = 10;
+/// Shop: time window (seconds)
+pub const RATE_LIMIT_SHOP_WINDOW_SECS: u64 = 60;
+
+/// Login attempts: max per window (per IP)
+pub const RATE_LIMIT_LOGIN_MAX: u32 = 5;
+/// Login: time window (seconds)
+pub const RATE_LIMIT_LOGIN_WINDOW_SECS: u64 = 60;
+/// Login: cooldown after exceeding limit (seconds)
+pub const RATE_LIMIT_LOGIN_COOLDOWN_SECS: u64 = 30;
+
+/// Register attempts: max per window (per IP)
+pub const RATE_LIMIT_REGISTER_MAX: u32 = 3;
+/// Register: time window (seconds)
+pub const RATE_LIMIT_REGISTER_WINDOW_SECS: u64 = 300;
+
+// =============================================================================
+// VALIDATION CONSTANTS
+// =============================================================================
+
+/// Maximum valid item ID (based on db_items.gml)
+pub const MAX_ITEM_ID: u16 = 61;
+
+/// Maximum valid emote ID
+pub const MAX_EMOTE_ID: u8 = 20;
+
+/// Maximum valid action ID (sit, etc.)
+pub const MAX_ACTION_ID: u8 = 10;
+
+/// Maximum valid direction code for movement
+pub const MAX_DIRECTION_CODE: u8 = 13;
+
+// =============================================================================
 // ROOM IDS
 // =============================================================================
 

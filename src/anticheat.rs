@@ -4,32 +4,17 @@
 //! - Teleportation (moving faster than physics allow)
 //! - Speed hacking
 //! - Position spoofing
-//! - Action timing exploits
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use crate::constants::*;
-
-/// Maximum distance a player can move in one tick (pixels)
-/// Based on client physics: max hsp = 3.0, max vsp = 9.0
-/// At 30fps, max movement per frame is ~10 pixels
-/// We allow 2 seconds of movement per update to be lenient with network lag
-const MAX_DISTANCE_PER_UPDATE: f64 = 600.0; // ~10 pixels * 30fps * 2 seconds
-
-/// Maximum reasonable speed (pixels per second)
-const MAX_SPEED: f64 = 300.0; // hspmax=3 * 30fps = 90, with margin
-
-/// Minimum time between position updates (ms)
-const MIN_UPDATE_INTERVAL_MS: u64 = 16; // ~60fps max
-
-/// Number of violations before flagging
-const VIOLATION_THRESHOLD: u32 = 5;
-
-/// Time window for violation tracking
-const VIOLATION_WINDOW_SECS: u64 = 60;
+use crate::constants::{
+    CHEAT_FLAGS_TO_BAN, CHEAT_FLAGS_TO_KICK, CHEAT_VIOLATION_THRESHOLD,
+    CHEAT_VIOLATION_WINDOW_SECS, MAX_MOVEMENT_DISTANCE_PER_UPDATE, MAX_PLAYER_SPEED,
+    MAX_ROOM_X, MAX_ROOM_Y,
+};
 
 /// Cheat detection result
 #[derive(Debug, Clone)]
@@ -110,13 +95,13 @@ impl PositionHistory {
             let distance = (dx * dx + dy * dy).sqrt();
 
             // Check for teleportation
-            if distance > MAX_DISTANCE_PER_UPDATE {
+            if distance > MAX_MOVEMENT_DISTANCE_PER_UPDATE {
                 // Could be legitimate lag - check if it's extreme
                 let elapsed_secs = elapsed.as_secs_f64().max(0.001);
                 let speed = distance / elapsed_secs;
 
                 // If speed is impossibly high even accounting for lag
-                if speed > MAX_SPEED * 10.0 {
+                if speed > MAX_PLAYER_SPEED * 10.0 {
                     let reason = format!(
                         "Teleport detected: moved {} pixels in {:.2}s (speed: {:.0})",
                         distance as u32, elapsed_secs, speed
@@ -124,7 +109,7 @@ impl PositionHistory {
                     self.add_violation(&reason);
                     
                     // Check if we've hit the threshold
-                    if self.violation_count() >= VIOLATION_THRESHOLD {
+                    if self.violation_count() >= CHEAT_VIOLATION_THRESHOLD {
                         return CheatResult::Cheating { reason };
                     }
                     return CheatResult::Suspicious { reason, severity: 3 };
@@ -136,14 +121,14 @@ impl PositionHistory {
                 let elapsed_secs = elapsed.as_secs_f64();
                 let speed = distance / elapsed_secs;
                 
-                if speed > MAX_SPEED * 2.0 {
+                if speed > MAX_PLAYER_SPEED * 2.0 {
                     let reason = format!(
                         "Speed hack suspected: {:.0} pixels/sec (max: {:.0})",
-                        speed, MAX_SPEED
+                        speed, MAX_PLAYER_SPEED
                     );
                     self.add_violation(&reason);
                     
-                    if self.violation_count() >= VIOLATION_THRESHOLD {
+                    if self.violation_count() >= CHEAT_VIOLATION_THRESHOLD {
                         return CheatResult::Cheating { reason };
                     }
                     return CheatResult::Suspicious { reason, severity: 2 };
@@ -165,12 +150,12 @@ impl PositionHistory {
         self.violations.push((now, reason.to_string()));
         
         // Clean old violations
-        let cutoff = now - Duration::from_secs(VIOLATION_WINDOW_SECS);
+        let cutoff = now - Duration::from_secs(CHEAT_VIOLATION_WINDOW_SECS);
         self.violations.retain(|(t, _)| *t > cutoff);
     }
 
     fn violation_count(&self) -> u32 {
-        let cutoff = Instant::now() - Duration::from_secs(VIOLATION_WINDOW_SECS);
+        let cutoff = Instant::now() - Duration::from_secs(CHEAT_VIOLATION_WINDOW_SECS);
         self.violations.iter().filter(|(t, _)| *t > cutoff).count() as u32
     }
 
@@ -273,13 +258,13 @@ impl AntiCheat {
     /// Check if player should be kicked
     pub async fn should_kick(&self, session_id: u64) -> bool {
         let flagged = self.flagged.read().await;
-        flagged.get(&session_id).map(|&c| c >= 3).unwrap_or(false)
+        flagged.get(&session_id).map(|&c| c >= CHEAT_FLAGS_TO_KICK).unwrap_or(false)
     }
 
     /// Check if player should be banned
     pub async fn should_ban(&self, session_id: u64) -> bool {
         let flagged = self.flagged.read().await;
-        flagged.get(&session_id).map(|&c| c >= 10).unwrap_or(false)
+        flagged.get(&session_id).map(|&c| c >= CHEAT_FLAGS_TO_BAN).unwrap_or(false)
     }
 
     /// Get flag count for a player
@@ -327,20 +312,14 @@ pub fn validate_movement_delta(
     let distance = (dx * dx + dy * dy).sqrt();
 
     // Calculate maximum allowed distance based on time elapsed
-    // Max speed is about 9 pixels per frame at 30fps = 270 pixels/sec
-    let max_distance = (elapsed_ms as f64 / 1000.0) * MAX_SPEED * 2.0;
+    let max_distance = (elapsed_ms as f64 / 1000.0) * MAX_PLAYER_SPEED * 2.0;
 
     distance <= max_distance.max(50.0) // Always allow at least 50 pixels for lag compensation
 }
 
 /// Check if coordinates are within valid room bounds
 pub fn validate_position_bounds(x: u16, y: u16) -> bool {
-    // Based on typical room sizes in the game
-    // Most rooms are under 3000x1500 pixels
-    const MAX_X: u16 = 5000;
-    const MAX_Y: u16 = 3000;
-
-    x <= MAX_X && y <= MAX_Y
+    x <= MAX_ROOM_X && y <= MAX_ROOM_Y
 }
 
 #[cfg(test)]
