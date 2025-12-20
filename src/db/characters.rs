@@ -504,3 +504,46 @@ pub async fn update_equipped_tool(
 
     Ok(())
 }
+
+/// Transfer funds between two bank accounts atomically
+/// Uses a transaction to ensure both updates succeed or both fail
+pub async fn transfer_bank_funds(
+    pool: &DbPool,
+    sender_id: i64,
+    sender_new_balance: i64,
+    receiver_id: i64,
+    receiver_new_balance: i64,
+) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+
+    // Update sender's bank balance
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET bank_balance = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(sender_new_balance)
+    .bind(sender_id)
+    .execute(&mut *tx)
+    .await?;
+
+    // Update receiver's bank balance
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET bank_balance = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(receiver_new_balance)
+    .bind(receiver_id)
+    .execute(&mut *tx)
+    .await?;
+
+    // Commit transaction - if this fails, both updates are rolled back
+    tx.commit().await?;
+
+    Ok(())
+}
