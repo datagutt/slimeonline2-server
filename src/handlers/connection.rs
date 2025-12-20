@@ -89,7 +89,7 @@ async fn handle_client_messages(
         let mut temp_buf = [0u8; 4096];
         
         tokio::select! {
-            // Ping timer fired - send ping to client
+            // Ping timer fired - send ping to client and any queued messages
             _ = ping_interval.tick() => {
                 // Only send pings to authenticated clients
                 let is_authenticated = session.read().await.is_authenticated;
@@ -99,6 +99,15 @@ async fn handle_client_messages(
                     crate::protocol::write_ping(&mut writer);
                     if let Err(e) = send_message(socket, writer.into_bytes()).await {
                         error!("Failed to send ping to {}: {}", addr, e);
+                        return Err(e);
+                    }
+                }
+                
+                // Also flush any queued messages (from broadcasts by other players, etc.)
+                let queued_messages = session.write().await.drain_messages();
+                for msg in queued_messages {
+                    if let Err(e) = send_message(socket, msg).await {
+                        error!("Failed to send queued message to {}: {}", addr, e);
                         return Err(e);
                     }
                 }
