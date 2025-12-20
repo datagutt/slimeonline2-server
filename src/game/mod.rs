@@ -187,6 +187,10 @@ pub struct PlayerSession {
     pub ip_address: String,
     /// Queue of messages to send to this player
     pub outgoing_messages: VecDeque<Vec<u8>>,
+    /// Flag to disconnect this player (set by anti-cheat, etc.)
+    pub should_disconnect: bool,
+    /// Reason for disconnection (for logging)
+    pub disconnect_reason: Option<String>,
 }
 
 impl PlayerSession {
@@ -210,7 +214,15 @@ impl PlayerSession {
             last_activity: now,
             ip_address,
             outgoing_messages: VecDeque::new(),
+            should_disconnect: false,
+            disconnect_reason: None,
         }
+    }
+
+    /// Mark this session for disconnection
+    pub fn kick(&mut self, reason: impl Into<String>) {
+        self.should_disconnect = true;
+        self.disconnect_reason = Some(reason.into());
     }
 
     pub fn update_activity(&mut self) {
