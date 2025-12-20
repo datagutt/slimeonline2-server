@@ -483,3 +483,24 @@ pub async fn find_character_by_username(
     .fetch_optional(pool)
     .await
 }
+
+/// Update character's equipped tool slot (0 = none, 1-9 = slot)
+pub async fn update_equipped_tool(
+    pool: &DbPool,
+    character_id: i64,
+    tool_slot: i16,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE inventories
+        SET equipped_tool = ?, updated_at = datetime('now')
+        WHERE character_id = ?
+        "#,
+    )
+    .bind(tool_slot)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}

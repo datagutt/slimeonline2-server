@@ -350,6 +350,49 @@ async fn handle_message(
             Ok(vec![])
         }
 
+        MessageType::ToolEquip => {
+            // Client equipped a tool
+            // Format: slot (u8)
+            let mut reader = crate::protocol::MessageReader::new(payload);
+            if let Ok(slot) = reader.read_u8() {
+                // Validate slot range
+                if slot < 1 || slot > 9 {
+                    warn!("Invalid tool slot: {}", slot);
+                    return Ok(vec![]);
+                }
+
+                let character_id = session.read().await.character_id;
+                if let Some(char_id) = character_id {
+                    // Verify player owns a tool in this slot
+                    if let Ok(Some(inventory)) = crate::db::get_inventory(&server.db, char_id).await {
+                        let tools = inventory.tools();
+                        let tool_id = tools[(slot - 1) as usize];
+                        
+                        if tool_id == 0 {
+                            warn!("Player {} tried to equip empty tool slot {}", char_id, slot);
+                            return Ok(vec![]);
+                        }
+
+                        if let Err(e) = crate::db::update_equipped_tool(&server.db, char_id, slot as i16).await {
+                            error!("Failed to save equipped tool: {}", e);
+                        }
+                    }
+                }
+            }
+            Ok(vec![])
+        }
+
+        MessageType::ToolUnequip => {
+            // Client unequipped their tool
+            let character_id = session.read().await.character_id;
+            if let Some(char_id) = character_id {
+                if let Err(e) = crate::db::update_equipped_tool(&server.db, char_id, 0).await {
+                    error!("Failed to clear equipped tool: {}", e);
+                }
+            }
+            Ok(vec![])
+        }
+
         _ => {
             debug!("Unhandled: [{}] {}", msg_type.category(), msg_type);
             Ok(vec![])
