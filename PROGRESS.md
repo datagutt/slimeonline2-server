@@ -77,17 +77,27 @@ This document tracks the implementation progress of the Slime Online 2 private s
 
 ## Phase 3: Items & Economy (Week 6-8)
 
+### Completed
+
+| Task | Status | File(s) |
+|------|--------|---------|
+| Item database (61 items) | Done | `src/handlers/items/database.rs` |
+| MSG_USE_ITEM handler | Done | `src/handlers/items/use_item.rs` |
+| MSG_DISCARD_ITEM handler | Done | `src/handlers/items/discard.rs` |
+| MSG_DISCARDED_ITEM_TAKE handler | Done | `src/handlers/items/pickup.rs` |
+| Dropped item tracking | Done | `src/game/mod.rs` |
+| Shop database (dynamic) | Done | `migrations/20240101000006_create_shops.sql` |
+| MSG_SHOP_BUY handler | Done | `src/handlers/shop/buy.rs` |
+| MSG_ROOM_SHOP_INFO sender | Done | `src/handlers/shop/buy.rs` |
+| Shop info on room enter | Done | `src/handlers/warp.rs`, `src/handlers/auth.rs` |
+
 ### Pending
 
 | Task | Status | Notes |
 |------|--------|-------|
-| MSG_USE_ITEM handler | Pending | Item effects |
-| MSG_DISCARD_ITEM handler | Pending | Drop item on ground |
-| MSG_DISCARDED_ITEM_TAKE handler | Pending | Pick up items |
-| MSG_GET_ITEM handler | Pending | Receive item |
-| Shop system (MSG_SHOP_*) | Pending | Browse, buy, sell |
+| MSG_GET_ITEM handler | Pending | Receive item from world |
+| MSG_SELL handler | Pending | Sell items in shop |
 | Bank system (MSG_BANK_*) | Pending | Deposit, withdraw, transfer |
-| Inventory management | Pending | Slot operations |
 
 ## Phase 4: Social Features (Week 9-11)
 
@@ -134,6 +144,7 @@ src/
 ├── crypto.rs            # RC4 encryption implementation
 ├── protocol/
 │   ├── mod.rs           # Protocol module exports
+│   ├── types.rs         # MessageType enum (141 types)
 │   ├── reader.rs        # Binary message reader
 │   ├── writer.rs        # Binary message writer
 │   └── messages.rs      # Message structures
@@ -145,9 +156,18 @@ src/
 │   ├── chat.rs          # Chat, emote, action, typing handlers
 │   ├── appearance.rs    # Outfit and accessory change handlers
 │   ├── gameplay.rs      # Points collection and gameplay handlers
-│   └── warp.rs          # Room change/warp handler
+│   ├── warp.rs          # Room change/warp handler
+│   ├── items/           # Item system handlers
+│   │   ├── mod.rs
+│   │   ├── database.rs  # 61 items from db_items.gml
+│   │   ├── use_item.rs  # MSG_USE_ITEM
+│   │   ├── discard.rs   # MSG_DISCARD_ITEM
+│   │   └── pickup.rs    # MSG_DISCARDED_ITEM_TAKE
+│   └── shop/            # Shop system handlers
+│       ├── mod.rs
+│       └── buy.rs       # MSG_SHOP_BUY, MSG_ROOM_SHOP_INFO
 ├── game/
-│   └── mod.rs           # Game state, rooms, sessions
+│   └── mod.rs           # Game state, rooms, sessions, dropped items
 └── db/
     ├── mod.rs           # Database pool and migrations
     ├── accounts.rs      # Account queries
@@ -158,7 +178,8 @@ migrations/
 ├── 20240101000002_create_characters.sql
 ├── 20240101000003_create_inventories.sql
 ├── 20240101000004_create_clans.sql
-└── 20240101000005_create_bans.sql
+├── 20240101000005_create_bans.sql
+└── 20240101000006_create_shops.sql   # Dynamic shop inventory with seed data
 ```
 
 ## Database Schema
@@ -168,6 +189,7 @@ migrations/
 - **inventories**: Equipment and items (emotes, outfits, accessories, items, tools)
 - **clans**: Clan information (name, leader, colors, level)
 - **bans**: IP/MAC/account bans
+- **shop_items**: Dynamic shop inventory (room_id, slot_id, category, item_id, price, stock)
 
 ## Running the Server
 
@@ -208,6 +230,13 @@ Currently uses default configuration in `src/main.rs`:
 | 25 | MSG_CHANGE_ACS1 | C→S, S→C | Done |
 | 26 | MSG_CHANGE_ACS2 | C→S, S→C | Done |
 | 133 | MSG_PLAYER_TYPING | C→S, S→C | Done |
+| 27 | MSG_ROOM_SHOP_INFO | S→C | Done |
+| 28 | MSG_SHOP_BUY | C→S, S→C | Done |
+| 29 | MSG_SHOP_BUY_FAIL | S→C | Done |
+| 30 | MSG_SHOP_STOCK | S→C | Done |
+| 31 | MSG_USE_ITEM | C→S | Done |
+| 39 | MSG_DISCARD_ITEM | C→S, S→C | Done |
+| 40 | MSG_DISCARDED_ITEM_TAKE | C→S, S→C | Done |
 
 ## Known Issues
 
@@ -248,7 +277,8 @@ The 39dll `bufferencrypt` function uses standard RC4. Our implementation matches
 
 ## Next Steps
 
-1. Implement item system handlers (MSG_USE_ITEM, MSG_DISCARD_ITEM, etc.)
-2. Add shop/bank handlers
+1. Implement bank system (MSG_BANK_PROCESS)
+2. Implement sell handler (MSG_SELL)
 3. Add basic movement validation
 4. Implement clan system
+5. Implement mail system
