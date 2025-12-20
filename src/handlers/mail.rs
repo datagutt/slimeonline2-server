@@ -42,6 +42,14 @@ pub async fn handle_mailbox(
             // No additional parameters
             get_new_mail_count(server, char_id).await
         }
+        2 => {
+            // Open mailbox - just respond with case 2 to trigger GUI creation
+            // Then client will automatically request page 0
+            let mut writer = MessageWriter::new();
+            writer.write_u16(MessageType::Mailbox.id())
+                .write_u8(2); // case 2 = open mailbox GUI
+            Ok(vec![writer.into_bytes()])
+        }
         3 => {
             // Get mailbox page
             let page = reader.read_u8()? as i64;
