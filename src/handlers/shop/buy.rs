@@ -348,17 +348,17 @@ pub async fn handle_shop_buy(
     Ok(vec![writer.into_bytes()])
 }
 
-/// Send MSG_ROOM_SHOP_INFO (27) to a player entering a room with shops
-pub async fn send_room_shop_info(
+/// Build MSG_ROOM_SHOP_INFO (27) message for a room with shops
+/// Returns None if there are no shops in the room
+pub async fn build_room_shop_info(
     server: &Arc<Server>,
-    session: &Arc<RwLock<PlayerSession>>,
     room_id: u16,
-) -> Result<()> {
+) -> Result<Option<Vec<u8>>> {
     // Get shop items for this room
     let shop_items = get_room_shop_items(&server.db, room_id).await?;
 
     if shop_items.is_empty() {
-        return Ok(()); // No shop in this room
+        return Ok(None); // No shop in this room
     }
 
     let count = shop_items.len() as u8;
@@ -379,7 +379,11 @@ pub async fn send_room_shop_info(
             .write_u16(item.item_id as u16);
     } else {
         // Multiple items: slot is implicit (1, 2, 3, ...)
-        for item in &shop_items {
+        for (idx, item) in shop_items.iter().enumerate() {
+            debug!(
+                "  Shop slot {}: cat={}, price={}, stock={}, item_id={}",
+                idx + 1, item.category, item.price, item.stock, item.item_id
+            );
             writer
                 .write_u8(item.category as u8)
                 .write_u16(item.price as u16)
@@ -388,10 +392,7 @@ pub async fn send_room_shop_info(
         }
     }
 
-    // Queue the message for the player
-    session.write().await.queue_message(writer.into_bytes());
+    debug!("Built shop info for room {} ({} items), msg bytes: {:02X?}", room_id, count, writer.as_bytes());
 
-    debug!("Sent shop info for room {} ({} items)", room_id, count);
-
-    Ok(())
+    Ok(Some(writer.into_bytes()))
 }

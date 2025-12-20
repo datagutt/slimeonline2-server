@@ -11,8 +11,8 @@ use crate::constants::*;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{
-    LoginRequest, LoginSuccessData, MessageReader, MessageWriter, RegisterRequest,
-    write_login_failure, write_register_response,
+    write_login_failure, write_register_response, LoginRequest, LoginSuccessData, MessageReader,
+    MessageWriter, RegisterRequest,
 };
 use crate::Server;
 
@@ -25,7 +25,7 @@ pub async fn handle_login(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
-    
+
     let login = match LoginRequest::parse(&mut reader) {
         Ok(req) => req,
         Err(e) => {
@@ -56,7 +56,10 @@ pub async fn handle_login(
     }
 
     // Check MAC ban
-    if db::is_mac_banned(&server.db, &login.mac_address).await.unwrap_or(false) {
+    if db::is_mac_banned(&server.db, &login.mac_address)
+        .await
+        .unwrap_or(false)
+    {
         warn!("Login attempt from banned MAC: {}", login.mac_address);
         let mut writer = MessageWriter::new();
         write_login_failure(&mut writer, LOGIN_IP_BANNED_2);
@@ -89,9 +92,8 @@ pub async fn handle_login(
     }
 
     // Verify password
-    let password_valid = bcrypt::verify(&login.password, &account.password_hash)
-        .unwrap_or(false);
-    
+    let password_valid = bcrypt::verify(&login.password, &account.password_hash).unwrap_or(false);
+
     if !password_valid {
         debug!("Wrong password for: {}", login.username);
         let mut writer = MessageWriter::new();
@@ -113,17 +115,15 @@ pub async fn handle_login(
         Ok(None) => {
             // Create new character for this account
             match db::create_character(&server.db, account.id, &login.username).await {
-                Ok(_char_id) => {
-                    match db::find_character_by_account(&server.db, account.id).await {
-                        Ok(Some(char)) => char,
-                        _ => {
-                            error!("Failed to retrieve newly created character");
-                            let mut writer = MessageWriter::new();
-                            write_login_failure(&mut writer, LOGIN_NO_ACCOUNT);
-                            return Ok(vec![writer.into_bytes()]);
-                        }
+                Ok(_char_id) => match db::find_character_by_account(&server.db, account.id).await {
+                    Ok(Some(char)) => char,
+                    _ => {
+                        error!("Failed to retrieve newly created character");
+                        let mut writer = MessageWriter::new();
+                        write_login_failure(&mut writer, LOGIN_NO_ACCOUNT);
+                        return Ok(vec![writer.into_bytes()]);
                     }
-                }
+                },
                 Err(e) => {
                     error!("Failed to create character: {}", e);
                     let mut writer = MessageWriter::new();
@@ -182,7 +182,10 @@ pub async fn handle_login(
 
     // Add player to room
     let session_id = session.read().await.session_id;
-    server.game_state.add_player_to_room(player_id, character.room_id as u16, session_id).await;
+    server
+        .game_state
+        .add_player_to_room(player_id, character.room_id as u16, session_id)
+        .await;
     server.active_player_ids.insert(player_id, session_id);
 
     // Get current time
@@ -231,7 +234,10 @@ pub async fn handle_login(
     info!("Player {} logged in as ID {}", login.username, player_id);
 
     // Notify other players in the room
-    let room_players = server.game_state.get_room_players(character.room_id as u16).await;
+    let room_players = server
+        .game_state
+        .get_room_players(character.room_id as u16)
+        .await;
     let mut responses = vec![writer.into_bytes()];
 
     for other_player_id in room_players {
@@ -292,8 +298,19 @@ pub async fn handle_login(
     }
 
     // Send shop info for the spawn room (if any shops exist)
-    if let Err(e) = shop::send_room_shop_info(server, &session, character.room_id as u16).await {
-        error!("Failed to send shop info for room {}: {}", character.room_id, e);
+    match shop::build_room_shop_info(server, character.room_id as u16).await {
+        Ok(Some(shop_msg)) => {
+            responses.push(shop_msg);
+        }
+        Ok(None) => {
+            // No shops in this room
+        }
+        Err(e) => {
+            error!(
+                "Failed to build shop info for room {}: {}",
+                character.room_id, e
+            );
+        }
     }
 
     Ok(responses)
@@ -306,7 +323,7 @@ pub async fn handle_register(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
-    
+
     let register = match RegisterRequest::parse(&mut reader) {
         Ok(req) => req,
         Err(e) => {
@@ -337,15 +354,24 @@ pub async fn handle_register(
     }
 
     // Check MAC ban
-    if db::is_mac_banned(&server.db, &register.mac_address).await.unwrap_or(false) {
-        warn!("Registration attempt from banned MAC: {}", register.mac_address);
+    if db::is_mac_banned(&server.db, &register.mac_address)
+        .await
+        .unwrap_or(false)
+    {
+        warn!(
+            "Registration attempt from banned MAC: {}",
+            register.mac_address
+        );
         let mut writer = MessageWriter::new();
         write_register_response(&mut writer, REGISTER_MAC_BANNED);
         return Ok(vec![writer.into_bytes()]);
     }
 
     // Check if username already exists
-    if db::username_exists(&server.db, &register.username).await.unwrap_or(true) {
+    if db::username_exists(&server.db, &register.username)
+        .await
+        .unwrap_or(true)
+    {
         debug!("Username already exists: {}", register.username);
         let mut writer = MessageWriter::new();
         write_register_response(&mut writer, REGISTER_EXISTS);
@@ -364,7 +390,14 @@ pub async fn handle_register(
     };
 
     // Create the account
-    match db::create_account(&server.db, &register.username, &password_hash, &register.mac_address).await {
+    match db::create_account(
+        &server.db,
+        &register.username,
+        &password_hash,
+        &register.mac_address,
+    )
+    .await
+    {
         Ok(account_id) => {
             // Create a character for the account
             match db::create_character(&server.db, account_id, &register.username).await {

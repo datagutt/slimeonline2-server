@@ -8,4 +8,4 @@
 mod buy;
 
 pub use buy::handle_shop_buy;
-pub use buy::send_room_shop_info;
+pub use buy::build_room_shop_info;

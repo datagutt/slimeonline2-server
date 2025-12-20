@@ -153,8 +153,16 @@ pub async fn handle_warp(
     }
 
     // Send shop info for the new room (if any shops exist)
-    if let Err(e) = shop::send_room_shop_info(server, &session, new_room_id).await {
-        error!("Failed to send shop info for room {}: {}", new_room_id, e);
+    match shop::build_room_shop_info(server, new_room_id).await {
+        Ok(Some(shop_msg)) => {
+            responses.push(shop_msg);
+        }
+        Ok(None) => {
+            // No shops in this room
+        }
+        Err(e) => {
+            error!("Failed to build shop info for room {}: {}", new_room_id, e);
+        }
     }
 
     Ok(responses)
