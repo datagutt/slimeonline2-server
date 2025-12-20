@@ -291,6 +291,7 @@ Currently uses default configuration in `src/main.rs`:
 | 47 | MSG_MAILBOX | C→S, S→C | Done |
 | 78 | MSG_MAIL_SEND | C→S, S→C | Done |
 | 80 | MSG_MAIL_RECEIVER_CHECK | C→S, S→C | Done |
+| 19 | MSG_SAVE | C→S, S→C | Done |
 | 133 | MSG_PLAYER_TYPING | C→S, S→C | Done |
 
 ## Fixes Applied
@@ -350,6 +351,12 @@ The 39dll `bufferencrypt` function uses standard RC4. Our implementation matches
   - Receive mailbox (paginated, 5 per page)
   - Claim item/points attachments from mail
   - Username validation before sending
+- Added MSG_SAVE handler for manual save points
+- Added `auto_save_position` config option (default: false)
+  - When false: position/room only saved at manual save points
+  - When true: position/room saved on disconnect, warp, and periodically
+  - Points are always auto-saved regardless of this setting
+- Added graceful shutdown handler (Ctrl+C saves all player data before exit)
 
 ## Next Steps
 
