@@ -330,6 +330,20 @@ async fn handle_message(
             mail::handle_mail_receiver_check(payload, server, session).await
         }
 
+        MessageType::MailpaperReq => {
+            // Client wants to know which mail papers are available and their prices
+            // Response: for each paper style, send price (0 = unavailable, >0 = price)
+            // There are about 10 paper styles in spr_mailguipapers
+            let mut writer = MessageWriter::new();
+            writer.write_u16(MessageType::MailpaperReq.id());
+            // Make all papers available for free (price = 1, meaning owned/free)
+            // The client reads bytes until it runs out
+            for _ in 0..10 {
+                writer.write_u8(1); // 1 = available/owned, 0 = not available
+            }
+            Ok(vec![writer.into_bytes()])
+        }
+
         MessageType::CollectibleTakeSelf => {
             collectibles::handle_collectible_take(payload, server, session).await
         }
