@@ -343,6 +343,12 @@ pub fn write_ping(writer: &mut MessageWriter) {
     writer.write_u16(MessageType::Ping.id());
 }
 
+/// Write a ping request response (MSG_PING_REQ = 117)
+/// Sent to client after they respond to our ping, so they can calculate latency
+pub fn write_ping_req(writer: &mut MessageWriter) {
+    writer.write_u16(MessageType::PingReq.id());
+}
+
 /// Write a server close message (MSG_SERVER_CLOSE = 24)
 #[allow(dead_code)]
 pub fn write_server_close(writer: &mut MessageWriter) {

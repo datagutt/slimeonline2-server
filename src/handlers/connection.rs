@@ -223,6 +223,7 @@ async fn handle_message(
 ) -> Result<Vec<Vec<u8>>> {
     match msg_type {
         MessageType::Ping => {
+            // Client sent a ping - respond with ping (keepalive acknowledgment)
             let mut writer = MessageWriter::new();
             crate::protocol::write_ping(&mut writer);
             Ok(vec![writer.into_bytes()])
@@ -299,6 +300,13 @@ async fn handle_message(
 
         MessageType::ShopBuy => {
             shop::handle_shop_buy(payload, server, session).await
+        }
+
+        MessageType::PingReq => {
+            // Client is requesting latency measurement - echo back PingReq
+            let mut writer = MessageWriter::new();
+            crate::protocol::write_ping_req(&mut writer);
+            Ok(vec![writer.into_bytes()])
         }
 
         _ => {
