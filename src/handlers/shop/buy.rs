@@ -22,6 +22,7 @@ use tracing::{debug, info, warn};
 use crate::db::DbPool;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::rate_limit::ActionType;
 use crate::Server;
 
 /// Shop item category
@@ -171,7 +172,7 @@ pub async fn handle_shop_buy(
     let mut reader = MessageReader::new(payload);
     let pos_id = reader.read_u8()?;
 
-    let (character_id, player_id, room_id, points) = {
+    let (character_id, player_id, room_id, session_id, points) = {
         let session_guard = session.read().await;
         if !session_guard.is_authenticated {
             return Ok(vec![]);
@@ -180,9 +181,19 @@ pub async fn handle_shop_buy(
             session_guard.character_id,
             session_guard.player_id,
             session_guard.room_id,
+            session_guard.session_id,
             session_guard.points,
         )
     };
+
+    // Rate limit shop purchases
+    if !server.rate_limiter.check_player(session_id.as_u128() as u64, ActionType::ShopBuy)
+        .await
+        .is_allowed()
+    {
+        debug!("Shop buy rate limited");
+        return Ok(vec![]);
+    }
 
     let character_id = match character_id {
         Some(id) => id,
