@@ -309,6 +309,47 @@ async fn handle_message(
             Ok(vec![writer.into_bytes()])
         }
 
+        MessageType::PlayerStop => {
+            // Client stopped moving (interacting with NPC/bank/etc)
+            // Format: x (u16) + y (u16)
+            // Broadcast to other players in room
+            let mut reader = crate::protocol::MessageReader::new(payload);
+            if let (Ok(x), Ok(y)) = (reader.read_u16(), reader.read_u16()) {
+                let (player_id, room_id) = {
+                    let session_guard = session.read().await;
+                    (session_guard.player_id, session_guard.room_id)
+                };
+
+                if let Some(player_id) = player_id {
+                    // Update session position
+                    {
+                        let mut session_guard = session.write().await;
+                        session_guard.x = x;
+                        session_guard.y = y;
+                    }
+
+                    // Broadcast to other players in room
+                    let room_players = server.game_state.get_room_players(room_id).await;
+                    for other_player_id in room_players {
+                        if other_player_id == player_id {
+                            continue;
+                        }
+                        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
+                            if let Some(other_session) = server.sessions.get(&other_session_id) {
+                                let mut writer = MessageWriter::new();
+                                writer.write_u16(MessageType::PlayerStop.id())
+                                    .write_u16(player_id)
+                                    .write_u16(x)
+                                    .write_u16(y);
+                                other_session.write().await.queue_message(writer.into_bytes());
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(vec![])
+        }
+
         _ => {
             debug!("Unhandled: [{}] {}", msg_type.category(), msg_type);
             Ok(vec![])
