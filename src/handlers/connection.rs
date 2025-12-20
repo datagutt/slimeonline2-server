@@ -202,6 +202,17 @@ async fn handle_client_messages(
                             if matches!(msg_type, MessageType::Logout) {
                                 return Ok(());
                             }
+                            
+                            // Check if session was marked for disconnection (by anti-cheat, etc.)
+                            {
+                                let session_guard = session.read().await;
+                                if session_guard.should_disconnect {
+                                    if let Some(reason) = &session_guard.disconnect_reason {
+                                        warn!("Kicking {} - reason: {}", addr, reason);
+                                    }
+                                    return Ok(());
+                                }
+                            }
                         }
                     }
                     Err(e) => {

@@ -88,15 +88,18 @@ pub async fn handle_movement(
             }
             CheatResult::Cheating { reason } => {
                 warn!(
-                    "Cheat detected for player {}: {} - rejecting position update",
+                    "Cheat detected for player {}: {}",
                     player_id, reason
                 );
-                // Don't update position, don't broadcast
-                // Could kick player here if desired
+                
+                // Check if player should be kicked (repeated violations)
                 if server.anticheat.should_kick(session_id.as_u128() as u64).await {
-                    warn!("Player {} should be kicked for repeated cheating", player_id);
-                    // TODO: Implement kick mechanism
+                    warn!("Kicking player {} for repeated movement cheats", player_id);
+                    let mut session_guard = session.write().await;
+                    session_guard.kick(format!("Movement cheat detected: {}", reason));
                 }
+                
+                // Don't update position or broadcast this movement
                 return Ok(vec![]);
             }
         }
