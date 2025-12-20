@@ -403,3 +403,83 @@ pub async fn update_accessory2_id(
 
     Ok(())
 }
+
+/// Get character's bank balance
+pub async fn get_bank_balance(
+    pool: &DbPool,
+    character_id: i64,
+) -> Result<i64, sqlx::Error> {
+    let result: (i64,) = sqlx::query_as(
+        r#"
+        SELECT bank_balance FROM characters WHERE id = ?
+        "#,
+    )
+    .bind(character_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(result.0)
+}
+
+/// Update character's bank balance
+pub async fn update_bank_balance(
+    pool: &DbPool,
+    character_id: i64,
+    bank_balance: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET bank_balance = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(bank_balance)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Update both points and bank balance atomically (for deposit/withdraw)
+pub async fn update_points_and_bank(
+    pool: &DbPool,
+    character_id: i64,
+    points: i64,
+    bank_balance: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET points = ?, bank_balance = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(points)
+    .bind(bank_balance)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Find character by username (for bank transfers)
+pub async fn find_character_by_username(
+    pool: &DbPool,
+    username: &str,
+) -> Result<Option<Character>, sqlx::Error> {
+    sqlx::query_as::<_, Character>(
+        r#"
+        SELECT id, account_id, username, x, y, room_id, body_id, acs1_id, acs2_id,
+               points, bank_balance, trees_planted, objects_built, quest_id, quest_step,
+               quest_var, has_signature, is_moderator, clan_id
+        FROM characters
+        WHERE username = ?
+        "#,
+    )
+    .bind(username)
+    .fetch_optional(pool)
+    .await
+}
