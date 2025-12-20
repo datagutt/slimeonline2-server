@@ -1,8 +1,8 @@
 //! Game state management for Slime Online 2
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
 use dashmap::DashMap;
@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::constants::*;
 
-/// A dropped item on the ground
+/// A dropped item on the ground (player-discarded)
 #[derive(Debug, Clone)]
 pub struct DroppedItem {
     pub instance_id: u16,
@@ -21,13 +21,39 @@ pub struct DroppedItem {
     pub dropped_at: Instant,
 }
 
+/// A collectible spawn point (static world collectibles)
+#[derive(Debug, Clone)]
+pub struct CollectibleSpawn {
+    /// Unique ID for this spawn point within a room (0-255)
+    pub col_id: u8,
+    /// The item ID this spawn point gives
+    pub item_id: u16,
+    /// X position in room
+    pub x: u16,
+    /// Y position in room
+    pub y: u16,
+    /// Respawn delay in seconds (None = never respawns)
+    pub respawn_secs: Option<u32>,
+}
+
+/// Active collectible state in a room
+#[derive(Debug, Clone)]
+pub struct ActiveCollectible {
+    /// Reference to spawn definition
+    pub spawn: CollectibleSpawn,
+    /// When this collectible was taken (None = available)
+    pub taken_at: Option<Instant>,
+}
+
 /// Room state
 #[derive(Debug)]
 pub struct Room {
     pub id: u16,
     pub players: RwLock<HashSet<u16>>,
-    /// Items dropped on the ground in this room
+    /// Items dropped on the ground in this room (player-discarded)
     pub dropped_items: RwLock<HashMap<u16, DroppedItem>>,
+    /// Collectibles in this room (spawn points with their current state)
+    pub collectibles: RwLock<HashMap<u8, ActiveCollectible>>,
 }
 
 impl Room {
@@ -36,6 +62,7 @@ impl Room {
             id,
             players: RwLock::new(HashSet::new()),
             dropped_items: RwLock::new(HashMap::new()),
+            collectibles: RwLock::new(HashMap::new()),
         }
     }
 
@@ -57,7 +84,10 @@ impl Room {
 
     /// Add a dropped item to the room
     pub async fn add_dropped_item(&self, item: DroppedItem) {
-        self.dropped_items.write().await.insert(item.instance_id, item);
+        self.dropped_items
+            .write()
+            .await
+            .insert(item.instance_id, item);
     }
 
     /// Remove and return a dropped item by instance ID
@@ -68,6 +98,71 @@ impl Room {
     /// Get all dropped items in the room
     pub async fn get_dropped_items(&self) -> Vec<DroppedItem> {
         self.dropped_items.read().await.values().cloned().collect()
+    }
+
+    /// Initialize collectibles for this room from spawn definitions
+    pub async fn init_collectibles(&self, spawns: Vec<CollectibleSpawn>) {
+        let mut collectibles = self.collectibles.write().await;
+        for spawn in spawns {
+            collectibles.insert(
+                spawn.col_id,
+                ActiveCollectible {
+                    spawn,
+                    taken_at: None,
+                },
+            );
+        }
+    }
+
+    /// Get all available (not taken) collectibles in the room
+    pub async fn get_available_collectibles(&self) -> Vec<ActiveCollectible> {
+        let mut collectibles = self.collectibles.write().await;
+        let mut available = Vec::new();
+
+        for (_, col) in collectibles.iter_mut() {
+            // Check if it's available or has respawned
+            if let Some(taken_at) = col.taken_at {
+                if let Some(respawn_secs) = col.spawn.respawn_secs {
+                    if taken_at.elapsed().as_secs() >= respawn_secs as u64 {
+                        // Respawned!
+                        col.taken_at = None;
+                    }
+                }
+            }
+
+            if col.taken_at.is_none() {
+                available.push(col.clone());
+            }
+        }
+
+        available
+    }
+
+    /// Take a collectible by ID, returns the collectible spawn info if successful
+    pub async fn take_collectible(&self, col_id: u8) -> Option<CollectibleSpawn> {
+        let mut collectibles = self.collectibles.write().await;
+        let now = Instant::now();
+
+        if let Some(col) = collectibles.get_mut(&col_id) {
+            // Check if it's available (or respawned)
+            if let Some(taken_at) = col.taken_at {
+                if let Some(respawn_secs) = col.spawn.respawn_secs {
+                    if taken_at.elapsed().as_secs() >= respawn_secs as u64 {
+                        // Respawned, allow taking
+                        col.taken_at = Some(now);
+                        return Some(col.spawn.clone());
+                    }
+                }
+                // Already taken and not respawned
+                return None;
+            }
+
+            // Available - take it
+            col.taken_at = Some(now);
+            Some(col.spawn.clone())
+        } else {
+            None
+        }
     }
 }
 
@@ -153,7 +248,7 @@ impl PlayerSession {
 /// Global game state
 pub struct GameState {
     pub rooms: DashMap<u16, Arc<Room>>,
-    pub players_by_id: DashMap<u16, Uuid>,  // player_id -> session_id
+    pub players_by_id: DashMap<u16, Uuid>, // player_id -> session_id
     /// Counter for generating unique dropped item instance IDs
     next_dropped_item_id: AtomicU16,
 }
@@ -259,6 +354,30 @@ impl GameState {
             room.get_dropped_items().await
         } else {
             Vec::new()
+        }
+    }
+
+    /// Initialize collectibles for a room from spawn definitions
+    pub async fn init_room_collectibles(&self, room_id: u16, spawns: Vec<CollectibleSpawn>) {
+        let room = self.get_or_create_room(room_id);
+        room.init_collectibles(spawns).await;
+    }
+
+    /// Get all available collectibles in a room
+    pub async fn get_available_collectibles(&self, room_id: u16) -> Vec<ActiveCollectible> {
+        if let Some(room) = self.get_room(room_id) {
+            room.get_available_collectibles().await
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Take a collectible from a room
+    pub async fn take_collectible(&self, room_id: u16, col_id: u8) -> Option<CollectibleSpawn> {
+        if let Some(room) = self.get_room(room_id) {
+            room.take_collectible(col_id).await
+        } else {
+            None
         }
     }
 }

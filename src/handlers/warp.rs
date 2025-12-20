@@ -10,7 +10,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::Server;
 
-use super::shop;
+use super::{shop, collectibles};
 
 /// Handle warp/room change
 /// 
@@ -166,6 +166,10 @@ pub async fn handle_warp(
             error!("Failed to build shop info for room {}: {}", new_room_id, e);
         }
     }
+
+    // Send collectible info for the new room
+    let collectible_msg = collectibles::write_collectible_info(server, new_room_id).await;
+    responses.push(collectible_msg);
 
     Ok(responses)
 }

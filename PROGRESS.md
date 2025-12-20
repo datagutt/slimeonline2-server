@@ -102,12 +102,18 @@ This document tracks the implementation progress of the Slime Online 2 private s
 | MSG_SELL_REQ_PRICES handler | Done | `src/handlers/shop/sell.rs` |
 | MSG_SELL handler (all categories) | Done | `src/handlers/shop/sell.rs` |
 | Sell prices for items/outfits/accessories/tools | Done | `src/handlers/items/database.rs`, `src/handlers/shop/sell.rs` |
+| Collectible system (materials pickup) | Done | `src/handlers/collectibles.rs`, `src/game/mod.rs` |
+| MSG_COLLECTIBLE_INFO sender (32) | Done | `src/handlers/collectibles.rs` |
+| MSG_COLLECTIBLE_TAKE_SELF handler (33) | Done | `src/handlers/collectibles.rs` |
+| MSG_COLLECTIBLE_TAKEN broadcast (34) | Done | `src/handlers/collectibles.rs` |
+| MSG_GET_ITEM sender (41) | Done | `src/handlers/collectibles.rs` |
+| Collectible respawn timer | Done | `src/game/mod.rs` |
 
 ### Pending
 
 | Task | Status | Notes |
 |------|--------|-------|
-| MSG_GET_ITEM handler | Pending | Receive item from world (random drops, etc.) |
+| Collectible spawn data from world files | Pending | Parse actual room/collectible positions |
 
 ## Phase 4: Social Features (Week 9-11)
 
@@ -203,11 +209,13 @@ src/
 │   │   └── pickup.rs    # MSG_DISCARDED_ITEM_TAKE
 │   ├── shop/            # Shop system handlers
 │   │   ├── mod.rs
-│   │   └── buy.rs       # MSG_SHOP_BUY, MSG_ROOM_SHOP_INFO
+│   │   ├── buy.rs       # MSG_SHOP_BUY, MSG_ROOM_SHOP_INFO
+│   │   └── sell.rs      # MSG_SELL_REQ_PRICES, MSG_SELL
 │   ├── bank.rs          # MSG_REQUEST_STATUS, MSG_BANK_PROCESS
-│   └── mail.rs          # MSG_MAILBOX, MSG_MAIL_SEND, MSG_MAIL_RECEIVER_CHECK
+│   ├── mail.rs          # MSG_MAILBOX, MSG_MAIL_SEND, MSG_MAIL_RECEIVER_CHECK
+│   └── collectibles.rs  # MSG_COLLECTIBLE_INFO, MSG_COLLECTIBLE_TAKE_SELF, MSG_GET_ITEM
 ├── game/
-│   └── mod.rs           # Game state, rooms, sessions, dropped items
+│   └── mod.rs           # Game state, rooms, sessions, dropped items, collectibles
 └── db/
     ├── mod.rs           # Database pool and migrations
     ├── accounts.rs      # Account queries
@@ -297,6 +305,10 @@ Currently uses default configuration in `src/main.rs`:
 | 53 | MSG_SELL_REQ_PRICES | C→S, S→C | Done |
 | 54 | MSG_SELL | C→S, S→C | Done |
 | 133 | MSG_PLAYER_TYPING | C→S, S→C | Done |
+| 32 | MSG_COLLECTIBLE_INFO | S→C | Done |
+| 33 | MSG_COLLECTIBLE_TAKE_SELF | C→S | Done |
+| 34 | MSG_COLLECTIBLE_TAKEN | S→C | Done |
+| 41 | MSG_GET_ITEM | S→C | Done |
 
 ## Fixes Applied
 
@@ -366,10 +378,16 @@ The 39dll `bufferencrypt` function uses standard RC4. Our implementation matches
   - Server-determined sell prices for all item types
   - Multi-item selling (select multiple items to sell at once)
   - Category-based selling (switch between inventory categories)
+- Added collectible system (MSG_COLLECTIBLE_INFO, MSG_COLLECTIBLE_TAKE_SELF, MSG_GET_ITEM)
+  - Server-side collectible spawn point definitions
+  - Automatic respawn after configurable delay (default 5 minutes)
+  - Broadcast MSG_COLLECTIBLE_TAKEN to other players in room
+  - MSG_COLLECTIBLE_INFO sent on room enter (login/warp)
+  - MSG_GET_ITEM to give collected items to player inventory
 
 ## Next Steps
 
-1. Implement MSG_GET_ITEM handler (random item drops from world)
+1. Parse actual collectible spawn data from game world files
 2. Add basic movement validation
 3. Implement quest system (MSG_QUEST_NPC_REQ, etc.)
 4. Implement clan system (MSG_CLAN_*, etc.)

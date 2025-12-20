@@ -11,5 +11,6 @@ pub mod items;
 pub mod shop;
 pub mod bank;
 pub mod mail;
+pub mod collectibles;
 
 pub use connection::handle_connection;

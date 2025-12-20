@@ -17,7 +17,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageWriter, write_player_left, MessageType, describe_message};
 use crate::Server;
 
-use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail};
+use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail, collectibles};
 
 /// Handle a client connection.
 pub async fn handle_connection(
@@ -328,6 +328,10 @@ async fn handle_message(
 
         MessageType::MailReceiverCheck => {
             mail::handle_mail_receiver_check(payload, server, session).await
+        }
+
+        MessageType::CollectibleTakeSelf => {
+            collectibles::handle_collectible_take(payload, server, session).await
         }
 
         MessageType::Save => {
