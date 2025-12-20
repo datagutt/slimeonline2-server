@@ -340,3 +340,66 @@ pub async fn update_tool_slot(
 
     Ok(())
 }
+
+/// Update character's equipped body/outfit ID
+pub async fn update_body_id(
+    pool: &DbPool,
+    character_id: i64,
+    body_id: i16,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET body_id = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(body_id)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Update character's equipped accessory 1 ID
+pub async fn update_accessory1_id(
+    pool: &DbPool,
+    character_id: i64,
+    acs1_id: i16,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET acs1_id = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(acs1_id)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Update character's equipped accessory 2 ID
+pub async fn update_accessory2_id(
+    pool: &DbPool,
+    character_id: i64,
+    acs2_id: i16,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET acs2_id = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(acs2_id)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
