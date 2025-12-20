@@ -19,6 +19,9 @@ mod db;
 mod protocol;
 mod handlers;
 mod game;
+mod validation;
+mod rate_limit;
+mod anticheat;
 
 use constants::*;
 use db::DbPool;
@@ -62,6 +65,8 @@ pub struct Server {
     pub connections_by_ip: Arc<DashMap<String, usize>>,
     pub active_player_ids: Arc<DashMap<u16, Uuid>>,
     next_player_id: Arc<std::sync::atomic::AtomicU16>,
+    pub rate_limiter: Arc<rate_limit::RateLimiter>,
+    pub anticheat: Arc<anticheat::AntiCheat>,
 }
 
 impl Server {
@@ -81,6 +86,8 @@ impl Server {
             connections_by_ip: Arc::new(DashMap::new()),
             active_player_ids: Arc::new(DashMap::new()),
             next_player_id: Arc::new(std::sync::atomic::AtomicU16::new(1)),
+            rate_limiter: Arc::new(rate_limit::RateLimiter::new()),
+            anticheat: Arc::new(anticheat::AntiCheat::new()),
         })
     }
 
