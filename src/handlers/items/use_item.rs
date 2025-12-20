@@ -248,10 +248,15 @@ async fn broadcast_visual_effect(server: &Arc<Server>, room_id: u16, item_id: u1
         .write_u16(y);
     let msg = writer.into_bytes();
     
+    debug!("Broadcasting visual effect for item {} at ({}, {}) to room {}", item_id, x, y, room_id);
+    
     let room_players = server.game_state.get_room_players(room_id).await;
+    debug!("Room {} has {} players: {:?}", room_id, room_players.len(), room_players);
+    
     for player_id in room_players {
         if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
             if let Some(session) = server.sessions.get(&session_id) {
+                debug!("Sending visual effect to player {}", player_id);
                 session.write().await.queue_message(msg.clone());
             }
         }
