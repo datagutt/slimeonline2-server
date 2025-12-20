@@ -12,7 +12,10 @@ pub struct Mail {
     pub sender_name: String,
     pub message: String,
     pub item_id: i64,
+    pub item_cat: i64,
     pub points: i64,
+    pub paper: i64,
+    pub font_color: i64,
     pub is_read: i64,
     pub created_at: String,
 }
@@ -26,12 +29,15 @@ pub async fn send_mail(
     sender_name: &str,
     message: &str,
     item_id: i64,
+    item_cat: i64,
     points: i64,
+    paper: i64,
+    font_color: i64,
 ) -> Result<i64, sqlx::Error> {
     let result = sqlx::query(
         r#"
-        INSERT INTO mail (from_character_id, to_character_id, sender_name, message, item_id, points)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO mail (from_character_id, to_character_id, sender_name, message, item_id, item_cat, points, paper, font_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(from_character_id)
@@ -39,7 +45,10 @@ pub async fn send_mail(
     .bind(sender_name)
     .bind(message)
     .bind(item_id)
+    .bind(item_cat)
     .bind(points)
+    .bind(paper)
+    .bind(font_color)
     .execute(pool)
     .await?;
 
@@ -58,7 +67,7 @@ pub async fn get_mailbox(
     sqlx::query_as::<_, Mail>(
         r#"
         SELECT id, from_character_id, to_character_id, sender_name, message, 
-               item_id, points, is_read, created_at
+               item_id, item_cat, points, paper, font_color, is_read, created_at
         FROM mail
         WHERE to_character_id = ?
         ORDER BY created_at DESC
@@ -133,7 +142,7 @@ pub async fn get_mail(
     sqlx::query_as::<_, Mail>(
         r#"
         SELECT id, from_character_id, to_character_id, sender_name, message, 
-               item_id, points, is_read, created_at
+               item_id, item_cat, points, paper, font_color, is_read, created_at
         FROM mail
         WHERE id = ? AND to_character_id = ?
         "#,
@@ -171,7 +180,7 @@ pub async fn clear_mail_attachments(
 ) -> Result<bool, sqlx::Error> {
     let result = sqlx::query(
         r#"
-        UPDATE mail SET item_id = 0, points = 0 WHERE id = ? AND to_character_id = ?
+        UPDATE mail SET item_id = 0, item_cat = 0, points = 0 WHERE id = ? AND to_character_id = ?
         "#,
     )
     .bind(mail_id)
@@ -190,7 +199,7 @@ pub async fn clear_mail_item(
 ) -> Result<bool, sqlx::Error> {
     let result = sqlx::query(
         r#"
-        UPDATE mail SET item_id = 0 WHERE id = ? AND to_character_id = ?
+        UPDATE mail SET item_id = 0, item_cat = 0 WHERE id = ? AND to_character_id = ?
         "#,
     )
     .bind(mail_id)

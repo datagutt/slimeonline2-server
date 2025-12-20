@@ -55,25 +55,30 @@ pub async fn handle_mailbox(
             let page = reader.read_u8()? as i64;
             get_mailbox_page(server, char_id, page).await
         }
+        4 => {
+            // Delete mail
+            let mail_slot = reader.read_u8()? as i64;
+            delete_mail(server, char_id, mail_slot).await
+        }
         5 => {
             // Get specific mail content
             let mail_slot = reader.read_u8()? as i64;
             get_mail_content(server, char_id, mail_slot).await
         }
-        2 => {
+        6 => {
+            // Claim mail points (take to wallet)
+            let mail_slot = reader.read_u8()? as i64;
+            claim_mail_points(server, char_id, mail_slot, session.clone()).await
+        }
+        7 => {
+            // Claim mail points (send to bank)
+            let mail_slot = reader.read_u8()? as i64;
+            claim_mail_points_to_bank(server, char_id, mail_slot, session).await
+        }
+        8 => {
             // Claim mail item attachment
             let mail_slot = reader.read_u8()? as i64;
             claim_mail_item(server, char_id, mail_slot, session).await
-        }
-        4 => {
-            // Claim mail points attachment
-            let mail_slot = reader.read_u8()? as i64;
-            claim_mail_points(server, char_id, mail_slot, session).await
-        }
-        6 => {
-            // Delete mail
-            let mail_slot = reader.read_u8()? as i64;
-            delete_mail(server, char_id, mail_slot).await
         }
         _ => {
             debug!("Unknown mailbox case: {}", case);
@@ -153,9 +158,6 @@ async fn get_mail_content(
     // Mark as read
     let _ = db::mark_mail_read(&server.db, mail.id, character_id).await;
     
-    // Determine present category: 0=none, 1=outfits, 2=items, 3=accessories, 4=cards
-    let present_cat = if mail.item_id > 0 { 2u8 } else { 0u8 }; // Assume items for now
-    
     let mut writer = MessageWriter::new();
     writer.write_u16(MessageType::Mailbox.id())
         .write_u8(5) // case 5 response
@@ -163,12 +165,13 @@ async fn get_mail_content(
         .write_string(&mail.created_at)
         .write_string(&mail.message)
         .write_u16(mail.points as u16)
-        .write_u8(present_cat)
+        .write_u8(mail.item_cat as u8)
         .write_u16(mail.item_id as u16)
-        .write_u8(0) // paper style
-        .write_u8(1); // font color (1 = black)
+        .write_u8(mail.paper as u8)
+        .write_u8(mail.font_color as u8);
     
-    debug!("Sending mail content for slot {}", mail_slot);
+    debug!("Sending mail content for slot {}: item_id={}, item_cat={}, paper={}, font={}", 
+           mail_slot, mail.item_id, mail.item_cat, mail.paper, mail.font_color);
     
     Ok(vec![writer.into_bytes()])
 }
@@ -288,7 +291,56 @@ async fn claim_mail_points(
     Ok(vec![writer.into_bytes()])
 }
 
-/// Delete a mail (case 6)
+/// Claim mail points attachment and send to bank (case 7 -> response case 7)
+async fn claim_mail_points_to_bank(
+    server: &Arc<Server>,
+    character_id: i64,
+    mail_slot: i64,
+    _session: Arc<RwLock<PlayerSession>>,
+) -> Result<Vec<Vec<u8>>> {
+    let page = (mail_slot - 1) / 5;
+    let slot_in_page = ((mail_slot - 1) % 5) as usize;
+    
+    let mails = db::get_mailbox(&server.db, character_id, page).await.unwrap_or_default();
+    
+    if slot_in_page >= mails.len() {
+        return Ok(vec![]);
+    }
+    
+    let mail = &mails[slot_in_page];
+    
+    if mail.points == 0 {
+        return Ok(vec![]);
+    }
+    
+    let points_to_add = mail.points;
+    
+    // Get current bank balance and add points
+    let current_bank = db::get_bank_balance(&server.db, character_id).await.unwrap_or(0);
+    let new_bank = current_bank + points_to_add;
+    
+    // Update bank balance in database
+    if let Err(e) = db::update_bank_balance(&server.db, character_id, new_bank).await {
+        warn!("Failed to add points to bank from mail: {}", e);
+        return Ok(vec![]);
+    }
+    
+    // Clear points from mail
+    if let Err(e) = db::clear_mail_points(&server.db, mail.id, character_id).await {
+        warn!("Failed to clear mail points: {}", e);
+    }
+    
+    // Response case 7 = points sent to bank
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::Mailbox.id())
+        .write_u8(7); // case 7 = points to bank
+    
+    debug!("Claimed {} points from mail to bank (new balance: {})", points_to_add, new_bank);
+    
+    Ok(vec![writer.into_bytes()])
+}
+
+/// Delete a mail (case 4)
 async fn delete_mail(
     server: &Arc<Server>,
     character_id: i64,
@@ -381,6 +433,7 @@ pub async fn handle_mail_send(
     }
     
     let mut item_id: i64 = 0;
+    let mut item_cat: i64 = 0;
     let mut actual_points: i64 = 0;
     
     // Handle item attachment based on present_cat
@@ -398,6 +451,7 @@ pub async fn handle_mail_send(
             
             if slot_item > 0 {
                 item_id = slot_item as i64;
+                item_cat = present_cat as i64;
                 // Remove item from sender's inventory based on category
                 let remove_result = match present_cat {
                     1 => db::update_outfit_slot(&server.db, char_id, present_id as u8, 0).await,
@@ -440,11 +494,12 @@ pub async fn handle_mail_send(
     }
     
     // Send the mail
-    match db::send_mail(&server.db, char_id, receiver.id, &sender_name, &message, item_id, actual_points).await {
+    match db::send_mail(&server.db, char_id, receiver.id, &sender_name, &message, item_id, item_cat, actual_points, paper as i64, font_color as i64).await {
         Ok(mail_id) => {
             info!("Mail {} sent from {} to {}", mail_id, sender_name, receiver_name);
             
-            // TODO: If receiver is online, notify them of new mail
+            // If receiver is online, notify them of new mail
+            notify_new_mail(server, receiver.id).await;
             
             // Build response with updated points
             let mut writer = MessageWriter::new();
@@ -468,6 +523,34 @@ fn build_mail_send_response(success: bool) -> Vec<u8> {
     writer.write_u16(MessageType::MailSend.id())
         .write_u8(if success { 1 } else { 0 });
     writer.into_bytes()
+}
+
+/// Notify a player that they have new mail (if they're online)
+/// Sends MSG_MAILBOX case 1 with has_mail = 1
+async fn notify_new_mail(server: &Arc<Server>, receiver_character_id: i64) {
+    // Find the receiver's session by character_id
+    for session_ref in server.sessions.iter() {
+        let is_receiver = {
+            if let Ok(session_guard) = session_ref.value().try_read() {
+                session_guard.character_id == Some(receiver_character_id)
+            } else {
+                false
+            }
+        };
+        
+        if is_receiver {
+            // Build the "you have mail" notification (case 1, has_mail = 1)
+            let mut writer = MessageWriter::new();
+            writer.write_u16(MessageType::Mailbox.id())
+                .write_u8(1)  // case 1 = mail count check response
+                .write_u8(1); // 1 = has mail
+            
+            // Queue the message for the receiver
+            session_ref.value().write().await.queue_message(writer.into_bytes());
+            debug!("Notified player (char_id={}) of new mail", receiver_character_id);
+            return;
+        }
+    }
 }
 
 /// Handle MSG_MAIL_RECEIVER_CHECK (80)
