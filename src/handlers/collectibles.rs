@@ -155,12 +155,18 @@ pub async fn init_room_if_needed(server: &Arc<Server>, room_id: u16) {
 
 /// Write MSG_COLLECTIBLE_INFO message for a room
 /// Called when a player enters a room to tell them about available collectibles
-pub async fn write_collectible_info(server: &Arc<Server>, room_id: u16) -> Vec<u8> {
+/// Returns None if there are no collectibles in the room
+pub async fn write_collectible_info(server: &Arc<Server>, room_id: u16) -> Option<Vec<u8>> {
     // Initialize room collectibles if needed
     init_room_if_needed(server, room_id).await;
 
     // Get available collectibles
     let available = server.game_state.get_available_collectibles(room_id).await;
+
+    // Don't send the message if there are no collectibles
+    if available.is_empty() {
+        return None;
+    }
 
     let mut writer = MessageWriter::new();
     writer.write_u16(MessageType::CollectibleInfo.id());
@@ -177,7 +183,7 @@ pub async fn write_collectible_info(server: &Arc<Server>, room_id: u16) -> Vec<u
         writer.write_u16(col.spawn.y); // y (u16)
     }
 
-    writer.into_bytes()
+    Some(writer.into_bytes())
 }
 
 /// Handle MSG_COLLECTIBLE_TAKE_SELF (33)

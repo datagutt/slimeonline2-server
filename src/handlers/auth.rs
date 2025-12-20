@@ -313,9 +313,10 @@ pub async fn handle_login(
         }
     }
 
-    // Send collectible info for the spawn room
-    let collectible_msg = collectibles::write_collectible_info(server, character.room_id as u16).await;
-    responses.push(collectible_msg);
+    // Send collectible info for the spawn room (if any collectibles exist)
+    if let Some(collectible_msg) = collectibles::write_collectible_info(server, character.room_id as u16).await {
+        responses.push(collectible_msg);
+    }
 
     Ok(responses)
 }

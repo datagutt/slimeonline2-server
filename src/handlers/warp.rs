@@ -167,9 +167,10 @@ pub async fn handle_warp(
         }
     }
 
-    // Send collectible info for the new room
-    let collectible_msg = collectibles::write_collectible_info(server, new_room_id).await;
-    responses.push(collectible_msg);
+    // Send collectible info for the new room (if any collectibles exist)
+    if let Some(collectible_msg) = collectibles::write_collectible_info(server, new_room_id).await {
+        responses.push(collectible_msg);
+    }
 
     Ok(responses)
 }
