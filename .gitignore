@@ -16,3 +16,4 @@ target/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 slime_online2.db
+room_data.json
