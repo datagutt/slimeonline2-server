@@ -3,9 +3,13 @@
 //! This module defines typed message structures that can be parsed from
 //! and serialized to the binary protocol format.
 
-use super::{MessageReader, MessageWriter};
+use super::{MessageReader, MessageWriter, MessageType};
 use super::reader::ReadResult;
-use crate::constants::*;
+use crate::constants::{
+    Direction, LOGIN_SUCCESS,
+    PROTOCOL_VERSION, MIN_USERNAME_LENGTH, MAX_USERNAME_LENGTH,
+    MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH,
+};
 
 // =============================================================================
 // LOGIN / REGISTER MESSAGES
@@ -84,7 +88,7 @@ impl LoginSuccessData {
     /// Serialize to binary format for sending to client.
     pub fn write(&self, writer: &mut MessageWriter) {
         writer
-            .write_u16(MSG_LOGIN)
+            .write_u16(MessageType::Login.id())
             .write_u8(LOGIN_SUCCESS)
             .write_u16(self.player_id)
             .write_u32(self.server_time)
@@ -135,7 +139,7 @@ impl LoginSuccessData {
 
 /// Write a login failure response.
 pub fn write_login_failure(writer: &mut MessageWriter, error_code: u8) {
-    writer.write_u16(MSG_LOGIN).write_u8(error_code);
+    writer.write_u16(MessageType::Login.id()).write_u8(error_code);
 }
 
 /// Client registration request (MSG_REGISTER = 7)
@@ -177,7 +181,7 @@ impl RegisterRequest {
 
 /// Write a registration response.
 pub fn write_register_response(writer: &mut MessageWriter, result_code: u8) {
-    writer.write_u16(MSG_REGISTER).write_u8(result_code);
+    writer.write_u16(MessageType::Register.id()).write_u8(result_code);
 }
 
 // =============================================================================
@@ -187,7 +191,6 @@ pub fn write_register_response(writer: &mut MessageWriter, result_code: u8) {
 /// New player notification (MSG_NEW_PLAYER = 1)
 #[derive(Debug, Clone)]
 pub struct NewPlayerInfo {
-    pub case: u8,
     pub x: u16,
     pub y: u16,
     pub player_id: u16,
@@ -208,7 +211,7 @@ impl NewPlayerInfo {
     /// Write case 1 (new player joined server, needs response)
     pub fn write_case1(&self, writer: &mut MessageWriter) {
         writer
-            .write_u16(MSG_NEW_PLAYER)
+            .write_u16(MessageType::NewPlayer.id())
             .write_u8(1)
             .write_u16(self.x)
             .write_u16(self.y)
@@ -223,7 +226,7 @@ impl NewPlayerInfo {
     /// Write case 2 (existing player info, room change)
     pub fn write_case2(&self, writer: &mut MessageWriter) {
         writer
-            .write_u16(MSG_NEW_PLAYER)
+            .write_u16(MessageType::NewPlayer.id())
             .write_u8(2)
             .write_u16(self.x)
             .write_u16(self.y)
@@ -243,7 +246,7 @@ impl NewPlayerInfo {
 
 /// Player left notification (MSG_LOGOUT = 6)
 pub fn write_player_left(writer: &mut MessageWriter, player_id: u16) {
-    writer.write_u16(MSG_LOGOUT).write_u16(player_id);
+    writer.write_u16(MessageType::Logout.id()).write_u16(player_id);
 }
 
 // =============================================================================
@@ -265,19 +268,24 @@ impl MovementUpdate {
         let direction = reader.read_u8()?;
         
         // Determine if x/y coordinates are included based on direction
-        let (x, y) = match direction {
-            // Directions that include x and y
-            DIR_START_LEFT_GROUND | DIR_START_RIGHT_GROUND |
-            DIR_STOP_LEFT_GROUND | DIR_STOP_RIGHT_GROUND |
-            DIR_LANDING => {
-                (Some(reader.read_u16()?), Some(reader.read_u16()?))
+        let (x, y) = if let Some(dir) = Direction::from_u8(direction) {
+            match dir {
+                // Directions that include x and y
+                Direction::StartLeftGround | Direction::StartRightGround |
+                Direction::StopLeftGround | Direction::StopRightGround |
+                Direction::Landing => {
+                    (Some(reader.read_u16()?), Some(reader.read_u16()?))
+                }
+                // Directions that include only x
+                Direction::Jump => {
+                    (Some(reader.read_u16()?), None)
+                }
+                // Directions with no coordinates
+                _ => (None, None),
             }
-            // Directions that include only x
-            DIR_JUMP => {
-                (Some(reader.read_u16()?), None)
-            }
-            // Directions with no coordinates
-            _ => (None, None),
+        } else {
+            // Unknown direction, no coordinates
+            (None, None)
         };
 
         Ok(Self { direction, x, y })
@@ -286,7 +294,7 @@ impl MovementUpdate {
     /// Write a movement broadcast to other players.
     pub fn write_broadcast(&self, writer: &mut MessageWriter, player_id: u16) {
         writer
-            .write_u16(MSG_MOVE_PLAYER)
+            .write_u16(MessageType::MovePlayer.id())
             .write_u16(player_id)
             .write_u8(self.direction);
         
@@ -320,7 +328,7 @@ impl ChatMessage {
     /// Write a chat broadcast to room.
     pub fn write_broadcast(writer: &mut MessageWriter, player_id: u16, message: &str) {
         writer
-            .write_u16(MSG_CHAT)
+            .write_u16(MessageType::Chat.id())
             .write_u16(player_id)
             .write_string(message);
     }
@@ -332,22 +340,25 @@ impl ChatMessage {
 
 /// Write a ping response (MSG_PING = 9)
 pub fn write_ping(writer: &mut MessageWriter) {
-    writer.write_u16(MSG_PING);
+    writer.write_u16(MessageType::Ping.id());
 }
 
 /// Write a server close message (MSG_SERVER_CLOSE = 24)
+#[allow(dead_code)]
 pub fn write_server_close(writer: &mut MessageWriter) {
-    writer.write_u16(MSG_SERVER_CLOSE);
+    writer.write_u16(MessageType::ServerClose.id());
 }
 
 /// Write a player stop message (MSG_PLAYER_STOP = 43)
+#[allow(dead_code)]
 pub fn write_player_stop(writer: &mut MessageWriter) {
-    writer.write_u16(MSG_PLAYER_STOP);
+    writer.write_u16(MessageType::PlayerStop.id());
 }
 
 /// Write a can-move message (MSG_CANMOVE_TRUE = 42)
+#[allow(dead_code)]
 pub fn write_canmove_true(writer: &mut MessageWriter) {
-    writer.write_u16(MSG_CANMOVE_TRUE);
+    writer.write_u16(MessageType::CanMoveTrue.id());
 }
 
 // =============================================================================
@@ -355,9 +366,10 @@ pub fn write_canmove_true(writer: &mut MessageWriter) {
 // =============================================================================
 
 /// Write a warp message (MSG_WARP = 14)
+#[allow(dead_code)]
 pub fn write_warp(writer: &mut MessageWriter, x: u16, y: u16, room_id: u16) {
     writer
-        .write_u16(MSG_WARP)
+        .write_u16(MessageType::Warp.id())
         .write_u16(x)
         .write_u16(y)
         .write_u16(room_id);
@@ -368,6 +380,7 @@ pub fn write_warp(writer: &mut MessageWriter, x: u16, y: u16, room_id: u16) {
 // =============================================================================
 
 /// Get the message type from raw bytes (without consuming).
+#[allow(dead_code)]
 pub fn peek_message_type(data: &[u8]) -> Option<u16> {
     if data.len() < 2 {
         return None;
@@ -376,6 +389,7 @@ pub fn peek_message_type(data: &[u8]) -> Option<u16> {
 }
 
 /// Check if a message type is valid.
+#[allow(dead_code)]
 pub fn is_valid_message_type(msg_type: u16) -> bool {
     // Valid message types are 1-141, excluding reserved ones
     matches!(msg_type, 1..=141) && !matches!(msg_type, 3 | 4 | 8 | 20)
@@ -459,8 +473,8 @@ mod tests {
 
         let bytes = writer.into_bytes();
         
-        // Check message type
-        assert_eq!(bytes[0..2], [10, 0]); // MSG_LOGIN = 10
+        // Check message type (Login = 10)
+        assert_eq!(bytes[0..2], [10, 0]);
         // Check success case
         assert_eq!(bytes[2], 1);
         // Check player ID

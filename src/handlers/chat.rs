@@ -6,9 +6,9 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::info;
 
-use crate::constants::*;
+use crate::constants::MAX_CHAT_LENGTH;
 use crate::game::PlayerSession;
-use crate::protocol::{ChatMessage, MessageReader, MessageWriter};
+use crate::protocol::{ChatMessage, MessageReader, MessageWriter, MessageType};
 use crate::Server;
 
 /// Handle chat message
@@ -91,7 +91,7 @@ pub async fn handle_typing(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MSG_PLAYER_TYPING).write_u16(player_id);
+                writer.write_u16(MessageType::PlayerTyping.id()).write_u16(player_id);
                 other_session.write().await.queue_message(writer.into_bytes());
             }
         }
@@ -136,7 +136,7 @@ pub async fn handle_emote(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MSG_EMOTE).write_u16(player_id).write_u8(emote_id);
+                writer.write_u16(MessageType::Emote.id()).write_u16(player_id).write_u8(emote_id);
                 other_session.write().await.queue_message(writer.into_bytes());
             }
         }
@@ -181,7 +181,7 @@ pub async fn handle_action(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MSG_ACTION).write_u16(player_id).write_u8(action_id);
+                writer.write_u16(MessageType::Action.id()).write_u16(player_id).write_u8(action_id);
                 other_session.write().await.queue_message(writer.into_bytes());
             }
         }

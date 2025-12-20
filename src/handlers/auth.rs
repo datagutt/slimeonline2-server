@@ -241,7 +241,6 @@ pub async fn handle_login(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let new_player = crate::protocol::NewPlayerInfo {
-                    case: 1,
                     x: character.x as u16,
                     y: character.y as u16,
                     player_id,
@@ -268,7 +267,6 @@ pub async fn handle_login(
                 let other_guard = other_session.read().await;
                 if let Some(other_username) = &other_guard.username {
                     let existing_player = crate::protocol::NewPlayerInfo {
-                        case: 2,
                         x: other_guard.x,
                         y: other_guard.y,
                         player_id: other_player_id,

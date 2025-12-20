@@ -6,9 +6,9 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::debug;
 
-use crate::constants::*;
+use crate::constants::MAX_POINTS;
 use crate::game::PlayerSession;
-use crate::protocol::MessageWriter;
+use crate::protocol::{MessageWriter, MessageType};
 use crate::Server;
 
 /// Handle point collection (slime points scattered on maps)
@@ -65,7 +65,7 @@ pub async fn handle_point_collection(
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
                 // Tell other clients this point was taken
-                writer.write_u16(MSG_POINT).write_u8(point_index);
+                writer.write_u16(MessageType::Point.id()).write_u8(point_index);
                 other_session.write().await.queue_message(writer.into_bytes());
             }
         }

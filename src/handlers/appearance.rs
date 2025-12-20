@@ -5,9 +5,8 @@ use std::sync::Arc;
 use anyhow::Result;
 use tokio::sync::RwLock;
 
-use crate::constants::*;
 use crate::game::PlayerSession;
-use crate::protocol::MessageWriter;
+use crate::protocol::{MessageWriter, MessageType};
 use crate::Server;
 
 /// Handle outfit change
@@ -52,7 +51,7 @@ pub async fn handle_change_outfit(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MSG_CHANGE_OUT).write_u16(player_id).write_u16(new_body_id);
+                writer.write_u16(MessageType::ChangeOutfit.id()).write_u16(player_id).write_u16(new_body_id);
                 other_session.write().await.queue_message(writer.into_bytes());
             }
         }
@@ -101,7 +100,7 @@ pub async fn handle_change_accessory1(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MSG_CHANGE_ACS1).write_u16(player_id).write_u16(new_acs_id);
+                writer.write_u16(MessageType::ChangeAccessory1.id()).write_u16(player_id).write_u16(new_acs_id);
                 other_session.write().await.queue_message(writer.into_bytes());
             }
         }
@@ -150,7 +149,7 @@ pub async fn handle_change_accessory2(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MSG_CHANGE_ACS2).write_u16(player_id).write_u16(new_acs_id);
+                writer.write_u16(MessageType::ChangeAccessory2.id()).write_u16(player_id).write_u16(new_acs_id);
                 other_session.write().await.queue_message(writer.into_bytes());
             }
         }

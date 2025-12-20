@@ -6,9 +6,8 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 
-use crate::constants::*;
 use crate::game::PlayerSession;
-use crate::protocol::{MessageReader, MessageWriter};
+use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::Server;
 
 /// Handle warp/room change
@@ -101,7 +100,7 @@ pub async fn handle_warp(
                 if let Some(other_session) = server.sessions.get(&other_session_id) {
                     let mut writer = MessageWriter::new();
                     // MSG_WARP + player_id + case(2 = left)
-                    writer.write_u16(MSG_WARP)
+                    writer.write_u16(MessageType::Warp.id())
                         .write_u16(player_id)
                         .write_u8(2); // Case 2 = player leaves room
                     other_session.write().await.queue_message(writer.into_bytes());
@@ -124,7 +123,7 @@ pub async fn handle_warp(
                 // Tell existing players that this player entered
                 let mut writer = MessageWriter::new();
                 // MSG_WARP + player_id + case(1 = entered) + x + y
-                writer.write_u16(MSG_WARP)
+                writer.write_u16(MessageType::Warp.id())
                     .write_u16(player_id)
                     .write_u8(1)  // Case 1 = player enters room
                     .write_u16(new_x)
@@ -136,7 +135,7 @@ pub async fn handle_warp(
                 if other_session.is_authenticated {
                     if let Some(other_username) = &other_session.username {
                         let mut new_player_writer = MessageWriter::new();
-                        new_player_writer.write_u16(MSG_NEW_PLAYER)
+                        new_player_writer.write_u16(MessageType::NewPlayer.id())
                             .write_u16(*other_player_id)
                             .write_string(other_username)
                             .write_u16(other_session.x)
