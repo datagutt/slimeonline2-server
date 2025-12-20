@@ -178,9 +178,15 @@ async fn handle_client_messages(
                                 session.clone(),
                             ).await?;
 
-                            // Send all responses
+                            // Send all direct responses from the handler
                             for response in responses {
                                 send_message(socket, response).await?;
+                            }
+
+                            // Also send any queued messages (from broadcasts, etc.)
+                            let queued_messages = session.write().await.drain_messages();
+                            for msg in queued_messages {
+                                send_message(socket, msg).await?;
                             }
 
                             // Check if we should disconnect (logout)
