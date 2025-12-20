@@ -4,9 +4,12 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::sync::RwLock;
+use tracing::warn;
 
+use crate::anticheat::{validate_position_bounds, CheatResult};
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageWriter, MovementUpdate};
+use crate::rate_limit::ActionType;
 use crate::Server;
 
 /// Handle movement message
@@ -18,8 +21,8 @@ pub async fn handle_movement(
     let mut reader = MessageReader::new(payload);
     let movement = MovementUpdate::parse(&mut reader)?;
 
-    let (player_id, room_id, should_broadcast) = {
-        let mut session_guard = session.write().await;
+    let (player_id, room_id, session_id, old_x, old_y) = {
+        let session_guard = session.read().await;
         
         if !session_guard.is_authenticated {
             return Ok(vec![]);
@@ -30,19 +33,76 @@ pub async fn handle_movement(
             None => return Ok(vec![]),
         };
 
-        // Update position if provided
-        if let Some(x) = movement.x {
-            session_guard.x = x;
-        }
-        if let Some(y) = movement.y {
-            session_guard.y = y;
-        }
-
-        (player_id, session_guard.room_id, true)
+        (
+            player_id,
+            session_guard.room_id,
+            session_guard.session_id,
+            session_guard.x,
+            session_guard.y,
+        )
     };
 
-    if !should_broadcast {
+    // Rate limiting for movement (very lenient)
+    if !server.rate_limiter.check_player(session_id.as_u128() as u64, ActionType::Movement)
+        .await
+        .is_allowed()
+    {
+        // Just silently drop excessive movement packets
         return Ok(vec![]);
+    }
+
+    // Validate position bounds if coordinates are provided
+    if let (Some(x), Some(y)) = (movement.x, movement.y) {
+        if !validate_position_bounds(x, y) {
+            warn!("Player {} sent invalid position: ({}, {})", player_id, x, y);
+            return Ok(vec![]);
+        }
+
+        // Anti-cheat: check for teleportation
+        let cheat_result = server.anticheat.check_movement(
+            session_id.as_u128() as u64,
+            x,
+            y,
+            room_id,
+        ).await;
+
+        match cheat_result {
+            CheatResult::Clean => {
+                // Update position
+                let mut session_guard = session.write().await;
+                session_guard.x = x;
+                session_guard.y = y;
+            }
+            CheatResult::Suspicious { reason, severity } => {
+                // Log but allow - could be lag
+                if severity >= 2 {
+                    warn!(
+                        "Suspicious movement from player {}: {} (was: {},{} now: {},{})",
+                        player_id, reason, old_x, old_y, x, y
+                    );
+                }
+                // Still update position to avoid desyncs
+                let mut session_guard = session.write().await;
+                session_guard.x = x;
+                session_guard.y = y;
+            }
+            CheatResult::Cheating { reason } => {
+                warn!(
+                    "Cheat detected for player {}: {} - rejecting position update",
+                    player_id, reason
+                );
+                // Don't update position, don't broadcast
+                // Could kick player here if desired
+                if server.anticheat.should_kick(session_id.as_u128() as u64).await {
+                    warn!("Player {} should be kicked for repeated cheating", player_id);
+                    // TODO: Implement kick mechanism
+                }
+                return Ok(vec![]);
+            }
+        }
+    } else {
+        // Direction-only update (no position) - just update flags
+        // These are valid and don't need position checks
     }
 
     // Broadcast movement to other players in the room
