@@ -28,6 +28,7 @@ This document tracks the implementation progress of the Slime Online 2 private s
 | MSG_LOGIN handler | Done | `src/handlers/auth.rs` |
 | MSG_REGISTER handler | Done | `src/handlers/auth.rs` |
 | MSG_PING handler | Done | `src/handlers/connection.rs` |
+| MSG_PING_REQ handler | Done | `src/handlers/connection.rs` |
 | MSG_LOGOUT handler | Done | `src/handlers/connection.rs` |
 | bcrypt password hashing | Done | `src/handlers/auth.rs` |
 | Per-IP connection limiting | Done | `src/main.rs` |
@@ -42,6 +43,7 @@ This document tracks the implementation progress of the Slime Online 2 private s
 - [x] Client can login with registered account
 - [x] Server rejects wrong password
 - [x] Server responds to PING messages
+- [x] Server responds to PING_REQ for latency measurement (F11)
 - [x] Connection times out after inactivity
 
 ## Phase 2: Core Gameplay (Week 3-5)
@@ -60,12 +62,14 @@ This document tracks the implementation progress of the Slime Online 2 private s
 | MSG_CHANGE_ACS2 handler | Done | `src/handlers/appearance.rs` |
 | MSG_POINT handler | Done | `src/handlers/gameplay.rs` |
 | MSG_WARP handler | Done | `src/handlers/warp.rs` |
+| MSG_PLAYER_STOP handler | Done | `src/handlers/connection.rs` |
 | Room player tracking | Done | `src/game/mod.rs` |
 | Player broadcast to room | Done | Various handlers |
 | New player notification | Done | `src/handlers/auth.rs` |
 | Player leave notification | Done | `src/handlers/connection.rs` |
 | Points persistence | Done | `src/handlers/gameplay.rs`, `src/db/characters.rs` |
 | Room/position persistence | Done | `src/handlers/warp.rs`, `src/db/characters.rs` |
+| Outfit/accessory persistence | Done | `src/handlers/appearance.rs`, `src/db/characters.rs` |
 
 ### Pending
 
@@ -90,6 +94,7 @@ This document tracks the implementation progress of the Slime Online 2 private s
 | MSG_SHOP_BUY handler | Done | `src/handlers/shop/buy.rs` |
 | MSG_ROOM_SHOP_INFO sender | Done | `src/handlers/shop/buy.rs` |
 | Shop info on room enter | Done | `src/handlers/warp.rs`, `src/handlers/auth.rs` |
+| Visual effects broadcast (smokebomb, bubbles, etc.) | Done | `src/handlers/items/use_item.rs` |
 
 ### Pending
 
@@ -97,7 +102,8 @@ This document tracks the implementation progress of the Slime Online 2 private s
 |------|--------|-------|
 | MSG_GET_ITEM handler | Pending | Receive item from world |
 | MSG_SELL handler | Pending | Sell items in shop |
-| Bank system (MSG_BANK_*) | Pending | Deposit, withdraw, transfer |
+| Bank system (MSG_BANK_PROCESS) | Pending | Deposit, withdraw, transfer |
+| MSG_REQUEST_STATUS handler | Pending | Bank balance query |
 
 ## Phase 4: Social Features (Week 9-11)
 
@@ -121,6 +127,7 @@ This document tracks the implementation progress of the Slime Online 2 private s
 | Building system | Pending | MSG_BUILD_* handlers |
 | Cannon system | Pending | MSG_CANNON_* handlers |
 | Racing system | Pending | MSG_RACE_* handlers |
+| Tool equip/unequip | Pending | MSG_TOOL_EQUIP, MSG_TOOL_UNEQUIP |
 
 ## Phase 6: Production (Week 15-16)
 
@@ -134,6 +141,23 @@ This document tracks the implementation progress of the Slime Online 2 private s
 | Performance optimization | Pending | Profiling and tuning |
 | Metrics/monitoring | Pending | Prometheus integration |
 | Admin commands | Pending | Kick, ban, announce |
+
+## Tools
+
+### SOR Tool (`sor_tool/`)
+
+A Rust CLI tool for working with the game's encrypted .sor archive files.
+
+| Command | Description |
+|---------|-------------|
+| `sor_tool list <archive.sor>` | List files in archive |
+| `sor_tool extract <archive.sor> <password> <output_dir>` | Extract files |
+| `sor_tool create <input_dir> <password> <output.sor>` | Create new archive |
+| `sor_tool rekey <input.sor> <old_pass> <new_pass> <output.sor>` | Re-encrypt with new key |
+
+**Known .sor passwords:**
+- `acs.sor` (correct): `ewtrhj654736z2g5q6bzhn6u`
+- `backgrounds.sor`: `adfadsfbgh4534ewfgr`
 
 ## Architecture
 
@@ -150,7 +174,7 @@ src/
 │   └── messages.rs      # Message structures
 ├── handlers/
 │   ├── mod.rs           # Handler module exports
-│   ├── connection.rs    # Connection lifecycle and message routing
+│   ├── connection.rs    # Connection lifecycle, message routing, ping, player stop
 │   ├── auth.rs          # Login/register handlers
 │   ├── movement.rs      # Movement message handler
 │   ├── chat.rs          # Chat, emote, action, typing handlers
@@ -160,7 +184,7 @@ src/
 │   ├── items/           # Item system handlers
 │   │   ├── mod.rs
 │   │   ├── database.rs  # 61 items from db_items.gml
-│   │   ├── use_item.rs  # MSG_USE_ITEM
+│   │   ├── use_item.rs  # MSG_USE_ITEM + visual effects
 │   │   ├── discard.rs   # MSG_DISCARD_ITEM
 │   │   └── pickup.rs    # MSG_DISCARDED_ITEM_TAKE
 │   └── shop/            # Shop system handlers
@@ -171,7 +195,12 @@ src/
 └── db/
     ├── mod.rs           # Database pool and migrations
     ├── accounts.rs      # Account queries
-    └── characters.rs    # Character queries
+    └── characters.rs    # Character queries (position, points, appearance, bank)
+
+sor_tool/                # SOR archive tool
+├── src/main.rs
+├── Cargo.toml
+└── Cargo.lock
 
 migrations/
 ├── 20240101000001_create_accounts.sql
@@ -179,13 +208,13 @@ migrations/
 ├── 20240101000003_create_inventories.sql
 ├── 20240101000004_create_clans.sql
 ├── 20240101000005_create_bans.sql
-└── 20240101000006_create_shops.sql   # Dynamic shop inventory with seed data
+└── 20240101000006_create_shops.sql
 ```
 
 ## Database Schema
 
 - **accounts**: User authentication (username, password_hash, mac_address, ban status)
-- **characters**: Player data (position, appearance, points, quest state)
+- **characters**: Player data (position, appearance, points, bank_balance, quest state)
 - **inventories**: Equipment and items (emotes, outfits, accessories, items, tools)
 - **clans**: Clan information (name, leader, colors, level)
 - **bans**: IP/MAC/account bans
@@ -229,19 +258,29 @@ Currently uses default configuration in `src/main.rs`:
 | 23 | MSG_EMOTE | C→S, S→C | Done |
 | 25 | MSG_CHANGE_ACS1 | C→S, S→C | Done |
 | 26 | MSG_CHANGE_ACS2 | C→S, S→C | Done |
-| 133 | MSG_PLAYER_TYPING | C→S, S→C | Done |
 | 27 | MSG_ROOM_SHOP_INFO | S→C | Done |
 | 28 | MSG_SHOP_BUY | C→S, S→C | Done |
 | 29 | MSG_SHOP_BUY_FAIL | S→C | Done |
 | 30 | MSG_SHOP_STOCK | S→C | Done |
-| 31 | MSG_USE_ITEM | C→S | Done |
+| 31 | MSG_USE_ITEM | C→S, S→C | Done |
 | 39 | MSG_DISCARD_ITEM | C→S, S→C | Done |
 | 40 | MSG_DISCARDED_ITEM_TAKE | C→S, S→C | Done |
+| 43 | MSG_PLAYER_STOP | C→S, S→C | Done |
+| 117 | MSG_PING_REQ | C→S, S→C | Done |
+| 133 | MSG_PLAYER_TYPING | C→S, S→C | Done |
 
-## Known Issues
+## Fixes Applied
 
-1. No movement validation (position/speed checks)
-2. Appearance changes use slot index instead of actual item ID lookup
+### Session 1
+- Fixed queued messages not being sent (drain_messages after each handler)
+- Fixed visual effects not showing for item user (broadcast to ALL players including sender)
+- Fixed outfit/accessory changes not persisting (save to database, lookup actual item ID from slot)
+- Fixed acs.sor encryption (re-keyed with correct password)
+
+### Session 2  
+- Fixed ping handler to respond correctly (MSG_PING → MSG_PING)
+- Added MSG_PING_REQ handler for client latency measurement (F11 debug)
+- Added MSG_PLAYER_STOP handler to broadcast when player stops moving
 
 ## Protocol Findings (from 39dll source analysis)
 
@@ -257,28 +296,28 @@ Wire format:
 [N bytes: encrypted payload]
 ```
 
+### Ping System
+- **MSG_PING (9)**: Server sends periodically → Client responds → Server responds (keepalive)
+- **MSG_PING_REQ (117)**: Client sends when measuring latency → Server echoes back
+
 ### Message Format Differences
 - **MSG_LOGIN (10)**: Includes version string
   - Format: `[msg_type][version][username][password][mac]`
 - **MSG_REGISTER (7)**: Does NOT include version string
   - Format: `[msg_type][username][password][mac]`
 
-### MSG_WARP Format
-- **Client → Server**: `[msg_type(2)][room_id(2)][x(2)][y(2)]`
-- **Server → Client (enter)**: `[msg_type(2)][player_id(2)][case=1(1)][x(2)][y(2)]`
-- **Server → Client (leave)**: `[msg_type(2)][player_id(2)][case=2(1)]`
-
-### MSG_POINT Format
-- **Client → Server**: `[msg_type(2)][point_index(1)]`
-- Points are incremented server-side and persisted to database
+### MSG_PLAYER_STOP Format
+- **Client → Server**: `[msg_type(2)][x(2)][y(2)]`
+- **Server → Client**: `[msg_type(2)][player_id(2)][x(2)][y(2)]`
 
 ### RC4 Implementation
 The 39dll `bufferencrypt` function uses standard RC4. Our implementation matches exactly.
 
 ## Next Steps
 
-1. Implement bank system (MSG_BANK_PROCESS)
+1. Implement bank system (MSG_BANK_PROCESS, MSG_REQUEST_STATUS)
 2. Implement sell handler (MSG_SELL)
 3. Add basic movement validation
-4. Implement clan system
-5. Implement mail system
+4. Implement quest system (MSG_QUEST_NPC_REQ, etc.)
+5. Implement mail system (MSG_MAILBOX, etc.)
+6. Implement clan system
