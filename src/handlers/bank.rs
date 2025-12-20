@@ -79,6 +79,43 @@ pub async fn handle_bank_process(
     }
 }
 
+/// Helper to build a deposit response (case 1)
+fn build_deposit_response(points: u32, bank: i64) -> Vec<u8> {
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::BankProcess.id())
+        .write_u8(1)
+        .write_u32(points)
+        .write_u32(bank as u32);
+    writer.into_bytes()
+}
+
+/// Helper to build a withdraw response (case 2)
+fn build_withdraw_response(points: u32, bank: i64) -> Vec<u8> {
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::BankProcess.id())
+        .write_u8(2)
+        .write_u32(points)
+        .write_u32(bank as u32);
+    writer.into_bytes()
+}
+
+/// Helper to build a transfer response (case 3)
+fn build_transfer_response(bank: i64) -> Vec<u8> {
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::BankProcess.id())
+        .write_u8(3)
+        .write_u32(bank as u32);
+    writer.into_bytes()
+}
+
+/// Helper to build a "receiver not found" response (case 4)
+fn build_receiver_not_found_response() -> Vec<u8> {
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::BankProcess.id())
+        .write_u8(4);
+    writer.into_bytes()
+}
+
 /// Handle deposit: move points from wallet to bank
 async fn handle_deposit(
     reader: &mut MessageReader<'_>,
@@ -88,26 +125,30 @@ async fn handle_deposit(
 ) -> Result<Vec<Vec<u8>>> {
     let amount = reader.read_u32()?;
     
-    if amount == 0 {
-        return Ok(vec![]);
-    }
-    
     // Get current balances
     let current_points = session.read().await.points;
     let current_bank = db::get_bank_balance(&server.db, char_id).await.unwrap_or(0);
+    
+    // Validate: amount must be positive
+    if amount == 0 {
+        // Send current values back to reset UI
+        return Ok(vec![build_deposit_response(current_points, current_bank)]);
+    }
     
     // Validate: player has enough points
     if amount > current_points {
         warn!("Deposit failed: player {} tried to deposit {} but only has {} points", 
               char_id, amount, current_points);
-        return Ok(vec![]);
+        // Send current values back to reset UI
+        return Ok(vec![build_deposit_response(current_points, current_bank)]);
     }
     
     // Validate: bank won't exceed max
     let new_bank = current_bank + amount as i64;
     if new_bank > MAX_BANK_BALANCE as i64 {
         warn!("Deposit failed: would exceed max bank balance");
-        return Ok(vec![]);
+        // Send current values back to reset UI
+        return Ok(vec![build_deposit_response(current_points, current_bank)]);
     }
     
     let new_points = current_points - amount;
@@ -115,7 +156,8 @@ async fn handle_deposit(
     // Update database
     if let Err(e) = db::update_points_and_bank(&server.db, char_id, new_points as i64, new_bank).await {
         warn!("Failed to update bank: {}", e);
-        return Ok(vec![]);
+        // Send current values back to reset UI
+        return Ok(vec![build_deposit_response(current_points, current_bank)]);
     }
     
     // Update session
@@ -126,14 +168,7 @@ async fn handle_deposit(
     
     debug!("Deposit OK: {} points -> bank. New points: {}, New bank: {}", amount, new_points, new_bank);
     
-    // Send response: case 1 + new_points + new_bank
-    let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::BankProcess.id())
-        .write_u8(1)
-        .write_u32(new_points)
-        .write_u32(new_bank as u32);
-    
-    Ok(vec![writer.into_bytes()])
+    Ok(vec![build_deposit_response(new_points, new_bank)])
 }
 
 /// Handle withdraw: move points from bank to wallet
@@ -145,26 +180,30 @@ async fn handle_withdraw(
 ) -> Result<Vec<Vec<u8>>> {
     let amount = reader.read_u32()?;
     
-    if amount == 0 {
-        return Ok(vec![]);
-    }
-    
     // Get current balances
     let current_points = session.read().await.points;
     let current_bank = db::get_bank_balance(&server.db, char_id).await.unwrap_or(0);
+    
+    // Validate: amount must be positive
+    if amount == 0 {
+        // Send current values back to reset UI
+        return Ok(vec![build_withdraw_response(current_points, current_bank)]);
+    }
     
     // Validate: bank has enough
     if (amount as i64) > current_bank {
         warn!("Withdraw failed: player {} tried to withdraw {} but only has {} in bank", 
               char_id, amount, current_bank);
-        return Ok(vec![]);
+        // Send current values back to reset UI
+        return Ok(vec![build_withdraw_response(current_points, current_bank)]);
     }
     
     // Validate: wallet won't exceed max (client checks sl_points <= 1000000)
     let new_points = current_points.saturating_add(amount);
     if new_points > MAX_POINTS {
         warn!("Withdraw failed: would exceed max points");
-        return Ok(vec![]);
+        // Send current values back to reset UI
+        return Ok(vec![build_withdraw_response(current_points, current_bank)]);
     }
     
     let new_bank = current_bank - amount as i64;
@@ -172,7 +211,8 @@ async fn handle_withdraw(
     // Update database
     if let Err(e) = db::update_points_and_bank(&server.db, char_id, new_points as i64, new_bank).await {
         warn!("Failed to update bank: {}", e);
-        return Ok(vec![]);
+        // Send current values back to reset UI
+        return Ok(vec![build_withdraw_response(current_points, current_bank)]);
     }
     
     // Update session
@@ -183,14 +223,7 @@ async fn handle_withdraw(
     
     debug!("Withdraw OK: {} points <- bank. New points: {}, New bank: {}", amount, new_points, new_bank);
     
-    // Send response: case 2 + new_points + new_bank
-    let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::BankProcess.id())
-        .write_u8(2)
-        .write_u32(new_points)
-        .write_u32(new_bank as u32);
-    
-    Ok(vec![writer.into_bytes()])
+    Ok(vec![build_withdraw_response(new_points, new_bank)])
 }
 
 /// Handle transfer: send money from bank to another player's bank
@@ -202,18 +235,21 @@ async fn handle_transfer(
     let receiver_name = reader.read_string()?;
     let amount = reader.read_u32()?;
     
-    if amount == 0 || receiver_name.is_empty() {
-        return Ok(vec![]);
-    }
-    
     // Get sender's bank balance
     let sender_bank = db::get_bank_balance(&server.db, char_id).await.unwrap_or(0);
+    
+    // Validate: amount must be positive and receiver name not empty
+    if amount == 0 || receiver_name.is_empty() {
+        // Send current balance back to reset UI
+        return Ok(vec![build_transfer_response(sender_bank)]);
+    }
     
     // Validate: sender has enough
     if (amount as i64) > sender_bank {
         warn!("Transfer failed: player {} tried to transfer {} but only has {} in bank", 
               char_id, amount, sender_bank);
-        return Ok(vec![]);
+        // Send current balance back to reset UI
+        return Ok(vec![build_transfer_response(sender_bank)]);
     }
     
     // Find receiver
@@ -221,29 +257,29 @@ async fn handle_transfer(
         Ok(Some(char)) => char,
         Ok(None) => {
             debug!("Transfer failed: receiver '{}' not found", receiver_name);
-            // Send case 4: receiver not found
-            let mut writer = MessageWriter::new();
-            writer.write_u16(MessageType::BankProcess.id())
-                .write_u8(4);
-            return Ok(vec![writer.into_bytes()]);
+            // Send case 4: receiver not found (special UI handling)
+            return Ok(vec![build_receiver_not_found_response()]);
         }
         Err(e) => {
             warn!("Transfer failed: database error: {}", e);
-            return Ok(vec![]);
+            // Send current balance back to reset UI
+            return Ok(vec![build_transfer_response(sender_bank)]);
         }
     };
     
     // Don't allow transfer to self
     if receiver.id == char_id {
         warn!("Transfer failed: player {} tried to transfer to self", char_id);
-        return Ok(vec![]);
+        // Send current balance back to reset UI
+        return Ok(vec![build_transfer_response(sender_bank)]);
     }
     
     // Check receiver's bank won't exceed max
     let receiver_new_bank = receiver.bank_balance + amount as i64;
     if receiver_new_bank > MAX_BANK_BALANCE as i64 {
         warn!("Transfer failed: receiver bank would exceed max");
-        return Ok(vec![]);
+        // Send current balance back to reset UI
+        return Ok(vec![build_transfer_response(sender_bank)]);
     }
     
     let sender_new_bank = sender_bank - amount as i64;
@@ -254,17 +290,12 @@ async fn handle_transfer(
             debug!("Transfer OK: {} points from {} to {}. Sender new bank: {}", 
                    amount, char_id, receiver_name, sender_new_bank);
             
-            // Send response: case 3 + new_bank
-            let mut writer = MessageWriter::new();
-            writer.write_u16(MessageType::BankProcess.id())
-                .write_u8(3)
-                .write_u32(sender_new_bank as u32);
-            
-            Ok(vec![writer.into_bytes()])
+            Ok(vec![build_transfer_response(sender_new_bank)])
         }
         Err(e) => {
             warn!("Transfer failed: transaction error: {}", e);
-            Ok(vec![])
+            // Send current balance back to reset UI
+            Ok(vec![build_transfer_response(sender_bank)])
         }
     }
 }
