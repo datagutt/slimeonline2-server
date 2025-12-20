@@ -99,13 +99,15 @@ This document tracks the implementation progress of the Slime Online 2 private s
 | MSG_BANK_PROCESS handler (deposit/withdraw/transfer) | Done | `src/handlers/bank.rs` |
 | Bank transfer with transaction rollback | Done | `src/db/characters.rs` |
 | MSG_TOOL_EQUIP / MSG_TOOL_UNEQUIP handlers | Done | `src/handlers/connection.rs` |
+| MSG_SELL_REQ_PRICES handler | Done | `src/handlers/shop/sell.rs` |
+| MSG_SELL handler (all categories) | Done | `src/handlers/shop/sell.rs` |
+| Sell prices for items/outfits/accessories/tools | Done | `src/handlers/items/database.rs`, `src/handlers/shop/sell.rs` |
 
 ### Pending
 
 | Task | Status | Notes |
 |------|--------|-------|
-| MSG_GET_ITEM handler | Pending | Receive item from world |
-| MSG_SELL handler | Pending | Sell items in shop |
+| MSG_GET_ITEM handler | Pending | Receive item from world (random drops, etc.) |
 
 ## Phase 4: Social Features (Week 9-11)
 
@@ -292,6 +294,8 @@ Currently uses default configuration in `src/main.rs`:
 | 78 | MSG_MAIL_SEND | C→S, S→C | Done |
 | 80 | MSG_MAIL_RECEIVER_CHECK | C→S, S→C | Done |
 | 19 | MSG_SAVE | C→S, S→C | Done |
+| 53 | MSG_SELL_REQ_PRICES | C→S, S→C | Done |
+| 54 | MSG_SELL | C→S, S→C | Done |
 | 133 | MSG_PLAYER_TYPING | C→S, S→C | Done |
 
 ## Fixes Applied
@@ -357,10 +361,15 @@ The 39dll `bufferencrypt` function uses standard RC4. Our implementation matches
   - When true: position/room saved on disconnect, warp, and periodically
   - Points are always auto-saved regardless of this setting
 - Added graceful shutdown handler (Ctrl+C saves all player data before exit)
+- Added full sell system (MSG_SELL_REQ_PRICES, MSG_SELL)
+  - Sell outfits, items, accessories, and tools
+  - Server-determined sell prices for all item types
+  - Multi-item selling (select multiple items to sell at once)
+  - Category-based selling (switch between inventory categories)
 
 ## Next Steps
 
-1. Implement sell handler (MSG_SELL)
+1. Implement MSG_GET_ITEM handler (random item drops from world)
 2. Add basic movement validation
 3. Implement quest system (MSG_QUEST_NPC_REQ, etc.)
 4. Implement clan system (MSG_CLAN_*, etc.)

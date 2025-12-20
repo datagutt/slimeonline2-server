@@ -6,12 +6,12 @@
 //! - MSG_DISCARDED_ITEM_TAKE (40) - Pick up dropped item
 //! - MSG_GET_ITEM (41) - Server -> Client item received
 
-mod database;
+pub mod database;
 mod use_item;
 mod discard;
 mod pickup;
 
-pub use database::*;
+pub use database::{get_item_info, can_discard_item, get_sell_price, ItemType, ItemInfo};
 pub use use_item::handle_use_item;
 pub use discard::handle_discard_item;
 pub use pickup::handle_take_dropped_item;

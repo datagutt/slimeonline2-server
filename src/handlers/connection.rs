@@ -302,6 +302,14 @@ async fn handle_message(
             shop::handle_shop_buy(payload, server, session).await
         }
 
+        MessageType::SellReqPrices => {
+            shop::handle_sell_req_prices(payload, server, session).await
+        }
+
+        MessageType::Sell => {
+            shop::handle_sell(payload, server, session).await
+        }
+
         MessageType::RequestStatus => {
             bank::handle_request_status(payload, server, session).await
         }

@@ -112,3 +112,78 @@ pub fn get_item_info(item_id: u16) -> Option<ItemInfo> {
 pub fn can_discard_item(item_id: u16) -> bool {
     matches!(item_id, 1..=47 | 49..=61)
 }
+
+/// Get the sell price for an item (0 = cannot be sold)
+/// Sell prices are typically lower than buy prices
+pub fn get_sell_price(item_id: u16) -> u16 {
+    match item_id {
+        // Consumable items - low sell value
+        1 => 25,   // Warp-Wing
+        2 => 15,   // Smokebomb
+        3 => 15,   // Applebomb
+        4 => 15,   // Bubbles
+        
+        // Slimebags - can't sell (would be exploit)
+        5 | 6 | 7 => 0,
+        
+        // Chicken Mine
+        8 => 50,
+        
+        // Seeds
+        9 => 30,   // Simple Seed
+        24 => 100, // Blue Seed
+        
+        // Tree boosters
+        10 => 75,  // Fairy
+        11 => 40,  // Blue Pinwheel
+        12 => 60,  // Red Pinwheel
+        13 => 100, // Glow Pinwheel
+        
+        // Soundmakers - low value collectibles
+        14..=19 => 10,
+        
+        // Materials - valuable for crafting
+        20 => 25,  // Red Mushroom
+        21 => 50,  // Tailphire
+        22 => 75,  // Magmanis
+        23 => 30,  // Bright Drink
+        25 => 40,  // Juicy Bango
+        
+        // Cannon Kit
+        26 => 150,
+        
+        // Gum - low value
+        27..=32 => 10,
+        
+        // Lucky Coin - can't sell
+        33 => 0,
+        
+        // Sodas
+        34..=36 => 20, // Decorative sodas
+        37 => 75,      // Speed Soda
+        38 => 75,      // Jump Soda
+        
+        // Rare materials (slime metals)
+        39..=45 => 100,
+        
+        // Common materials
+        46 => 15,  // Screw
+        47 => 10,  // Rusty Screw
+        48 => 0,   // Bug Leg - can't sell (can't discard either)
+        49 => 50,  // Weird Coin
+        50 => 80,  // Firestone
+        
+        // Proof stones - valuable quest items
+        51..=56 => 0, // Can't sell proof stones
+        
+        // More materials
+        57 => 60,  // Blazing Bubble
+        58 => 20,  // Squishy Mushroom
+        59 => 15,  // Stinky Mushroom
+        60 => 25,  // Bell Twig
+        61 => 100, // Irrlicht
+        
+        // Unknown items can't be sold
+        _ => 0,
+    }
+}
