@@ -95,6 +95,10 @@ This document tracks the implementation progress of the Slime Online 2 private s
 | MSG_ROOM_SHOP_INFO sender | Done | `src/handlers/shop/buy.rs` |
 | Shop info on room enter | Done | `src/handlers/warp.rs`, `src/handlers/auth.rs` |
 | Visual effects broadcast (smokebomb, bubbles, etc.) | Done | `src/handlers/items/use_item.rs` |
+| MSG_REQUEST_STATUS handler | Done | `src/handlers/bank.rs` |
+| MSG_BANK_PROCESS handler (deposit/withdraw/transfer) | Done | `src/handlers/bank.rs` |
+| Bank transfer with transaction rollback | Done | `src/db/characters.rs` |
+| MSG_TOOL_EQUIP / MSG_TOOL_UNEQUIP handlers | Done | `src/handlers/connection.rs` |
 
 ### Pending
 
@@ -102,8 +106,6 @@ This document tracks the implementation progress of the Slime Online 2 private s
 |------|--------|-------|
 | MSG_GET_ITEM handler | Pending | Receive item from world |
 | MSG_SELL handler | Pending | Sell items in shop |
-| Bank system (MSG_BANK_PROCESS) | Pending | Deposit, withdraw, transfer |
-| MSG_REQUEST_STATUS handler | Pending | Bank balance query |
 
 ## Phase 4: Social Features (Week 9-11)
 
@@ -187,9 +189,10 @@ src/
 │   │   ├── use_item.rs  # MSG_USE_ITEM + visual effects
 │   │   ├── discard.rs   # MSG_DISCARD_ITEM
 │   │   └── pickup.rs    # MSG_DISCARDED_ITEM_TAKE
-│   └── shop/            # Shop system handlers
-│       ├── mod.rs
-│       └── buy.rs       # MSG_SHOP_BUY, MSG_ROOM_SHOP_INFO
+│   ├── shop/            # Shop system handlers
+│   │   ├── mod.rs
+│   │   └── buy.rs       # MSG_SHOP_BUY, MSG_ROOM_SHOP_INFO
+│   └── bank.rs          # MSG_REQUEST_STATUS, MSG_BANK_PROCESS
 ├── game/
 │   └── mod.rs           # Game state, rooms, sessions, dropped items
 └── db/
@@ -266,6 +269,10 @@ Currently uses default configuration in `src/main.rs`:
 | 39 | MSG_DISCARD_ITEM | C→S, S→C | Done |
 | 40 | MSG_DISCARDED_ITEM_TAKE | C→S, S→C | Done |
 | 43 | MSG_PLAYER_STOP | C→S, S→C | Done |
+| 44 | MSG_REQUEST_STATUS | C→S, S→C | Done |
+| 45 | MSG_BANK_PROCESS | C→S, S→C | Done |
+| 81 | MSG_TOOL_EQUIP | C→S | Done |
+| 82 | MSG_TOOL_UNEQUIP | C→S | Done |
 | 117 | MSG_PING_REQ | C→S, S→C | Done |
 | 133 | MSG_PLAYER_TYPING | C→S, S→C | Done |
 
@@ -281,6 +288,11 @@ Currently uses default configuration in `src/main.rs`:
 - Fixed ping handler to respond correctly (MSG_PING → MSG_PING)
 - Added MSG_PING_REQ handler for client latency measurement (F11 debug)
 - Added MSG_PLAYER_STOP handler to broadcast when player stops moving
+- Added MSG_TOOL_EQUIP/UNEQUIP handlers with ownership validation
+- Added full bank system (MSG_REQUEST_STATUS, MSG_BANK_PROCESS)
+  - Deposit: wallet → bank
+  - Withdraw: bank → wallet
+  - Transfer: bank → another player's bank (with atomic transaction rollback)
 
 ## Protocol Findings (from 39dll source analysis)
 
