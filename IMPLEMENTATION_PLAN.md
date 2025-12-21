@@ -2,6 +2,201 @@
 
 Based on analysis of the original server source code, this document outlines changes needed to update the Rust server implementation with accurate game data.
 
+---
+
+## Current Implementation Status
+
+### Messages Implemented: 44 of 141
+
+| Category | Implemented | Notes |
+|----------|-------------|-------|
+| Authentication | MSG_LOGIN, MSG_REGISTER, MSG_LOGOUT | Complete |
+| Movement | MSG_MOVE_PLAYER, MSG_PLAYER_STOP, MSG_NEW_PLAYER | Complete |
+| Chat | MSG_CHAT | Complete with rate limiting |
+| Appearance | MSG_CHANGE_OUTFIT, MSG_CHANGE_ACS1/2, MSG_EMOTE, MSG_ACTION | Complete |
+| Warp | MSG_WARP | Complete |
+| Items | MSG_USE_ITEM, MSG_DISCARD, MSG_DISCARDED_TAKE | Partial (seeds/fairies incomplete) |
+| Collectibles | MSG_COLLECTIBLE_INFO/TAKE/TAKEN | Hardcoded spawns, needs config |
+| Shop | MSG_SHOP_INFO, MSG_SHOP_BUY, MSG_SELL, MSG_SELL_PRICES | Complete |
+| Bank | MSG_BANK_PROCESS, MSG_REQUEST_STATUS | Complete |
+| Mail | MSG_MAILBOX (all ops), MSG_MAIL_SEND, MSG_RECEIVER_CHECK | Complete |
+| Tools | MSG_TOOL_EQUIP/UNEQUIP | Complete |
+| BBS | All 8 BBS messages | Complete |
+| Utility | MSG_PING, MSG_PING_REQ, MSG_SAVE, MSG_POINT | Complete |
+
+### Major Systems NOT Implemented (97 messages remaining)
+
+| System | Messages | Priority |
+|--------|----------|----------|
+| **Clan System** | 6 messages (126-131) | High |
+| **Quest System** | 10 messages (83-92) | High |
+| **Planting System** | 9 messages (63-70, 94) | Medium |
+| **Storage Extension** | 3 messages (56-58) | Medium |
+| **Building System** | 4 messages (103-106) | Low |
+| **Cannon System** | 4 messages (98-101) | Low |
+| **Racing System** | 6 messages (120-125) | Low |
+| **Upgrader System** | 5 messages (108-112) | Low |
+
+---
+
+## Protocol Details from Original Server
+
+### Authentication Corrections
+
+**MSG_LOGIN fields (in order):**
+```
+Client sends:
+  - version: string (must match "0.106")
+  - username: string (converted to lowercase)
+  - password: string (converted to lowercase)
+  - mac_address: string
+
+Special case - Mod Login (version == "ModAccess"):
+  - mod_name: string
+  - mod_password: string
+```
+
+**Login result codes:**
+| Code | Meaning |
+|------|---------|
+| 1 | Success |
+| 2 | Account does not exist |
+| 3 | Wrong password / Already logged in (mod) |
+| 4 | Already logged in (player) |
+| 5 | Version mismatch |
+| 6 | Account banned |
+| 7 | IP banned |
+| 8 | MAC banned |
+
+**MSG_REGISTER validation:**
+- Username max 10 chars (not 20 as in docs - VERIFY THIS)
+- Password max 10 chars (not 50 as in docs - VERIFY THIS)
+- Both stored lowercase
+- Silent rejection if length exceeded
+
+### Movement Protocol Details
+
+**MSG_MOVE_PLAYER direction codes:**
+| Code | Action | Extra data |
+|------|--------|-----------|
+| 1 | Move left | x: u16, y: u16 |
+| 2 | Move right | x: u16, y: u16 |
+| 3 | Jump | x: i16 (SIGNED!) |
+| 4 | Duck | none |
+| 5 | Release left | x: u16, y: u16 |
+| 6 | Release right | x: u16, y: u16 |
+| 7 | Release up | none |
+| 8 | Release down | none |
+| 9 | Land | x: u16, y: u16 |
+| 10-13 | Air movement | none |
+
+**Important:** Direction 3 (jump) uses a **signed i16** for x, not unsigned!
+
+### Economy Corrections
+
+**Sell formula:** `sell_price = buy_price / 3` (integer division, rounded down)
+
+**Bank overflow handling:** If points would exceed MAX_POINTS after operation, excess automatically goes to bank.
+
+**MSG_SELL format:**
+```
+Client sends:
+  - category: u8 (1=Outfits, 2=Items, 3=Acs, 4=Tools)
+  - count: u8 (number of items)
+  - slots[]: u8 (repeated 'count' times)
+
+Server responds:
+  - msg_type: u16
+  - total_received: u32
+```
+
+### Clan Protocol Details
+
+**MSG_CLAN_CREATE requirements:**
+- Player not already in clan
+- Name 3-15 characters
+- Unique name (case-insensitive)
+- Has item 51 (Proof of Nature)
+- Has item 52 (Proof of Earth)
+- Has 10,000 SP
+
+**MSG_CLAN_INFO types:**
+| Type | Action |
+|------|--------|
+| 1 | Get clan name/color by clan_id |
+| 2 | Get member list |
+| 3 | Get status (sub_type: 1=points only, 2=full) |
+| 4 | Get info text (leader only) |
+| 5 | Get clan news |
+
+**MSG_CLAN_ADMIN actions:**
+| Action | Data |
+|--------|------|
+| 1 | Kick: member_slot: u8 |
+| 2 | Invite: target_pid: u16 (15s cooldown per target) |
+| 3 | Colors: inner_rgb + outer_rgb (6 bytes) |
+| 4 | Update info: show_leader: u8 + info_text: string |
+| 5 | Update news: news_text: string |
+
+### Mail Protocol Details
+
+**MSG_MAIL_SEND format:**
+```
+Client sends:
+  - paper_id: u8
+  - font_color: u8
+  - receiver_name: string (lowercase)
+  - present_category: u8 (0=none, 1-4=category)
+  - present_id: u16 (slot index, not item ID!)
+  - attached_points: u16 (0-60000 max)
+  - mail_text: string
+```
+
+**Mailbox limits:** 50 mails maximum
+
+### Quest Protocol Details
+
+**MSG_QUEST_REWARD format:**
+```
+Client sends:
+  - quest_id: u8
+  - quest_step: u8
+
+Validation:
+  - Player must have active quest
+  - quest_id must match current
+  - quest_step must match current
+  - Quest-specific item requirements checked
+```
+
+### Collectible Evolution
+
+Collectibles can transform over time:
+```
+Item 20 (Red Mushroom) -> Item 58 (Squishy Mushroom) after 60±20 min
+Item 58 (Squishy Mushroom) -> Item 59 (Stinky Mushroom) after 10±20 min
+```
+
+### Special Emote Handling
+
+**Dice emote (id 13):** Server generates random result 1-6, not client.
+
+---
+
+## Hardcoded Values to Replace with Config
+
+### Critical Fixes
+
+| Location | Current Value | Config Source |
+|----------|---------------|---------------|
+| `constants.rs:252-259` | spawn x=160, y=120, room=37 | `game.toml` spawn_x=385, y=71, room=32 |
+| `handlers/bbs.rs:15-21` | 5 categories | `game.toml` 6 categories |
+| `handlers/bbs.rs:24` | 60s cooldown | Should be configurable |
+| `handlers/collectibles.rs` | Test spawns only | `collectibles.toml` (47 rooms) |
+| `handlers/connection.rs:350` | All mail paper free | `game.toml` unlocked_mail_paper |
+
+---
+
 ## Design Principle: Config Files as Single Source of Truth
 
 **Static game data** (prices, spawn points, growth rates, etc.) should be defined in **config files only** - NOT in the database. This avoids duplication and makes the server easy to configure.
@@ -464,3 +659,97 @@ src/config/
 - `src/handlers/shop/sell.rs` - Use config prices
 - `src/handlers/collectibles.rs` - Use config spawns
 - `src/game/mod.rs` - Initialize from config
+
+---
+
+## Implementation Roadmap
+
+### Phase 1: Config System (Current Priority)
+- [ ] Create `src/config/` module with serde types
+- [ ] Load all TOML config files on startup
+- [ ] Replace hardcoded spawn values with config
+- [ ] Replace hardcoded BBS categories with config
+- [ ] Add config validation
+
+### Phase 2: Fix Existing Handlers
+- [ ] Update collectibles to use `collectibles.toml`
+- [ ] Fix movement direction 3 to use signed i16
+- [ ] Add bank overflow handling
+- [ ] Fix mail paper availability from config
+
+### Phase 3: Implement Clan System (6 messages)
+- [ ] MSG_CLAN_CREATE (126) - Create clan with requirements
+- [ ] MSG_CLAN_DISSOLVE (127) - Leader dissolves clan
+- [ ] MSG_CLAN_INVITE (128) - Accept/decline with cooldown
+- [ ] MSG_CLAN_LEAVE (129) - Leave clan
+- [ ] MSG_CLAN_INFO (130) - 5 sub-types for info requests
+- [ ] MSG_CLAN_ADMIN (131) - 5 admin actions
+- [ ] Database: Create clans table, member relationships
+- [ ] File storage: Clan data files (or migrate to DB-only)
+
+### Phase 4: Implement Quest System (10 messages)
+- [ ] MSG_QUEST_BEGIN (83)
+- [ ] MSG_QUEST_CLEAR (84)
+- [ ] MSG_QUEST_STEP_INC (85)
+- [ ] MSG_QUEST_CANCEL (86)
+- [ ] MSG_QUEST_NPC_REQ (87)
+- [ ] MSG_QUEST_VAR_CHECK (88)
+- [ ] MSG_QUEST_VAR_INC (89)
+- [ ] MSG_QUEST_VAR_SET (90)
+- [ ] MSG_QUEST_STATUS_REQ (91)
+- [ ] MSG_QUEST_REWARD (92)
+- [ ] Create quest definitions config
+- [ ] Database: Quest progress tracking
+
+### Phase 5: Implement Planting System (9 messages)
+- [ ] MSG_PLANT_SET - Plant seed
+- [ ] MSG_PLANT_TAKE_FRUIT - Harvest
+- [ ] MSG_PLANT_ADD_FAIRY - Add fairy (max 5)
+- [ ] MSG_PLANT_ADD_PINWHEEL - Add pinwheel
+- [ ] Plant growth timer system
+- [ ] Fruit chance calculation with fairy bonus
+- [ ] Database: Plant state table
+
+### Phase 6: Storage System (3 messages)
+- [ ] MSG_STORAGE_REQ (56) - Open storage
+- [ ] MSG_STORAGE_PAGES (57) - Page navigation
+- [ ] MSG_STORAGE_MOVE (58) - Move items between storage/inventory
+- [ ] Database: Storage tables per category
+
+### Phase 7: Secondary Systems (Lower Priority)
+- [ ] Building System (4 messages)
+- [ ] Cannon System (4 messages)
+- [ ] Racing System (6 messages)
+- [ ] Upgrader System (5 messages)
+- [ ] One-Time Items (3 messages)
+- [ ] Music Changer (2 messages)
+
+---
+
+## Validation Patterns to Implement
+
+From original server analysis:
+
+1. **Slot bounds:** All inventory operations must check slot is 1-9
+2. **Empty slot:** Verify slot has content before operations
+3. **Room context:** Verify room has required feature (shop, plants, etc.)
+4. **Ownership:** Plants/clan operations verify player ownership
+5. **Currency:** Always verify sufficient funds BEFORE deducting
+6. **Free slot:** Item acquisition must verify free slot exists
+7. **Hack alerts:** Log suspicious activity patterns
+
+---
+
+## Testing Checklist
+
+### With Real v0.106 Client
+- [ ] Login/logout cycle
+- [ ] Character creation with correct spawn point
+- [ ] Movement synchronization
+- [ ] Chat in rooms
+- [ ] Shop buy/sell with correct prices
+- [ ] Collectible spawns in correct locations
+- [ ] Mail send/receive with attachments
+- [ ] BBS post/read
+- [ ] Clan creation (when implemented)
+- [ ] Quest progression (when implemented)

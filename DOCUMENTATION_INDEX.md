@@ -6,8 +6,8 @@ This documentation provides **complete specifications** for implementing a legac
 
 ### ✅ 100% COMPLETE
 
-**Total Files:** 40 documentation files  
-**Total Size:** 412 KB  
+**Total Files:** 42 documentation files  
+**Total Size:** 500 KB  
 **Status:** All documentation complete and implementation-ready
 
 ---
@@ -21,7 +21,7 @@ This documentation provides **complete specifications** for implementing a legac
 | `docs/README.md` | Main documentation overview and quick start | 11 KB | ✅ |
 | `docs/IMPLEMENTATION_GUIDE.md` | Phase-by-phase implementation roadmap (16 weeks) | 27 KB | ✅ |
 
-### Protocol (6 files) ✅
+### Protocol (8 files) ✅
 
 | File | Description | Size | Status |
 |------|-------------|------|--------|
@@ -31,8 +31,10 @@ This documentation provides **complete specifications** for implementing a legac
 | `docs/protocol/04-message-catalog.md` | All 141 message types categorized | 18 KB | ✅ |
 | `docs/protocol/05-movement-protocol.md` | Movement synchronization, 13 direction codes | 24 KB | ✅ |
 | `docs/protocol/06-timing-and-sync.md` | Keepalive, ping, server time sync | 22 KB | ✅ |
+| `docs/protocol/07-decompiled-message-handlers.md` | Detailed message formats from decompiled scripts | 25 KB | ✅ |
+| `docs/protocol/08-validation-rules.md` | Server validation logic from decompiled scripts | 12 KB | ✅ |
 
-**Total:** 141 KB
+**Total:** 178 KB
 
 ### Architecture (6 files) ✅
 
@@ -108,13 +110,13 @@ This documentation provides **complete specifications** for implementing a legac
 | Category | Files | Size | Status |
 |----------|-------|------|--------|
 | Core | 2 | 38 KB | ✅ Complete |
-| Protocol | 6 | 141 KB | ✅ Complete |
+| Protocol | 8 | 178 KB | ✅ Complete |
 | Architecture | 6 | 147 KB | ✅ Complete |
 | Database | 8 | 48 KB | ✅ Complete |
 | Security | 4 | 42 KB | ✅ Complete |
 | Reference | 4 | 27 KB | ✅ Complete |
 | Game Systems | 10 | 20 KB | ✅ Complete |
-| **TOTAL** | **40** | **463 KB** | **✅ 100% Complete** |
+| **TOTAL** | **42** | **500 KB** | **✅ 100% Complete** |
 
 ---
 
