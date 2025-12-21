@@ -249,12 +249,17 @@ pub enum DayOfWeek {
 // DEFAULT PLAYER VALUES
 // =============================================================================
 
-pub const DEFAULT_SPAWN_X: u16 = 160;
-pub const DEFAULT_SPAWN_Y: u16 = 120;
-/// Room ID for rm_around_new_1 (the main spawn area)
-/// GameMaker room IDs are 0-indexed based on project room order.
-/// rm_around_new_1 is at position 38 in the project (index 37).
-pub const DEFAULT_SPAWN_ROOM: u16 = 37;
+// Note: These defaults should match config/game.toml [defaults] section.
+// The canonical values are in the config file; these are fallbacks for
+// PlayerSession initialization before config is loaded.
+
+/// Default spawn X coordinate (matches game.toml defaults.spawn_x)
+pub const DEFAULT_SPAWN_X: u16 = 385;
+/// Default spawn Y coordinate (matches game.toml defaults.spawn_y)
+pub const DEFAULT_SPAWN_Y: u16 = 71;
+/// Default spawn room ID (matches game.toml defaults.spawn_room)
+/// Room 32 is the correct main spawn area.
+pub const DEFAULT_SPAWN_ROOM: u16 = 32;
 pub const DEFAULT_BODY_ID: u16 = 1;
 pub const DEFAULT_POINTS: u32 = 0;
 
