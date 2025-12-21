@@ -103,14 +103,33 @@ pub struct BbsConfig {
 // prices.toml
 // =============================================================================
 
+/// Rules section within prices.toml
+#[derive(Debug, Clone, Deserialize, Default)]
+struct PriceRulesRaw {
+    #[serde(default)]
+    discardable: Vec<u16>,
+}
+
+/// Raw config structure that matches the TOML file (string keys)
 #[derive(Debug, Clone, Deserialize)]
+struct PriceConfigRaw {
+    items: HashMap<String, ItemPriceEntry>,
+    outfits: HashMap<String, u32>,
+    accessories: HashMap<String, u32>,
+    tools: HashMap<String, ToolPriceEntry>,
+    mail_paper: HashMap<String, u16>,
+    #[serde(default)]
+    rules: PriceRulesRaw,
+}
+
+/// Processed config with numeric keys for fast lookups
+#[derive(Debug, Clone)]
 pub struct PriceConfig {
     pub items: HashMap<u16, ItemPriceEntry>,
     pub outfits: HashMap<u16, u32>,
     pub accessories: HashMap<u16, u32>,
     pub tools: HashMap<u8, ToolPriceEntry>,
     pub mail_paper: HashMap<u8, u16>,
-    #[serde(default)]
     pub discardable: Vec<u16>,
 }
 
@@ -124,6 +143,29 @@ pub struct ItemPriceEntry {
 pub struct ToolPriceEntry {
     pub name: String,
     pub price: u32,
+}
+
+impl From<PriceConfigRaw> for PriceConfig {
+    fn from(raw: PriceConfigRaw) -> Self {
+        Self {
+            items: raw.items.into_iter()
+                .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
+                .collect(),
+            outfits: raw.outfits.into_iter()
+                .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
+                .collect(),
+            accessories: raw.accessories.into_iter()
+                .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
+                .collect(),
+            tools: raw.tools.into_iter()
+                .filter_map(|(k, v)| k.parse::<u8>().ok().map(|id| (id, v)))
+                .collect(),
+            mail_paper: raw.mail_paper.into_iter()
+                .filter_map(|(k, v)| k.parse::<u8>().ok().map(|id| (id, v)))
+                .collect(),
+            discardable: raw.rules.discardable,
+        }
+    }
 }
 
 impl PriceConfig {
@@ -167,10 +209,17 @@ impl PriceConfig {
 // shops.toml
 // =============================================================================
 
+/// Raw shops config as parsed from TOML (nested room tables)
 #[derive(Debug, Clone, Deserialize)]
+struct ShopsConfigRaw {
+    #[serde(default)]
+    room: HashMap<String, RoomShopConfig>,
+}
+
+/// Processed shops config with numeric room IDs
+#[derive(Debug, Clone)]
 pub struct ShopsConfig {
-    #[serde(flatten)]
-    pub rooms: HashMap<String, RoomShopConfig>,
+    pub rooms: HashMap<u16, RoomShopConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -191,11 +240,20 @@ fn default_true() -> bool {
     true
 }
 
+impl From<ShopsConfigRaw> for ShopsConfig {
+    fn from(raw: ShopsConfigRaw) -> Self {
+        Self {
+            rooms: raw.room.into_iter()
+                .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
+                .collect(),
+        }
+    }
+}
+
 impl ShopsConfig {
     /// Get shop config for a room by room ID
     pub fn get_room(&self, room_id: u16) -> Option<&RoomShopConfig> {
-        let key = format!("room.{}", room_id);
-        self.rooms.get(&key)
+        self.rooms.get(&room_id)
     }
 }
 
@@ -203,12 +261,20 @@ impl ShopsConfig {
 // collectibles.toml
 // =============================================================================
 
+/// Raw collectibles config as parsed from TOML
 #[derive(Debug, Clone, Deserialize)]
-pub struct CollectiblesConfig {
+struct CollectiblesConfigRaw {
     #[serde(default)]
+    evolving: HashMap<String, EvolvingConfig>,
+    #[serde(default)]
+    room: HashMap<String, RoomCollectiblesConfig>,
+}
+
+/// Processed collectibles config with numeric IDs
+#[derive(Debug, Clone)]
+pub struct CollectiblesConfig {
     pub evolving: HashMap<u16, EvolvingConfig>,
-    #[serde(flatten)]
-    pub rooms: HashMap<String, RoomCollectiblesConfig>,
+    pub rooms: HashMap<u16, RoomCollectiblesConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -239,11 +305,23 @@ pub struct CollectibleSpawnConfig {
     pub end_hour: Option<u8>,
 }
 
+impl From<CollectiblesConfigRaw> for CollectiblesConfig {
+    fn from(raw: CollectiblesConfigRaw) -> Self {
+        Self {
+            evolving: raw.evolving.into_iter()
+                .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
+                .collect(),
+            rooms: raw.room.into_iter()
+                .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
+                .collect(),
+        }
+    }
+}
+
 impl CollectiblesConfig {
     /// Get collectible spawns for a room by room ID
     pub fn get_room(&self, room_id: u16) -> Option<&RoomCollectiblesConfig> {
-        let key = format!("room.{}", room_id);
-        self.rooms.get(&key)
+        self.rooms.get(&room_id)
     }
 
     /// Check if an item can evolve
@@ -355,9 +433,12 @@ impl GameConfig {
         let dir = Path::new(config_dir);
 
         let game = load_toml::<GameRulesConfig>(&dir.join("game.toml"))?;
-        let prices = load_toml::<PriceConfig>(&dir.join("prices.toml"))?;
-        let shops = load_toml::<ShopsConfig>(&dir.join("shops.toml"))?;
-        let collectibles = load_toml::<CollectiblesConfig>(&dir.join("collectibles.toml"))?;
+        let prices_raw = load_toml::<PriceConfigRaw>(&dir.join("prices.toml"))?;
+        let prices: PriceConfig = prices_raw.into();
+        let shops_raw = load_toml::<ShopsConfigRaw>(&dir.join("shops.toml"))?;
+        let shops: ShopsConfig = shops_raw.into();
+        let collectibles_raw = load_toml::<CollectiblesConfigRaw>(&dir.join("collectibles.toml"))?;
+        let collectibles: CollectiblesConfig = collectibles_raw.into();
         let plants = load_toml::<PlantsConfig>(&dir.join("plants.toml"))?;
         let clans = load_toml::<ClansConfig>(&dir.join("clans.toml"))?;
 

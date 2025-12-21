@@ -325,8 +325,10 @@
 2 = 100
 3 = 50
 
+[rules]
 # Items that can be discarded (dropped on ground)
 # All items 1-61 are discardable, items 62+ are not
+# Note: 48 (Bug Leg) is notably missing from the original discardable list
 discardable = [
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
     11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
@@ -335,4 +337,3 @@ discardable = [
     41, 42, 43, 44, 45, 46, 47, 49, 50,
     51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61
 ]
-# Note: 48 (Bug Leg) is notably missing from the original discardable list
