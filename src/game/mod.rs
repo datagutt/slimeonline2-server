@@ -9,6 +9,7 @@ use dashmap::DashMap;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
+use crate::config::DefaultsConfig;
 use crate::constants::*;
 
 /// A dropped item on the ground (player-discarded)
@@ -194,7 +195,8 @@ pub struct PlayerSession {
 }
 
 impl PlayerSession {
-    pub fn new(ip_address: String) -> Self {
+    /// Create a new player session with config-based defaults
+    pub fn new(ip_address: String, defaults: &DefaultsConfig) -> Self {
         let now = Instant::now();
         Self {
             session_id: Uuid::new_v4(),
@@ -202,12 +204,12 @@ impl PlayerSession {
             account_id: None,
             character_id: None,
             username: None,
-            room_id: DEFAULT_SPAWN_ROOM,
-            x: DEFAULT_SPAWN_X,
-            y: DEFAULT_SPAWN_Y,
-            body_id: DEFAULT_BODY_ID,
-            acs1_id: 0,
-            acs2_id: 0,
+            room_id: defaults.spawn_room,
+            x: defaults.spawn_x,
+            y: defaults.spawn_y,
+            body_id: defaults.outfit,
+            acs1_id: defaults.accessory1,
+            acs2_id: defaults.accessory2,
             points: DEFAULT_POINTS,
             is_authenticated: false,
             connected_at: now,

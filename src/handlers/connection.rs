@@ -31,8 +31,11 @@ pub async fn handle_connection(
     // Track IP connection
     server.add_ip_connection(&ip);
 
-    // Create session
-    let session = Arc::new(RwLock::new(PlayerSession::new(ip.clone())));
+    // Create session with config defaults
+    let session = Arc::new(RwLock::new(PlayerSession::new(
+        ip.clone(),
+        &server.game_config.game.defaults,
+    )));
     let session_id = session.read().await.session_id;
     server.sessions.insert(session_id, session.clone());
 
