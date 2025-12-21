@@ -30,6 +30,7 @@ pub enum ConfigError {
 /// Complete game configuration loaded from all TOML files
 #[derive(Debug, Clone)]
 pub struct GameConfig {
+    pub server: ServerConfig,
     pub game: GameRulesConfig,
     pub prices: PriceConfig,
     pub shops: ShopsConfig,
@@ -37,6 +38,76 @@ pub struct GameConfig {
     pub plants: PlantsConfig,
     pub clans: ClansConfig,
 }
+
+// =============================================================================
+// server.toml
+// =============================================================================
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerConfig {
+    pub server: ServerSettingsConfig,
+    #[serde(default)]
+    pub logging: LoggingConfig,
+    #[serde(default)]
+    pub network: NetworkConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerSettingsConfig {
+    #[serde(default = "default_port")]
+    pub port: u16,
+    #[serde(default = "default_database_path")]
+    pub database_path: String,
+    #[serde(default = "default_max_connections")]
+    pub max_connections: usize,
+    #[serde(default = "default_version")]
+    pub version: String,
+    #[serde(default = "default_motd")]
+    pub motd: String,
+    #[serde(default = "default_host")]
+    pub host: String,
+    #[serde(default)]
+    pub max_connections_per_ip: usize,
+    #[serde(default)]
+    pub auto_save_position: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct LoggingConfig {
+    #[serde(default = "default_log_level")]
+    pub level: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct NetworkConfig {
+    #[serde(default = "default_max_message_size")]
+    pub max_message_size: usize,
+    #[serde(default = "default_connection_timeout")]
+    pub connection_timeout_secs: u64,
+    #[serde(default = "default_ping_interval")]
+    pub ping_interval_secs: u64,
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            max_message_size: default_max_message_size(),
+            connection_timeout_secs: default_connection_timeout(),
+            ping_interval_secs: default_ping_interval(),
+        }
+    }
+}
+
+fn default_port() -> u16 { 5555 }
+fn default_database_path() -> String { "slime_online2.db".to_string() }
+fn default_max_connections() -> usize { 500 }
+fn default_version() -> String { "0.106".to_string() }
+fn default_motd() -> String { "Welcome to Slime Online 2 Private Server!".to_string() }
+fn default_host() -> String { "0.0.0.0".to_string() }
+fn default_log_level() -> String { "info".to_string() }
+fn default_max_message_size() -> usize { 8192 }
+fn default_connection_timeout() -> u64 { 300 }
+fn default_ping_interval() -> u64 { 30 }
 
 // =============================================================================
 // game.toml
@@ -432,6 +503,7 @@ impl GameConfig {
     pub fn load(config_dir: &str) -> Result<Self, ConfigError> {
         let dir = Path::new(config_dir);
 
+        let server = load_toml::<ServerConfig>(&dir.join("server.toml"))?;
         let game = load_toml::<GameRulesConfig>(&dir.join("game.toml"))?;
         let prices_raw = load_toml::<PriceConfigRaw>(&dir.join("prices.toml"))?;
         let prices: PriceConfig = prices_raw.into();
@@ -443,6 +515,7 @@ impl GameConfig {
         let clans = load_toml::<ClansConfig>(&dir.join("clans.toml"))?;
 
         Ok(Self {
+            server,
             game,
             prices,
             shops,

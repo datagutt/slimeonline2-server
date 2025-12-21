@@ -173,8 +173,21 @@ async fn main() -> Result<()> {
         }
     };
 
-    // Load server configuration
-    let config = ServerConfig::default();
+    // Build server configuration from loaded config
+    let srv = &game_config.server.server;
+    let config = ServerConfig {
+        host: srv.host.clone(),
+        port: srv.port,
+        database_url: format!("sqlite:{}?mode=rwc", srv.database_path),
+        motd: srv.motd.clone(),
+        max_connections: srv.max_connections,
+        max_connections_per_ip: if srv.max_connections_per_ip > 0 { 
+            srv.max_connections_per_ip 
+        } else { 
+            MAX_CONNECTIONS_PER_IP 
+        },
+        auto_save_position: srv.auto_save_position,
+    };
     
     // Create server
     let server = Arc::new(Server::new(config.clone(), game_config).await?);
