@@ -503,13 +503,14 @@ struct BuyFailed {
 
 ### MSG_SELL_REQ_PRICES (53)
 
-**Direction:** Client → Server  
-**Purpose:** Request sell prices for inventory
+**Direction:** Client → Server, Server → Client  
+**Purpose:** Request/respond with sell prices for inventory
 
 **Client → Server:**
 ```rust
 struct SellPricesRequest {
     msg_type: u16,  // 53
+    category: u8,   // 1=outfits, 2=items, 3=acs, 4=tools
 }
 ```
 
@@ -517,8 +518,15 @@ struct SellPricesRequest {
 ```rust
 struct SellPricesResponse {
     msg_type: u16,  // 53
-    prices: [u16; 9], // Price for each item slot (0 = can't sell)
+    // For each non-empty slot in the category, send price
+    // Prices are: round(buy_price / 3)
+    prices: Vec<u16>,  // Only for slots with items
 }
+```
+
+**Price Calculation:**
+```rust
+sell_price = (buy_price as f32 / 3.0).round() as u16
 ```
 
 ---
