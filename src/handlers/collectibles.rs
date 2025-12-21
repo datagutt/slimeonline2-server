@@ -212,9 +212,10 @@ pub async fn handle_collectible_take(
         return Ok(vec![]);
     }
 
-    // Send MSG_GET_ITEM to the player to confirm they got the item
+    // Send MSG_COLLECTIBLE_TAKE_SELF to the player to confirm they got the item
+    // Format: slot (u8) + item_id (u16)
     let mut item_writer = MessageWriter::new();
-    item_writer.write_u16(MessageType::GetItem.id());
+    item_writer.write_u16(MessageType::CollectibleTakeSelf.id());
     item_writer.write_u8(slot); // slot (u8)
     item_writer.write_u16(spawn.item_id); // item_id (u16)
 
