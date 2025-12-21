@@ -128,17 +128,22 @@ pub async fn handle_typing(
     Ok(vec![])
 }
 
+/// Dice emote ID - server generates random result 1-6
+const DICE_EMOTE_ID: u8 = 13;
+
 /// Handle emote
 pub async fn handle_emote(
     payload: &[u8],
     server: &Arc<Server>,
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
+    use rand::Rng;
+    
     if payload.is_empty() {
         return Ok(vec![]);
     }
 
-    let emote_id = payload[0];
+    let mut emote_id = payload[0];
 
     // Validate emote ID (there are only a handful of valid emotes)
     if emote_id > 20 {
@@ -158,11 +163,23 @@ pub async fn handle_emote(
         }
     };
 
-    // Broadcast emote to all players in room
+    // Special handling for dice emote (id 13)
+    // Server generates random result 1-6, sends as emote_id 14-19
+    // (Client displays different dice faces based on emote_id)
+    if emote_id == DICE_EMOTE_ID {
+        let mut rng = rand::thread_rng();
+        let dice_roll: u8 = rng.gen_range(1..=6);
+        // Dice results are mapped to emote IDs 14-19 (14=1, 15=2, ..., 19=6)
+        emote_id = 13 + dice_roll;
+    }
+
+    // Broadcast emote to all players in room (including sender for dice)
     let room_players = server.game_state.get_room_players(room_id).await;
     
     for other_player_id in room_players {
-        if other_player_id == player_id {
+        // For dice, we broadcast to everyone including the sender
+        // so they see the server-generated result
+        if other_player_id == player_id && emote_id < 14 {
             continue;
         }
 
