@@ -1,0 +1,30 @@
+# Slime Online 2 - Plant Growth Configuration
+#
+# stages = [to1, to2, to3, to4, to5, to6] in minutes
+#   to1: seedling -> small sprout
+#   to2: small sprout -> growing
+#   to3: growing -> nearly done
+#   to4: nearly done -> full grown
+#   to5: full grown with fruit duration
+#   to6: dying/disappearing duration
+#
+# fruits = [item1, item2, item3, item4, item5] - possible fruit item IDs (equal chance)
+# chance = base % chance for fruit (0-100, in 10-step increments)
+#
+# Fairies add +10% fruit chance each, max 5 fairies per tree = +50% max
+
+[bonuses]
+fairy_chance_bonus = 10  # +10% per fairy
+max_fairies = 5
+
+[seeds.9]
+name = "Simple Seed"
+stages = [240, 240, 360, 360, 720, 60]  # Total ~33 hours to full cycle
+fruits = [9, 9, 9, 9, 9]                 # Always produces Simple Seed
+chance = 50
+
+[seeds.24]
+name = "Blue Seed"
+stages = [240, 360, 360, 480, 720, 60]  # Total ~37 hours to full cycle
+fruits = [25, 25, 24, 25, 25]           # Mostly Juicy Bango, sometimes Blue Seed
+chance = 35

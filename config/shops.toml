@@ -1,0 +1,74 @@
+# Slime Online 2 - Shop Configuration
+# 
+# Each room can have up to 5 shop slots
+# cat = category: 1=outfit, 2=item, 3=accessory, 4=tool
+# stock = max stock (0 = unlimited)
+# avail = 1 if slot is active, 0 if hidden/locked
+
+# Test shop (Room 14)
+[room.14]
+slots = [
+    { cat = 1, item = 10, stock = 30, avail = true },
+    { cat = 3, item = 20, stock = 30, avail = true },
+    { cat = 2, item = 8, stock = 30, avail = true },
+]
+
+# Town Shop - Outfits (Room 44)
+[room.44]
+slots = [
+    { cat = 1, item = 68, stock = 0, avail = true },    # Unlimited
+    { cat = 1, item = 5, stock = 10, avail = true },
+    { cat = 1, item = 11, stock = 2, avail = true },
+    { cat = 1, item = 71, stock = 1, avail = false },   # Hidden
+    { cat = 1, item = 62, stock = 1, avail = false },   # Hidden
+]
+
+# Town Shop - Accessories (Room 45)
+[room.45]
+slots = [
+    { cat = 3, item = 1, stock = 25, avail = true },
+    { cat = 3, item = 13, stock = 2, avail = true },
+    { cat = 3, item = 31, stock = 2, avail = true },
+    { cat = 3, item = 40, stock = 1, avail = false },   # Hidden
+    { cat = 3, item = 44, stock = 2, avail = false },   # Hidden
+]
+
+# Town Shop - Items (Room 46)
+[room.46]
+slots = [
+    { cat = 2, item = 1, stock = 20, avail = true },    # Fly Wing
+    { cat = 2, item = 4, stock = 10, avail = true },    # Bubble Wand
+    { cat = 2, item = 8, stock = 10, avail = true },    # Chicken Mine
+    { cat = 2, item = 11, stock = 10, avail = false },  # Hidden
+    { cat = 2, item = 3, stock = 10, avail = false },   # Hidden
+]
+
+# Forest Shop - Outfits (Room 123)
+[room.123]
+slots = [
+    { cat = 1, item = 15, stock = 10, avail = true },
+    { cat = 1, item = 38, stock = 2, avail = true },
+    { cat = 1, item = 44, stock = 1, avail = true },
+    { cat = 1, item = 57, stock = 2, avail = false },   # Hidden
+    { cat = 1, item = 58, stock = 1, avail = false },   # Hidden
+]
+
+# Forest Shop - Accessories (Room 124)
+[room.124]
+slots = [
+    { cat = 3, item = 5, stock = 25, avail = true },
+    { cat = 3, item = 7, stock = 2, avail = true },
+    { cat = 3, item = 22, stock = 25, avail = true },
+    { cat = 3, item = 87, stock = 1, avail = false },   # Hidden
+    { cat = 3, item = 16, stock = 0, avail = false },   # Hidden, unlimited
+]
+
+# Forest Shop - Items (Room 125)
+[room.125]
+slots = [
+    { cat = 2, item = 1, stock = 10, avail = true },    # Fly Wing
+    { cat = 2, item = 2, stock = 10, avail = true },    # Smoke Bomb
+    { cat = 2, item = 11, stock = 3, avail = true },    # Blue Pinwheel
+    { cat = 2, item = 10, stock = 2, avail = false },   # Hidden - Fairy
+    { cat = 2, item = 25, stock = 2, avail = false },   # Hidden - Juicy Bango
+]

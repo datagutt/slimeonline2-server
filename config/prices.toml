@@ -1,0 +1,338 @@
+# Slime Online 2 - Price Configuration
+# Sell price = floor(buy_price / 3)
+# Price of 65000 = special item (not normally purchasable)
+
+[items]
+# Consumables & Usables
+1 = { name = "Fly Wing", price = 10 }
+2 = { name = "Smoke Bomb", price = 30 }
+3 = { name = "Apple Bomb", price = 15 }
+4 = { name = "Bubble Wand", price = 15 }
+5 = { name = "Points Bag [50]", price = 50 }
+6 = { name = "Points Bag [200]", price = 200 }
+7 = { name = "Points Bag [500]", price = 500 }
+8 = { name = "Chicken Mine", price = 10 }
+9 = { name = "Simple Seed", price = 150 }
+10 = { name = "Fairy", price = 250 }
+11 = { name = "Blue Pinwheel", price = 100 }
+12 = { name = "Red Pinwheel", price = 250 }
+13 = { name = "Glow Pinwheel", price = 500 }
+14 = { name = "Rockman Sound", price = 1500 }
+15 = { name = "Kirby Sound", price = 1500 }
+16 = { name = "Link Sound", price = 1500 }
+17 = { name = "Pipe Sound", price = 1500 }
+18 = { name = "DK Sound", price = 1500 }
+19 = { name = "Metroid Sound", price = 1500 }
+20 = { name = "Red Mushroom", price = 50 }
+21 = { name = "Tailphire", price = 300 }
+22 = { name = "Magmanis", price = 30 }
+23 = { name = "Bright Drink", price = 150 }
+24 = { name = "Blue Seed", price = 150 }
+25 = { name = "Juicy Bango", price = 450 }
+26 = { name = "Weak Cannon Kit", price = 900 }
+27 = { name = "Red Gum", price = 15 }
+28 = { name = "Orange Gum", price = 15 }
+29 = { name = "Green Gum", price = 15 }
+30 = { name = "Blue Gum", price = 15 }
+31 = { name = "Pink Gum", price = 15 }
+32 = { name = "White Gum", price = 15 }
+33 = { name = "Lucky Coin", price = 3 }
+34 = { name = "Bunny Soda", price = 30 }
+35 = { name = "Slime Soda", price = 30 }
+36 = { name = "Penguin Soda", price = 30 }
+37 = { name = "Speed Soda", price = 3 }
+38 = { name = "Jump Soda", price = 3 }
+# Slimeium Materials (39-45)
+39 = { name = "Sleenmium", price = 60 }
+40 = { name = "Sledmium", price = 60 }
+41 = { name = "Sluemium", price = 60 }
+42 = { name = "Slinkmium", price = 60 }
+43 = { name = "Slelloymium", price = 60 }
+44 = { name = "Slaymium", price = 60 }
+45 = { name = "Slackmium", price = 60 }
+# Misc Materials
+46 = { name = "Screw", price = 15 }
+47 = { name = "Rusty Screw", price = 6 }
+48 = { name = "Bug Leg", price = 3 }
+49 = { name = "Weird Coin", price = 75 }
+50 = { name = "Firestone", price = 30 }
+# Proof Items (for clan creation, quests)
+51 = { name = "Proof of Nature", price = 3 }
+52 = { name = "Proof of Earth", price = 3 }
+53 = { name = "Proof of Water", price = 3 }
+54 = { name = "Proof of Fire", price = 3 }
+55 = { name = "Proof of Stone", price = 3 }
+56 = { name = "Proof of Wind", price = 3 }
+# Collectible Items
+57 = { name = "Blazing Bubble", price = 150 }
+58 = { name = "Squishy Mushroom", price = 150 }
+59 = { name = "Stinky Mushroom", price = 3 }
+60 = { name = "Bell Twig", price = 30 }
+61 = { name = "Irrlicht", price = 300 }
+# Special items (62-100) - not normally purchasable
+62 = { name = "Special 62", price = 65000 }
+63 = { name = "Special 63", price = 65000 }
+64 = { name = "Special 64", price = 65000 }
+65 = { name = "Special 65", price = 65000 }
+66 = { name = "Special 66", price = 65000 }
+67 = { name = "Special 67", price = 65000 }
+68 = { name = "Special 68", price = 65000 }
+69 = { name = "Special 69", price = 65000 }
+70 = { name = "Special 70", price = 65000 }
+71 = { name = "Special 71", price = 65000 }
+72 = { name = "Special 72", price = 65000 }
+73 = { name = "Special 73", price = 65000 }
+74 = { name = "Special 74", price = 65000 }
+75 = { name = "Special 75", price = 65000 }
+76 = { name = "Special 76", price = 65000 }
+77 = { name = "Special 77", price = 65000 }
+78 = { name = "Special 78", price = 65000 }
+79 = { name = "Special 79", price = 65000 }
+80 = { name = "Special 80", price = 65000 }
+81 = { name = "Special 81", price = 65000 }
+82 = { name = "Special 82", price = 65000 }
+83 = { name = "Special 83", price = 65000 }
+84 = { name = "Special 84", price = 65000 }
+85 = { name = "Special 85", price = 65000 }
+86 = { name = "Special 86", price = 65000 }
+87 = { name = "Special 87", price = 65000 }
+88 = { name = "Special 88", price = 65000 }
+89 = { name = "Special 89", price = 65000 }
+90 = { name = "Special 90", price = 65000 }
+91 = { name = "Special 91", price = 65000 }
+92 = { name = "Special 92", price = 65000 }
+93 = { name = "Special 93", price = 65000 }
+94 = { name = "Special 94", price = 65000 }
+95 = { name = "Special 95", price = 65000 }
+96 = { name = "Special 96", price = 65000 }
+97 = { name = "Special 97", price = 65000 }
+98 = { name = "Special 98", price = 65000 }
+99 = { name = "Special 99", price = 65000 }
+100 = { name = "Special 100", price = 65000 }
+
+[outfits]
+1 = 50
+2 = 200
+3 = 1000
+4 = 1000
+5 = 300
+6 = 2000
+7 = 1500
+8 = 3000
+9 = 1000
+10 = 800
+11 = 1000
+12 = 2000
+13 = 100
+14 = 400
+15 = 1500
+16 = 1000
+17 = 1000
+18 = 500
+19 = 800
+20 = 600
+21 = 1500
+22 = 800
+23 = 800
+24 = 800
+25 = 600
+26 = 400
+27 = 1000
+28 = 500
+29 = 1500
+30 = 400
+31 = 1000
+32 = 500
+33 = 800
+34 = 1000
+35 = 400
+36 = 400
+37 = 500
+38 = 1000
+39 = 500
+40 = 500
+41 = 400
+42 = 500
+43 = 5000
+44 = 300
+45 = 1000
+46 = 1500
+47 = 1000
+48 = 2000
+49 = 1000
+50 = 1000
+51 = 600
+52 = 500
+53 = 600
+54 = 400
+55 = 1000
+56 = 400
+57 = 4000
+58 = 1000
+59 = 600
+60 = 500
+61 = 400
+62 = 2000
+63 = 500
+64 = 400
+65 = 1000
+66 = 300
+67 = 500
+68 = 5000
+69 = 200
+70 = 500
+71 = 4000
+72 = 400
+73 = 1000
+74 = 2000
+75 = 2000
+76 = 2000
+77 = 500
+78 = 500
+79 = 400
+80 = 1000
+81 = 500
+82 = 2000
+83 = 500
+84 = 2000
+85 = 2000
+86 = 2000
+87 = 1000
+88 = 3000
+89 = 1000
+90 = 500
+91 = 1500
+92 = 1337  # Easter egg price
+93 = 3000
+94 = 5000
+95 = 2000
+96 = 3000
+97 = 1000
+98 = 5000
+99 = 2500
+100 = 2500
+
+[accessories]
+1 = 100
+2 = 2000
+3 = 500
+4 = 500
+5 = 400
+6 = 600
+7 = 1200
+8 = 2000
+9 = 400
+10 = 1000
+11 = 2000
+12 = 500
+13 = 1000
+14 = 800
+15 = 400
+16 = 10000
+17 = 600
+18 = 600
+19 = 2000
+20 = 800
+21 = 500
+22 = 400
+23 = 2000
+24 = 500
+25 = 400
+26 = 10000
+27 = 2000
+28 = 2000
+29 = 2000
+30 = 2000
+31 = 500
+32 = 400
+33 = 400
+34 = 500
+35 = 800
+36 = 200
+37 = 500
+38 = 300
+39 = 400
+40 = 2000
+41 = 300
+42 = 300
+43 = 600
+44 = 1500
+45 = 800
+46 = 400
+47 = 400
+48 = 1000
+49 = 500
+50 = 1000
+51 = 2000
+52 = 1000
+53 = 1500
+54 = 1500
+55 = 1000
+56 = 800
+57 = 1000
+58 = 500
+59 = 400
+60 = 500
+61 = 300
+62 = 200
+63 = 200
+64 = 200
+65 = 1000
+66 = 500
+67 = 400
+68 = 400
+69 = 1000
+70 = 2000
+71 = 500
+72 = 3000
+73 = 200
+74 = 1000
+75 = 1500
+76 = 500
+77 = 250
+78 = 1000
+79 = 500
+80 = 1500
+81 = 1500
+82 = 500
+83 = 5000
+84 = 5000
+85 = 5000
+86 = 500
+87 = 3000
+88 = 5000
+89 = 5000
+90 = 500
+91 = 500
+92 = 3000
+93 = 1000
+94 = 300
+95 = 200
+96 = 2000
+97 = 1000
+98 = 300
+99 = 400
+100 = 5000
+101 = 500
+
+[tools]
+1 = { name = "Rusty Pickaxe", price = 500 }
+2 = { name = "Pickaxe", price = 1000 }
+
+[mail_paper]
+0 = 25
+1 = 40
+2 = 100
+3 = 50
+
+# Items that can be discarded (dropped on ground)
+# All items 1-61 are discardable, items 62+ are not
+discardable = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+    31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+    41, 42, 43, 44, 45, 46, 47, 49, 50,
+    51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61
+]
+# Note: 48 (Bug Leg) is notably missing from the original discardable list

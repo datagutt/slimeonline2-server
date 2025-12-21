@@ -1,0 +1,51 @@
+# Slime Online 2 - Game Rules Configuration
+
+[limits]
+max_username_length = 20
+min_username_length = 3
+max_password_length = 50
+min_password_length = 6
+max_chat_length = 100
+max_points = 10000000
+max_bank_balance = 100000000
+
+[defaults]
+# New player spawn location
+spawn_x = 385
+spawn_y = 71
+spawn_room = 32
+
+# Default appearance
+outfit = 1
+accessory1 = 0
+accessory2 = 0
+signature = 1
+signature_bg = 1
+
+# Default emotes (5 slots)
+emotes = [5, 4, 6, 8, 7]
+
+# Starting inventory items (item IDs for slots 1-9, 0 = empty)
+starting_items = [1, 1, 1, 24, 0, 0, 0, 0, 0]
+
+# Starting outfits (outfit IDs for slots 1-9)
+starting_outfits = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+# Starting accessories (accessory IDs for slots 1-9)
+starting_accessories = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+# Starting tools (tool IDs for slots 1-9)
+starting_tools = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+# Unlocked mail paper types on new account
+unlocked_mail_paper = [0, 1, 2]
+
+[welcome_mail]
+sender = "Slime Team"
+text = "Welcome to Slime Online!#We hope you enjoy#your stay.##The Team"
+points = 50
+paper = 0
+font = 0
+
+[bbs]
+categories = ["Hints", "Events", "Trade", "Adventures", "Jokes", "Other"]

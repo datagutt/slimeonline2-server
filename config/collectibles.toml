@@ -1,0 +1,366 @@
+# Slime Online 2 - Collectible Spawn Configuration
+#
+# Each spawn point has:
+# - id: unique spawn ID within room (1-based)
+# - item: item ID that spawns
+# - x, y: spawn coordinates
+# - respawn: base respawn time in minutes
+# - variance: random additional minutes (0 to variance)
+# - start/end: optional hour range when spawn is active (for time-limited spawns)
+#
+# Actual respawn time = respawn + random(0, variance)
+
+# Evolving collectibles - item transforms over time while on ground
+[evolving]
+20 = { to = 58, minutes = 60, variance = 20 }  # Red Mushroom -> Squishy Mushroom
+58 = { to = 59, minutes = 10, variance = 20 }  # Squishy Mushroom -> Stinky Mushroom
+
+# ============================================
+# FOREST / MUSHROOM AREAS (Rooms 33-43, 55-70)
+# Item 20 = Red Mushroom, Item 21 = Tailphire
+# ============================================
+
+[room.33]
+spawns = [
+    { id = 1, item = 20, x = 171, y = 120, respawn = 60, variance = 60 },
+    { id = 2, item = 20, x = 552, y = 312, respawn = 90, variance = 60 },
+]
+
+[room.34]
+spawns = [
+    { id = 1, item = 20, x = 425, y = 104, respawn = 45, variance = 45 },
+]
+
+[room.35]
+spawns = [
+    { id = 1, item = 20, x = 704, y = 984, respawn = 70, variance = 30 },
+    { id = 2, item = 20, x = 255, y = 120, respawn = 180, variance = 40 },
+]
+
+[room.36]
+spawns = [
+    { id = 1, item = 20, x = 374, y = 968, respawn = 60, variance = 30 },
+]
+
+[room.37]
+spawns = [
+    { id = 1, item = 20, x = 147, y = 648, respawn = 120, variance = 60 },
+    { id = 2, item = 20, x = 95, y = 248, respawn = 35, variance = 20 },
+]
+
+[room.38]
+spawns = [
+    { id = 1, item = 21, x = 536, y = 296, respawn = 60, variance = 20 },
+]
+
+[room.40]
+spawns = [
+    { id = 1, item = 20, x = 802, y = 376, respawn = 30, variance = 30 },
+    { id = 2, item = 20, x = 504, y = 248, respawn = 70, variance = 35 },
+]
+
+[room.41]
+spawns = [
+    { id = 1, item = 21, x = 296, y = 568, respawn = 60, variance = 30 },
+]
+
+[room.43]
+spawns = [
+    { id = 1, item = 20, x = 848, y = 568, respawn = 60, variance = 40 },
+    { id = 2, item = 20, x = 928, y = 472, respawn = 65, variance = 30 },
+]
+
+[room.48]
+spawns = [
+    { id = 1, item = 21, x = 480, y = 776, respawn = 60, variance = 30 },
+]
+
+[room.50]
+spawns = [
+    { id = 1, item = 21, x = 48, y = 248, respawn = 30, variance = 40 },
+    { id = 2, item = 21, x = 496, y = 424, respawn = 60, variance = 30 },
+]
+
+[room.52]
+spawns = [
+    { id = 1, item = 21, x = 480, y = 280, respawn = 90, variance = 20 },
+]
+
+[room.55]
+spawns = [
+    { id = 1, item = 20, x = 423, y = 168, respawn = 40, variance = 20 },
+]
+
+[room.56]
+spawns = [
+    { id = 1, item = 20, x = 219, y = 296, respawn = 20, variance = 30 },
+]
+
+[room.60]
+spawns = [
+    { id = 1, item = 21, x = 560, y = 280, respawn = 20, variance = 20 },
+]
+
+[room.61]
+spawns = [
+    { id = 1, item = 21, x = 168, y = 600, respawn = 30, variance = 30 },
+    { id = 2, item = 21, x = 128, y = 616, respawn = 60, variance = 30 },
+]
+
+[room.64]
+spawns = [
+    { id = 1, item = 20, x = 128, y = 376, respawn = 30, variance = 60 },
+    { id = 2, item = 20, x = 368, y = 296, respawn = 50, variance = 50 },
+    { id = 3, item = 20, x = 224, y = 200, respawn = 20, variance = 120 },
+]
+
+[room.65]
+spawns = [
+    { id = 1, item = 20, x = 200, y = 264, respawn = 10, variance = 80 },
+]
+
+[room.67]
+spawns = [
+    { id = 1, item = 20, x = 616, y = 504, respawn = 60, variance = 30 },
+    { id = 2, item = 20, x = 472, y = 408, respawn = 70, variance = 70 },
+    { id = 3, item = 20, x = 96, y = 424, respawn = 120, variance = 40 },
+    { id = 4, item = 20, x = 112, y = 232, respawn = 30, variance = 60 },
+]
+
+[room.68]
+spawns = [
+    { id = 1, item = 20, x = 288, y = 504, respawn = 60, variance = 30 },
+    { id = 2, item = 20, x = 128, y = 328, respawn = 80, variance = 80 },
+    { id = 3, item = 20, x = 592, y = 392, respawn = 30, variance = 70 },
+]
+
+[room.69]
+spawns = [
+    { id = 1, item = 20, x = 184, y = 168, respawn = 100, variance = 10 },
+    { id = 2, item = 20, x = 696, y = 600, respawn = 50, variance = 50 },
+]
+
+[room.70]
+spawns = [
+    { id = 1, item = 20, x = 672, y = 120, respawn = 80, variance = 80 },
+    { id = 2, item = 20, x = 568, y = 120, respawn = 30, variance = 30 },
+]
+
+[room.72]
+spawns = [
+    { id = 1, item = 20, x = 80, y = 168, respawn = 10, variance = 20 },
+]
+
+# ============================================
+# VOLCANO / LAVA AREAS (Rooms 71-77, 91-102, 108)
+# Item 22 = Magmanis, Item 57 = Blazing Bubble
+# ============================================
+
+[room.71]
+spawns = [
+    { id = 1, item = 22, x = 384, y = 408, respawn = 30, variance = 20 },
+]
+
+[room.73]
+spawns = [
+    { id = 1, item = 22, x = 184, y = 120, respawn = 30, variance = 30 },
+    { id = 2, item = 22, x = 480, y = 104, respawn = 40, variance = 30 },
+]
+
+[room.74]
+spawns = [
+    { id = 1, item = 22, x = 648, y = 392, respawn = 30, variance = 20 },
+    { id = 2, item = 22, x = 348, y = 476, respawn = 60, variance = 20 },
+]
+
+[room.75]
+spawns = [
+    { id = 1, item = 22, x = 176, y = 136, respawn = 30, variance = 30 },
+]
+
+[room.77]
+spawns = [
+    { id = 1, item = 22, x = 464, y = 440, respawn = 20, variance = 30 },
+    { id = 2, item = 22, x = 256, y = 408, respawn = 30, variance = 20 },
+]
+
+[room.91]
+spawns = [
+    { id = 1, item = 57, x = 81, y = 154, respawn = 40, variance = 40 },
+    { id = 2, item = 57, x = 679, y = 340, respawn = 40, variance = 40 },
+]
+
+[room.92]
+spawns = [
+    { id = 1, item = 57, x = 448, y = 1240, respawn = 60, variance = 40 },
+    { id = 2, item = 57, x = 1408, y = 1144, respawn = 40, variance = 30 },
+    { id = 3, item = 57, x = 828, y = 928, respawn = 60, variance = 30 },
+    { id = 4, item = 57, x = 432, y = 712, respawn = 30, variance = 80 },
+    { id = 5, item = 57, x = 1512, y = 648, respawn = 40, variance = 40 },
+    { id = 6, item = 57, x = 440, y = 304, respawn = 50, variance = 60 },
+]
+
+[room.94]
+spawns = [
+    { id = 1, item = 22, x = 640, y = 104, respawn = 30, variance = 20 },
+    { id = 2, item = 57, x = 592, y = 120, respawn = 40, variance = 60 },
+]
+
+[room.95]
+spawns = [
+    { id = 1, item = 22, x = 232, y = 456, respawn = 20, variance = 40 },
+    { id = 2, item = 57, x = 304, y = 496, respawn = 60, variance = 60 },
+    { id = 3, item = 57, x = 368, y = 936, respawn = 50, variance = 30 },
+    { id = 4, item = 22, x = 368, y = 40, respawn = 20, variance = 30 },
+]
+
+[room.97]
+spawns = [
+    { id = 1, item = 22, x = 256, y = 224, respawn = 30, variance = 20 },
+    { id = 2, item = 22, x = 328, y = 728, respawn = 40, variance = 60 },
+    { id = 3, item = 22, x = 448, y = 104, respawn = 30, variance = 20 },
+    { id = 4, item = 22, x = 256, y = 920, respawn = 30, variance = 20 },
+    { id = 5, item = 22, x = 312, y = 904, respawn = 15, variance = 50 },
+]
+
+[room.98]
+spawns = [
+    { id = 1, item = 22, x = 104, y = 120, respawn = 20, variance = 40 },
+    { id = 2, item = 22, x = 376, y = 120, respawn = 30, variance = 30 },
+    { id = 3, item = 57, x = 172, y = 160, respawn = 40, variance = 60 },
+]
+
+[room.99]
+spawns = [
+    { id = 1, item = 57, x = 304, y = 240, respawn = 40, variance = 60 },
+    { id = 2, item = 57, x = 672, y = 256, respawn = 40, variance = 30 },
+]
+
+[room.100]
+spawns = [
+    { id = 1, item = 22, x = 196, y = 56, respawn = 20, variance = 20 },
+    { id = 2, item = 22, x = 112, y = 376, respawn = 30, variance = 20 },
+    { id = 3, item = 57, x = 176, y = 64, respawn = 40, variance = 30 },
+]
+
+[room.101]
+spawns = [
+    { id = 1, item = 22, x = 488, y = 216, respawn = 30, variance = 15 },
+    { id = 2, item = 22, x = 520, y = 216, respawn = 30, variance = 10 },
+    { id = 3, item = 57, x = 416, y = 264, respawn = 50, variance = 50 },
+    { id = 4, item = 57, x = 192, y = 200, respawn = 60, variance = 20 },
+]
+
+[room.102]
+spawns = [
+    { id = 1, item = 22, x = 136, y = 456, respawn = 30, variance = 30 },
+    { id = 2, item = 22, x = 320, y = 344, respawn = 30, variance = 10 },
+    { id = 3, item = 22, x = 160, y = 56, respawn = 15, variance = 35 },
+    { id = 4, item = 22, x = 464, y = 88, respawn = 30, variance = 20 },
+    { id = 5, item = 57, x = 608, y = 320, respawn = 30, variance = 70 },
+    { id = 6, item = 22, x = 912, y = 104, respawn = 20, variance = 40 },
+]
+
+[room.108]
+spawns = [
+    { id = 1, item = 57, x = 192, y = 568, respawn = 60, variance = 60 },
+    { id = 2, item = 57, x = 296, y = 288, respawn = 60, variance = 30 },
+    { id = 3, item = 57, x = 864, y = 552, respawn = 40, variance = 60 },
+    { id = 4, item = 22, x = 376, y = 280, respawn = 30, variance = 10 },
+    { id = 5, item = 57, x = 896, y = 328, respawn = 40, variance = 80 },
+    { id = 6, item = 57, x = 856, y = 136, respawn = 80, variance = 80 },
+]
+
+# ============================================
+# BELL TWIG AREAS (Rooms 114-120, 132-133)
+# Item 60 = Bell Twig
+# ============================================
+
+[room.114]
+spawns = [
+    { id = 1, item = 60, x = 704, y = 392, respawn = 30, variance = 60 },
+]
+
+[room.115]
+spawns = [
+    { id = 1, item = 60, x = 496, y = 184, respawn = 20, variance = 40 },
+]
+
+[room.116]
+spawns = [
+    { id = 1, item = 60, x = 600, y = 616, respawn = 80, variance = 80 },
+]
+
+[room.118]
+spawns = [
+    { id = 1, item = 60, x = 336, y = 104, respawn = 80, variance = 100 },
+]
+
+[room.119]
+spawns = [
+    { id = 1, item = 60, x = 248, y = 472, respawn = 30, variance = 80 },
+]
+
+[room.132]
+spawns = [
+    { id = 1, item = 60, x = 800, y = 712, respawn = 120, variance = 120 },
+]
+
+[room.133]
+spawns = [
+    { id = 1, item = 60, x = 576, y = 424, respawn = 240, variance = 120 },
+    { id = 2, item = 60, x = 136, y = 760, respawn = 240, variance = 120 },
+]
+
+# ============================================
+# TAILPHIRE CRYSTAL AREA (Room 136)
+# Item 21 = Tailphire
+# ============================================
+
+[room.136]
+spawns = [
+    { id = 1, item = 21, x = 264, y = 424, respawn = 120, variance = 120 },
+    { id = 2, item = 21, x = 568, y = 408, respawn = 120, variance = 120 },
+]
+
+# ============================================
+# IRRLICHT / WILL-O-WISP AREAS (Rooms 142-146)
+# Item 61 = Irrlicht (night-time only spawns)
+# ============================================
+
+[room.142]
+spawns = [
+    { id = 1, item = 61, x = 144, y = 240, respawn = 45, variance = 75, start_hour = 23, end_hour = 6 },
+]
+
+[room.143]
+spawns = [
+    { id = 1, item = 61, x = 120, y = 592, respawn = 80, variance = 80, start_hour = 23, end_hour = 6 },
+    { id = 2, item = 61, x = 120, y = 592, respawn = 416, variance = 448, start_hour = 22, end_hour = 5 },
+]
+
+[room.144]
+spawns = [
+    { id = 1, item = 61, x = 224, y = 592, respawn = 80, variance = 80, start_hour = 0, end_hour = 7 },
+]
+
+[room.145]
+spawns = [
+    { id = 1, item = 61, x = 264, y = 288, respawn = 120, variance = 120, start_hour = 23, end_hour = 6 },
+]
+
+[room.146]
+spawns = [
+    { id = 1, item = 61, x = 176, y = 432, respawn = 90, variance = 90, start_hour = 23, end_hour = 6 },
+]
+
+# ============================================
+# TEST ROOM (Room 14)
+# ============================================
+
+[room.14]
+spawns = [
+    { id = 1, item = 1, x = 400, y = 400, respawn = 1, variance = 0 },
+    { id = 2, item = 2, x = 500, y = 400, respawn = 30, variance = 0 },
+    { id = 3, item = 1, x = 450, y = 450, respawn = 30, variance = 0 },
+]

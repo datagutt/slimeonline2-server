@@ -1,0 +1,16 @@
+# Slime Online 2 - Server Configuration
+
+[server]
+port = 5555
+database_path = "slime_online2.db"
+max_connections = 500
+version = "0.106"
+
+[logging]
+level = "info"
+# Options: trace, debug, info, warn, error
+
+[network]
+max_message_size = 8192
+connection_timeout_secs = 300
+ping_interval_secs = 30

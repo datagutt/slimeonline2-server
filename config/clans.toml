@@ -1,0 +1,31 @@
+# Slime Online 2 - Clan System Configuration
+
+[creation]
+# Cost in Slime Points to create a clan
+cost = 10000
+
+# Item IDs that are consumed when creating a clan
+# Default: Proof of Nature (51) and Proof of Earth (52)
+required_items = [51, 52]
+
+[limits]
+# Clan name length limits
+min_name_length = 3
+max_name_length = 15
+
+# Member slots
+initial_member_slots = 3
+max_member_slots = 10
+
+# Clan base (unlockable feature)
+base_unlock_cost = 50000
+
+[defaults]
+# Default clan colors (RGB values)
+inner_color = { r = 0, g = 255, b = 0 }
+outer_color = { r = 0, g = 0, b = 0 }
+
+# Default clan info text
+news = "No news"
+info = "A new clan"
+show_leader = true
