@@ -259,36 +259,40 @@ pub struct MovementUpdate {
     pub direction: u8,
     pub x: Option<u16>,
     pub y: Option<u16>,
+    /// Jump x-coordinate uses signed i16 (direction 3 only)
+    pub jump_x: Option<i16>,
 }
 
 impl MovementUpdate {
     /// Parse a movement update from the message buffer.
     /// Assumes the message type (u16) has already been read.
+    /// 
+    /// Note: Direction 3 (Jump) uses a **signed i16** for x coordinate.
     pub fn parse(reader: &mut MessageReader) -> ReadResult<Self> {
         let direction = reader.read_u8()?;
         
         // Determine if x/y coordinates are included based on direction
-        let (x, y) = if let Some(dir) = Direction::from_u8(direction) {
+        let (x, y, jump_x) = if let Some(dir) = Direction::from_u8(direction) {
             match dir {
-                // Directions that include x and y
+                // Directions that include x and y (unsigned)
                 Direction::StartLeftGround | Direction::StartRightGround |
                 Direction::StopLeftGround | Direction::StopRightGround |
                 Direction::Landing => {
-                    (Some(reader.read_u16()?), Some(reader.read_u16()?))
+                    (Some(reader.read_u16()?), Some(reader.read_u16()?), None)
                 }
-                // Directions that include only x
+                // Jump direction uses SIGNED i16 for x coordinate
                 Direction::Jump => {
-                    (Some(reader.read_u16()?), None)
+                    (None, None, Some(reader.read_i16()?))
                 }
                 // Directions with no coordinates
-                _ => (None, None),
+                _ => (None, None, None),
             }
         } else {
             // Unknown direction, no coordinates
-            (None, None)
+            (None, None, None)
         };
 
-        Ok(Self { direction, x, y })
+        Ok(Self { direction, x, y, jump_x })
     }
 
     /// Write a movement broadcast to other players.
@@ -303,6 +307,9 @@ impl MovementUpdate {
         }
         if let Some(y) = self.y {
             writer.write_u16(y);
+        }
+        if let Some(jump_x) = self.jump_x {
+            writer.write_i16(jump_x);
         }
     }
 }
