@@ -125,7 +125,7 @@ pub async fn handle_use_item(
     // Handle item effects based on type
     match item_info.item_type {
         ItemType::WarpWing => {
-            handle_warp_wing(&mut responses, server, &session, character_id).await?;
+            handle_warp_wing(&mut responses, server, &session, character_id, slot, x, y).await?;
         }
 
         ItemType::Smokebomb | ItemType::Applebomb => {
@@ -189,47 +189,81 @@ pub async fn handle_use_item(
     Ok(responses)
 }
 
-/// Handle Warp-Wing usage - teleport to spawn
+/// Handle Warp-Wing (Fly Wing) usage - teleport to last save point
+/// 
+/// The original server reads the player's saved position from their account file.
+/// In our implementation, this is the character's stored x/y/room_id in the database.
 async fn handle_warp_wing(
     responses: &mut Vec<Vec<u8>>,
     server: &Arc<Server>,
     session: &Arc<RwLock<PlayerSession>>,
     character_id: i64,
+    slot: u8,
+    current_x: u16,
+    current_y: u16,
 ) -> Result<()> {
-    let defaults = &server.game_config.game.defaults;
-    let spawn_x = defaults.spawn_x;
-    let spawn_y = defaults.spawn_y;
-    let spawn_room = defaults.spawn_room;
+    // Get character's saved position from database (last save point)
+    let character = crate::db::find_character_by_id(&server.db, character_id).await?;
+    
+    let (save_x, save_y, save_room) = match character {
+        Some(char) => (char.x as u16, char.y as u16, char.room_id as u16),
+        None => {
+            // Fallback to current position if character not found
+            let session_guard = session.read().await;
+            (session_guard.x, session_guard.y, session_guard.room_id)
+        }
+    };
 
-    // Send use item response for warp effect
+    // Send use item response to self (case 1 = self)
+    // Format: msg_type(2) + item_id(2) + self_flag(1) + room(2) + x(2) + y(2)
     let mut writer = MessageWriter::new();
     writer
         .write_u16(MessageType::UseItem.id())
-        .write_u16(1) // item_id for Warp-Wing
+        .write_u16(1) // item_id for Fly Wing
         .write_u8(1)  // self = true
-        .write_u16(spawn_room)
-        .write_u16(spawn_x)
-        .write_u16(spawn_y);
+        .write_u16(save_room)
+        .write_u16(save_x)
+        .write_u16(save_y);
     responses.push(writer.into_bytes());
 
-    // Update session
-    {
-        let mut session_guard = session.write().await;
-        session_guard.x = spawn_x;
-        session_guard.y = spawn_y;
-        session_guard.room_id = spawn_room;
+    // Broadcast to same room (case 0 = others see the warp effect)
+    // Format: msg_type(2) + item_id(2) + self_flag(0) + x(2) + y(2)
+    let room_id = session.read().await.room_id;
+    let player_id = session.read().await.player_id;
+    
+    let mut broadcast_writer = MessageWriter::new();
+    broadcast_writer
+        .write_u16(MessageType::UseItem.id())
+        .write_u16(1) // item_id for Fly Wing
+        .write_u8(0)  // self = false (for others)
+        .write_u16(current_x)
+        .write_u16(current_y);
+    let broadcast_msg = broadcast_writer.into_bytes();
+    
+    // Send to other players in the same room
+    let room_players = server.game_state.get_room_players(room_id).await;
+    for other_player_id in room_players {
+        if Some(other_player_id) == player_id {
+            continue; // Skip self
+        }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
+            if let Some(other_session) = server.sessions.get(&other_session_id) {
+                other_session.write().await.queue_message(broadcast_msg.clone());
+            }
+        }
     }
 
-    // Update database
-    crate::db::update_position(
-        &server.db,
-        character_id,
-        spawn_x as i16,
-        spawn_y as i16,
-        spawn_room as i16,
-    ).await?;
+    // Update session with saved position
+    {
+        let mut session_guard = session.write().await;
+        session_guard.x = save_x;
+        session_guard.y = save_y;
+        session_guard.room_id = save_room;
+    }
 
-    // Item already consumed client-side
+    // Consume the item
+    crate::db::update_item_slot(&server.db, character_id, slot, 0).await?;
+
     Ok(())
 }
 

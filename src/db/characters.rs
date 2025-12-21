@@ -141,6 +141,25 @@ pub async fn find_character_by_account(
     .await
 }
 
+/// Find a character by character ID.
+pub async fn find_character_by_id(
+    pool: &DbPool,
+    character_id: i64,
+) -> Result<Option<Character>, sqlx::Error> {
+    sqlx::query_as::<_, Character>(
+        r#"
+        SELECT id, account_id, username, x, y, room_id, body_id, acs1_id, acs2_id,
+               points, bank_balance, trees_planted, objects_built, quest_id, quest_step,
+               quest_var, has_signature, is_moderator, clan_id
+        FROM characters
+        WHERE id = ?
+        "#,
+    )
+    .bind(character_id)
+    .fetch_optional(pool)
+    .await
+}
+
 /// Get inventory for a character.
 pub async fn get_inventory(
     pool: &DbPool,
