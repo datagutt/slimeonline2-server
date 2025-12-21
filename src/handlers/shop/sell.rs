@@ -7,6 +7,9 @@
 //! MSG_SELL (54):
 //!   Client -> Server: category (u8) + count (u8) + slots[count] (u8 each)
 //!   Server -> Client: total_points_earned (u32)
+//!
+//! Sell formula: sell_price = buy_price / 3 (integer division, rounded down)
+//! Bank overflow: If points would exceed MAX_POINTS, excess goes to bank automatically.
 
 use std::sync::Arc;
 
@@ -14,46 +17,29 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::config::PriceConfig;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::Server;
-use crate::handlers::items::get_sell_price;
 
-/// Get sell price for an outfit by ID (server decides prices)
-fn get_outfit_sell_price(outfit_id: u16) -> u16 {
-    // Outfits generally sell for 50-200 points depending on rarity
-    // For now, use a simple formula based on ID ranges
-    match outfit_id {
-        0 => 0,
-        1..=10 => 50,      // Common outfits
-        11..=30 => 100,    // Uncommon
-        31..=50 => 150,    // Rare
-        _ => 200,          // Very rare
-    }
+/// Get sell price for an item by ID from config (buy_price / 3)
+fn get_item_sell_price(prices: &PriceConfig, item_id: u16) -> u16 {
+    prices.get_item_sell_price(item_id).unwrap_or(0) as u16
 }
 
-/// Get sell price for an accessory by ID
-fn get_accessory_sell_price(accessory_id: u16) -> u16 {
-    match accessory_id {
-        0 => 0,
-        1..=10 => 30,      // Common accessories
-        11..=30 => 75,     // Uncommon
-        31..=50 => 125,    // Rare
-        _ => 175,          // Very rare
-    }
+/// Get sell price for an outfit by ID from config (buy_price / 3)
+fn get_outfit_sell_price(prices: &PriceConfig, outfit_id: u16) -> u16 {
+    prices.get_outfit_sell_price(outfit_id).unwrap_or(0) as u16
 }
 
-/// Get sell price for a tool by ID
-fn get_tool_sell_price(tool_id: u16) -> u16 {
-    match tool_id {
-        0 => 0,
-        1 => 100,  // Basic tools
-        2 => 150,
-        3 => 200,
-        4 => 250,
-        5 => 300,
-        _ => 100,
-    }
+/// Get sell price for an accessory by ID from config (buy_price / 3)
+fn get_accessory_sell_price(prices: &PriceConfig, accessory_id: u16) -> u16 {
+    prices.get_accessory_sell_price(accessory_id).unwrap_or(0) as u16
+}
+
+/// Get sell price for a tool by ID from config (buy_price / 3)
+fn get_tool_sell_price(prices: &PriceConfig, tool_id: u8) -> u16 {
+    prices.tools.get(&tool_id).map(|t| t.price / 3).unwrap_or(0) as u16
 }
 
 /// Handle MSG_SELL_REQ_PRICES (53)
@@ -87,13 +73,15 @@ pub async fn handle_sell_req_prices(
     let mut writer = MessageWriter::new();
     writer.write_u16(MessageType::SellReqPrices.id());
     
+    let prices = &server.game_config.prices;
+    
     match category {
         1 => {
             // Outfits
             let outfits = inventory.outfits();
             for &outfit_id in outfits.iter() {
                 if outfit_id != 0 {
-                    writer.write_u16(get_outfit_sell_price(outfit_id));
+                    writer.write_u16(get_outfit_sell_price(prices, outfit_id));
                 }
             }
             debug!("Sending sell prices for outfits");
@@ -103,7 +91,7 @@ pub async fn handle_sell_req_prices(
             let items = inventory.items();
             for &item_id in items.iter() {
                 if item_id != 0 {
-                    writer.write_u16(get_sell_price(item_id));
+                    writer.write_u16(get_item_sell_price(prices, item_id));
                 }
             }
             debug!("Sending sell prices for items");
@@ -113,7 +101,7 @@ pub async fn handle_sell_req_prices(
             let accessories = inventory.accessories();
             for &acs_id in accessories.iter() {
                 if acs_id != 0 {
-                    writer.write_u16(get_accessory_sell_price(acs_id));
+                    writer.write_u16(get_accessory_sell_price(prices, acs_id));
                 }
             }
             debug!("Sending sell prices for accessories");
@@ -123,7 +111,7 @@ pub async fn handle_sell_req_prices(
             let tools = inventory.tools();
             for &tool_id in tools.iter() {
                 if tool_id != 0 {
-                    writer.write_u16(get_tool_sell_price(tool_id as u16));
+                    writer.write_u16(get_tool_sell_price(prices, tool_id));
                 }
             }
             debug!("Sending sell prices for tools");
@@ -185,6 +173,7 @@ pub async fn handle_sell(
         None => return Ok(vec![]),
     };
     
+    let prices = &server.game_config.prices;
     let mut total_earned: u64 = 0;
     
     match category {
@@ -194,7 +183,7 @@ pub async fn handle_sell(
             for &slot in &slots_to_sell {
                 let outfit_id = outfits[(slot - 1) as usize];
                 if outfit_id != 0 {
-                    let price = get_outfit_sell_price(outfit_id);
+                    let price = get_outfit_sell_price(prices, outfit_id);
                     if price > 0 {
                         total_earned += price as u64;
                         crate::db::update_outfit_slot(&server.db, char_id, slot, 0).await?;
@@ -209,7 +198,7 @@ pub async fn handle_sell(
             for &slot in &slots_to_sell {
                 let item_id = items[(slot - 1) as usize];
                 if item_id != 0 {
-                    let price = get_sell_price(item_id);
+                    let price = get_item_sell_price(prices, item_id);
                     if price > 0 {
                         total_earned += price as u64;
                         crate::db::update_item_slot(&server.db, char_id, slot, 0).await?;
@@ -224,7 +213,7 @@ pub async fn handle_sell(
             for &slot in &slots_to_sell {
                 let acs_id = accessories[(slot - 1) as usize];
                 if acs_id != 0 {
-                    let price = get_accessory_sell_price(acs_id);
+                    let price = get_accessory_sell_price(prices, acs_id);
                     if price > 0 {
                         total_earned += price as u64;
                         crate::db::update_accessory_slot(&server.db, char_id, slot, 0).await?;
@@ -239,7 +228,7 @@ pub async fn handle_sell(
             for &slot in &slots_to_sell {
                 let tool_id = tools[(slot - 1) as usize];
                 if tool_id != 0 {
-                    let price = get_tool_sell_price(tool_id as u16);
+                    let price = get_tool_sell_price(prices, tool_id);
                     if price > 0 {
                         total_earned += price as u64;
                         crate::db::update_tool_slot(&server.db, char_id, slot, 0).await?;
@@ -254,11 +243,32 @@ pub async fn handle_sell(
         }
     }
     
-    // Calculate new points (cap at max)
-    let new_points = (current_points as u64 + total_earned).min(crate::constants::MAX_POINTS as u64) as u32;
+    // Calculate new points - excess over MAX_POINTS goes to bank automatically
+    let max_points = crate::constants::MAX_POINTS as u64;
+    let potential_points = current_points as u64 + total_earned;
     
-    // Update points in database
-    crate::db::update_points(&server.db, char_id, new_points as i64).await?;
+    let (new_points, overflow_to_bank) = if potential_points > max_points {
+        // Cap points at max, send excess to bank
+        let overflow = potential_points - max_points;
+        (max_points as u32, overflow)
+    } else {
+        (potential_points as u32, 0u64)
+    };
+    
+    // Get current bank balance if we have overflow
+    if overflow_to_bank > 0 {
+        let current_bank = crate::db::get_bank_balance(&server.db, char_id).await?;
+        let new_bank = (current_bank as u64 + overflow_to_bank).min(crate::constants::MAX_BANK_BALANCE as u64) as i64;
+        
+        // Update both points and bank atomically
+        crate::db::update_points_and_bank(&server.db, char_id, new_points as i64, new_bank).await?;
+        
+        info!("Player {} sold items: {} points added, {} overflow sent to bank (bank now: {})", 
+              char_id, total_earned - overflow_to_bank, overflow_to_bank, new_bank);
+    } else {
+        // Just update points
+        crate::db::update_points(&server.db, char_id, new_points as i64).await?;
+    }
     
     // Update session
     {
