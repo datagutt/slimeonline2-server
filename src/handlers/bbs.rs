@@ -10,16 +10,6 @@ use crate::protocol::{MessageReader, MessageWriter, MessageType};
 use crate::Server;
 use crate::db;
 
-/// BBS categories - hardcoded list
-/// The client shows these in a dropdown when browsing
-const BBS_CATEGORIES: &[&str] = &[
-    "General",
-    "Trading",
-    "Events",
-    "Help",
-    "Off-Topic",
-];
-
 /// Cooldown between posts in seconds (prevent spam)
 const BBS_POST_COOLDOWN_SECONDS: i64 = 60;
 
@@ -54,18 +44,20 @@ pub async fn handle_bbs_request_gui(
 /// - For each category: name (string)
 pub async fn handle_bbs_request_categories(
     _payload: &[u8],
-    _server: &Arc<Server>,
+    server: &Arc<Server>,
     _session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
+    let categories = &server.game_config.game.bbs.categories;
+    
     let mut writer = MessageWriter::new();
     writer.write_u16(MessageType::BbsRequestCategories.id())
-        .write_u8((BBS_CATEGORIES.len() - 1) as u8); // Client reads count+1 categories (0 to count inclusive)
+        .write_u8((categories.len() - 1) as u8); // Client reads count+1 categories (0 to count inclusive)
     
-    for category in BBS_CATEGORIES {
+    for category in categories {
         writer.write_string(category);
     }
     
-    debug!("Sent {} BBS categories", BBS_CATEGORIES.len());
+    debug!("Sent {} BBS categories", categories.len());
     
     Ok(vec![writer.into_bytes()])
 }
@@ -314,7 +306,8 @@ pub async fn handle_bbs_post(
         return Ok(vec![]); // Silent failure
     }
     
-    if category_id < 0 || category_id >= BBS_CATEGORIES.len() as i64 {
+    let num_categories = server.game_config.game.bbs.categories.len();
+    if category_id < 0 || category_id >= num_categories as i64 {
         warn!("BBS post rejected: invalid category {}", category_id);
         return Ok(vec![]);
     }
