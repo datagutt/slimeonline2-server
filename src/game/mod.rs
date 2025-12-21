@@ -115,6 +115,61 @@ impl Room {
         }
     }
 
+    /// Initialize collectibles with database state for persistence across restarts
+    pub async fn init_collectibles_with_state(
+        &self, 
+        spawns: Vec<CollectibleSpawn>,
+        db_states: HashMap<u8, crate::db::CollectibleState>,
+    ) {
+        use chrono::{DateTime, Utc};
+        
+        let mut collectibles = self.collectibles.write().await;
+        let now = Instant::now();
+        
+        for spawn in spawns {
+            let col_id = spawn.col_id;
+            
+            // Check if we have DB state for this spawn
+            let taken_at = if let Some(db_state) = db_states.get(&col_id) {
+                if db_state.available == 0 {
+                    // Collectible is taken - check if it should have respawned by now
+                    if let Some(ref respawn_str) = db_state.respawn_at {
+                        if let Ok(respawn_time) = DateTime::parse_from_rfc3339(respawn_str) {
+                            let respawn_utc: DateTime<Utc> = respawn_time.into();
+                            if respawn_utc > Utc::now() {
+                                // Still waiting for respawn - mark as taken
+                                // We approximate the taken_at time based on remaining wait
+                                let remaining_secs = (respawn_utc - Utc::now()).num_seconds().max(0) as u64;
+                                let total_respawn = spawn.respawn_secs.unwrap_or(3600) as u64;
+                                let elapsed = total_respawn.saturating_sub(remaining_secs);
+                                Some(now - std::time::Duration::from_secs(elapsed))
+                            } else {
+                                // Already respawned
+                                None
+                            }
+                        } else {
+                            None // Invalid date, treat as available
+                        }
+                    } else {
+                        None // No respawn time, treat as available
+                    }
+                } else {
+                    None // Available in DB
+                }
+            } else {
+                None // No DB state, treat as available
+            };
+            
+            collectibles.insert(
+                col_id,
+                ActiveCollectible {
+                    spawn,
+                    taken_at,
+                },
+            );
+        }
+    }
+
     /// Get all available (not taken) collectibles in the room
     pub async fn get_available_collectibles(&self) -> Vec<ActiveCollectible> {
         let mut collectibles = self.collectibles.write().await;
@@ -375,6 +430,17 @@ impl GameState {
     pub async fn init_room_collectibles(&self, room_id: u16, spawns: Vec<CollectibleSpawn>) {
         let room = self.get_or_create_room(room_id);
         room.init_collectibles(spawns).await;
+    }
+
+    /// Initialize collectibles for a room with database state for persistence
+    pub async fn init_room_collectibles_with_state(
+        &self, 
+        room_id: u16, 
+        spawns: Vec<CollectibleSpawn>,
+        db_states: std::collections::HashMap<u8, crate::db::CollectibleState>,
+    ) {
+        let room = self.get_or_create_room(room_id);
+        room.init_collectibles_with_state(spawns, db_states).await;
     }
 
     /// Get all available collectibles in a room

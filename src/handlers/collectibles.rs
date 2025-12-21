@@ -5,15 +5,16 @@
 //!
 //! Protocol:
 //! - MSG_COLLECTIBLE_INFO (32): Server → Client when entering room
-//! - MSG_COLLECTIBLE_TAKE_SELF (33): Client → Server when picking up
-//! - MSG_COLLECTIBLE_TAKEN (34): Server → Other clients in room
+//! - MSG_COLLECTIBLE_TAKE_SELF (34): Client → Server when picking up
+//! - MSG_COLLECTIBLE_TAKEN (33): Server → Other clients in room
 //! - MSG_GET_ITEM (41): Server → Client to give item
 
 use std::sync::Arc;
 
 use anyhow::Result;
+use chrono::{Duration, Utc};
 use tokio::sync::RwLock;
-use tracing::{debug, warn};
+use tracing::{debug, warn, info};
 
 use crate::config::GameConfig;
 use crate::game::{CollectibleSpawn, PlayerSession};
@@ -61,8 +62,9 @@ pub fn get_room_collectibles(config: &GameConfig, room_id: u16) -> Vec<Collectib
 
 /// Initialize collectibles for a room when a player enters
 /// Called when a player enters a room that hasn't been initialized yet
+/// Loads state from database to restore availability across restarts
 pub async fn init_room_if_needed(server: &Arc<Server>, room_id: u16) {
-    // Check if room already has collectibles initialized
+    // Check if room already has collectibles initialized in memory
     if let Some(room) = server.game_state.get_room(room_id) {
         let collectibles = room.collectibles.read().await;
         if !collectibles.is_empty() {
@@ -72,14 +74,34 @@ pub async fn init_room_if_needed(server: &Arc<Server>, room_id: u16) {
     }
 
     // Get spawn definitions for this room from config
-    let spawns = get_room_collectibles(&server.game_config, room_id);
-    if !spawns.is_empty() {
-        server
-            .game_state
-            .init_room_collectibles(room_id, spawns)
-            .await;
-        debug!("Initialized collectibles for room {}", room_id);
+    let mut spawns = get_room_collectibles(&server.game_config, room_id);
+    if spawns.is_empty() {
+        return;
     }
+
+    // Load persisted state from database
+    let db_states = match crate::db::get_collectible_states(&server.db, room_id).await {
+        Ok(states) => states,
+        Err(e) => {
+            warn!("Failed to load collectible state for room {}: {}", room_id, e);
+            vec![]
+        }
+    };
+
+    // Apply database state to spawns and initialize room
+    // Build a map of spawn_id -> db state for quick lookup
+    let state_map: std::collections::HashMap<u8, _> = db_states
+        .into_iter()
+        .map(|s| (s.spawn_id as u8, s))
+        .collect();
+
+    // Initialize room with spawns, marking unavailable ones based on DB
+    server
+        .game_state
+        .init_room_collectibles_with_state(room_id, spawns, state_map)
+        .await;
+    
+    debug!("Initialized collectibles for room {} from config + database", room_id);
 }
 
 /// Write MSG_COLLECTIBLE_INFO message for a room
@@ -150,7 +172,7 @@ pub async fn handle_collectible_take(
         None => return Ok(vec![]),
     };
 
-    // Try to take the collectible
+    // Try to take the collectible (updates in-memory state)
     let spawn = match server.game_state.take_collectible(room_id, col_id).await {
         Some(spawn) => spawn,
         None => {
@@ -167,6 +189,15 @@ pub async fn handle_collectible_take(
         "Player {} took collectible {} (item {}) in room {}",
         player_id, col_id, spawn.item_id, room_id
     );
+
+    // Persist the taken state to database with respawn time
+    let respawn_secs = spawn.respawn_secs.unwrap_or(3600); // Default 1 hour if not specified
+    let respawn_at = Utc::now() + Duration::seconds(respawn_secs as i64);
+    
+    if let Err(e) = crate::db::take_collectible(&server.db, room_id, col_id, respawn_at).await {
+        warn!("Failed to persist collectible state: {}", e);
+        // Continue anyway - the in-memory state is updated
+    }
 
     // Find a free slot in player's inventory and give item
     let inventory_result = crate::db::get_inventory(&server.db, character_id).await;

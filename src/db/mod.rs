@@ -9,11 +9,13 @@ mod accounts;
 mod bbs;
 mod characters;
 mod mail;
+mod runtime_state;
 
 pub use accounts::*;
 pub use bbs::*;
 pub use characters::*;
 pub use mail::*;
+pub use runtime_state::*;
 
 /// Database connection pool type.
 pub type DbPool = SqlitePool;
