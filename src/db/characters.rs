@@ -566,3 +566,87 @@ pub async fn transfer_bank_funds(
 
     Ok(())
 }
+
+// =============================================================================
+// Quest Functions
+// =============================================================================
+
+/// Get current quest state (quest_id, quest_step, quest_var)
+pub async fn get_quest_state(
+    pool: &DbPool,
+    character_id: i64,
+) -> Result<(i16, i16, i16), sqlx::Error> {
+    let result: (i16, i16, i16) = sqlx::query_as(
+        "SELECT quest_id, quest_step, quest_var FROM characters WHERE id = ?"
+    )
+    .bind(character_id)
+    .fetch_one(pool)
+    .await?;
+    
+    Ok(result)
+}
+
+/// Set quest state (quest_id, quest_step, quest_var)
+pub async fn set_quest_state(
+    pool: &DbPool,
+    character_id: i64,
+    quest_id: i16,
+    quest_step: i16,
+    quest_var: i16,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET quest_id = ?, quest_step = ?, quest_var = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(quest_id)
+    .bind(quest_step)
+    .bind(quest_var)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+    
+    Ok(())
+}
+
+/// Check if a quest has been cleared
+pub async fn is_quest_cleared(
+    pool: &DbPool,
+    character_id: i64,
+    quest_id: i16,
+) -> Result<bool, sqlx::Error> {
+    let result: Option<(i64,)> = sqlx::query_as(
+        "SELECT 1 FROM quest_progress WHERE character_id = ? AND quest_id = ? AND cleared = 1"
+    )
+    .bind(character_id)
+    .bind(quest_id as i64)
+    .fetch_optional(pool)
+    .await?;
+    
+    Ok(result.is_some())
+}
+
+/// Mark a quest as cleared
+pub async fn mark_quest_cleared(
+    pool: &DbPool,
+    character_id: i64,
+    quest_id: i16,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO quest_progress (character_id, quest_id, cleared, cleared_at)
+        VALUES (?, ?, 1, datetime('now'))
+        ON CONFLICT (character_id, quest_id) DO UPDATE SET
+            cleared = 1,
+            cleared_at = datetime('now')
+        "#,
+    )
+    .bind(character_id)
+    .bind(quest_id as i64)
+    .execute(pool)
+    .await?;
+    
+    Ok(())
+}

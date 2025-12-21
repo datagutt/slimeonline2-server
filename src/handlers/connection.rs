@@ -17,7 +17,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageWriter, write_player_left, MessageType, describe_message};
 use crate::Server;
 
-use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail, collectibles, bbs, clan};
+use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail, collectibles, bbs, clan, quest};
 
 /// Handle a client connection.
 pub async fn handle_connection(
@@ -556,6 +556,47 @@ async fn handle_message(
 
         MessageType::ClanAdmin => {
             clan::handle_clan_admin(payload, server, session).await
+        }
+
+        // Quest System
+        MessageType::QuestBegin => {
+            quest::handle_quest_begin(payload, server, session).await
+        }
+
+        MessageType::QuestClear => {
+            quest::handle_quest_clear(payload, server, session).await
+        }
+
+        MessageType::QuestStepInc => {
+            quest::handle_quest_step_inc(payload, server, session).await
+        }
+
+        MessageType::QuestCancel => {
+            quest::handle_quest_cancel(payload, server, session).await
+        }
+
+        MessageType::QuestNpcReq => {
+            quest::handle_quest_npc_req(payload, server, session).await
+        }
+
+        MessageType::QuestReward => {
+            quest::handle_quest_reward(payload, server, session).await
+        }
+
+        MessageType::QuestVarCheck => {
+            quest::handle_quest_var_check(payload, server, session).await
+        }
+
+        MessageType::QuestVarInc => {
+            quest::handle_quest_var_inc(payload, server, session).await
+        }
+
+        MessageType::QuestVarSet => {
+            quest::handle_quest_var_set(payload, server, session).await
+        }
+
+        MessageType::QuestStatusReq => {
+            quest::handle_quest_status_req(payload, server, session).await
         }
 
         _ => {

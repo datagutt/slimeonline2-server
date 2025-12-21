@@ -14,5 +14,6 @@ pub mod mail;
 pub mod collectibles;
 pub mod bbs;
 pub mod clan;
+pub mod quest;
 
 pub use connection::handle_connection;
