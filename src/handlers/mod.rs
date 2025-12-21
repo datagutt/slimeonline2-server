@@ -13,5 +13,6 @@ pub mod bank;
 pub mod mail;
 pub mod collectibles;
 pub mod bbs;
+pub mod clan;
 
 pub use connection::handle_connection;

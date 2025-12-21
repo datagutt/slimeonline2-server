@@ -17,7 +17,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageWriter, write_player_left, MessageType, describe_message};
 use crate::Server;
 
-use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail, collectibles, bbs};
+use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail, collectibles, bbs, clan};
 
 /// Handle a client connection.
 pub async fn handle_connection(
@@ -531,6 +531,31 @@ async fn handle_message(
                 }
             }
             Ok(vec![])
+        }
+
+        // Clan System
+        MessageType::ClanCreate => {
+            clan::handle_clan_create(payload, server, session).await
+        }
+
+        MessageType::ClanDissolve => {
+            clan::handle_clan_dissolve(payload, server, session).await
+        }
+
+        MessageType::ClanInvite => {
+            clan::handle_clan_invite_response(payload, server, session).await
+        }
+
+        MessageType::ClanLeave => {
+            clan::handle_clan_leave(payload, server, session).await
+        }
+
+        MessageType::ClanInfo => {
+            clan::handle_clan_info(payload, server, session).await
+        }
+
+        MessageType::ClanAdmin => {
+            clan::handle_clan_admin(payload, server, session).await
         }
 
         _ => {

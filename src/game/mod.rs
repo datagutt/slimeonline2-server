@@ -222,6 +222,15 @@ impl Room {
     }
 }
 
+/// Pending clan invite
+#[derive(Debug, Clone)]
+pub struct PendingClanInvite {
+    pub clan_id: i64,
+    pub clan_name: String,
+    pub inviter_id: u16,
+    pub invited_at: Instant,
+}
+
 /// Player session state (in-memory only, not persisted)
 #[derive(Debug)]
 pub struct PlayerSession {
@@ -247,6 +256,16 @@ pub struct PlayerSession {
     pub should_disconnect: bool,
     /// Reason for disconnection (for logging)
     pub disconnect_reason: Option<String>,
+    /// Player's current clan ID (cached, loaded from DB on login)
+    pub clan_id: Option<i64>,
+    /// Whether this player is the leader of their clan
+    pub is_clan_leader: bool,
+    /// Whether clan has a base
+    pub has_clan_base: bool,
+    /// Pending clan invite (only one at a time)
+    pub pending_clan_invite: Option<PendingClanInvite>,
+    /// Last time we sent an invite to each player (for 15s cooldown)
+    pub clan_invite_cooldowns: HashMap<u16, Instant>,
 }
 
 impl PlayerSession {
@@ -273,6 +292,11 @@ impl PlayerSession {
             outgoing_messages: VecDeque::new(),
             should_disconnect: false,
             disconnect_reason: None,
+            clan_id: None,
+            is_clan_leader: false,
+            has_clan_base: false,
+            pending_clan_invite: None,
+            clan_invite_cooldowns: HashMap::new(),
         }
     }
 
