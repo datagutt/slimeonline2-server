@@ -13,6 +13,7 @@ use tracing::{info, warn, error};
 use tracing_subscriber::{EnvFilter, fmt};
 use uuid::Uuid;
 
+mod config;
 mod constants;
 mod crypto;
 mod db;
@@ -23,6 +24,7 @@ mod validation;
 mod rate_limit;
 mod anticheat;
 
+use config::GameConfig;
 use constants::*;
 use db::DbPool;
 use game::{GameState, PlayerSession};
@@ -59,6 +61,7 @@ impl Default for ServerConfig {
 /// Shared server state
 pub struct Server {
     pub config: ServerConfig,
+    pub game_config: Arc<GameConfig>,
     pub db: DbPool,
     pub game_state: Arc<GameState>,
     pub sessions: Arc<DashMap<Uuid, Arc<RwLock<PlayerSession>>>>,
@@ -71,7 +74,7 @@ pub struct Server {
 
 impl Server {
     /// Create a new server instance.
-    pub async fn new(config: ServerConfig) -> Result<Self> {
+    pub async fn new(config: ServerConfig, game_config: GameConfig) -> Result<Self> {
         // Create database connection pool
         let db = db::create_pool(&config.database_url).await?;
         
@@ -80,6 +83,7 @@ impl Server {
         
         Ok(Self {
             config,
+            game_config: Arc::new(game_config),
             db,
             game_state: Arc::new(GameState::new()),
             sessions: Arc::new(DashMap::new()),
@@ -156,11 +160,24 @@ async fn main() -> Result<()> {
 
     info!("Starting Slime Online 2 Server v{}", env!("CARGO_PKG_VERSION"));
 
-    // Load configuration
+    // Load game configuration from TOML files
+    let game_config = match GameConfig::load("config") {
+        Ok(cfg) => {
+            info!("Loaded game configuration from config/");
+            cfg
+        }
+        Err(e) => {
+            error!("Failed to load game configuration: {}", e);
+            error!("Make sure the config/ directory exists with all required TOML files.");
+            return Err(anyhow::anyhow!("Configuration error: {}", e));
+        }
+    };
+
+    // Load server configuration
     let config = ServerConfig::default();
     
     // Create server
-    let server = Arc::new(Server::new(config.clone()).await?);
+    let server = Arc::new(Server::new(config.clone(), game_config).await?);
     
     info!("Database initialized");
 
