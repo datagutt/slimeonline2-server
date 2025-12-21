@@ -41,8 +41,10 @@ toml = "0.8"
 thiserror = "1"
 anyhow = "1"
 
-[dev-dependencies]
+# Random number generation
 rand = "0.8"
+
+[dev-dependencies]
 hex = "0.4"
 
 [profile.release]

@@ -15,118 +15,47 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
+use crate::config::GameConfig;
 use crate::game::{CollectibleSpawn, PlayerSession};
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::Server;
 
-/// Default respawn time in seconds for collectibles
-pub const DEFAULT_RESPAWN_SECS: u32 = 300; // 5 minutes
-
-/// Get collectible spawn definitions for a room
+/// Get collectible spawn definitions for a room from config
 ///
 /// This function returns the spawn points for collectibles in each room.
-/// Add more rooms here as the game world is documented.
-pub fn get_room_collectibles(room_id: u16) -> Vec<CollectibleSpawn> {
-    match room_id {
-        // Deep Woods area - mushrooms and materials
-        // Room IDs are from the game's room index
-
-        // Example spawn points (to be filled in with actual game data)
-        // The spawn point ID (col_id) must be unique within each room (0-255)
-
-        // Deep Woods 1 (example)
-        1 => vec![
-            CollectibleSpawn {
-                col_id: 0,
-                item_id: 20, // Red Mushroom
-                x: 200,
-                y: 400,
-                respawn_secs: Some(DEFAULT_RESPAWN_SECS),
-            },
-            CollectibleSpawn {
-                col_id: 1,
-                item_id: 58, // Squishy Mushroom
-                x: 450,
-                y: 350,
-                respawn_secs: Some(DEFAULT_RESPAWN_SECS),
-            },
-        ],
-
-        // Deep Woods 2 (example)
-        2 => vec![CollectibleSpawn {
-            col_id: 0,
-            item_id: 59, // Stinky Mushroom
-            x: 300,
-            y: 420,
-            respawn_secs: Some(DEFAULT_RESPAWN_SECS),
-        }],
-
-        // Swamp area - Irrlicht (will-o-wisp)
-        // These use item_id 61 which has special rendering
-        10 => vec![CollectibleSpawn {
-            col_id: 0,
-            item_id: 61, // Irrlicht
-            x: 150,
-            y: 300,
-            respawn_secs: Some(DEFAULT_RESPAWN_SECS * 2), // Rare, slower respawn
-        }],
-
-        // Volcano/Fire area - Blazing Bubbles, Firestones
-        20 => vec![
-            CollectibleSpawn {
-                col_id: 0,
-                item_id: 57, // Blazing Bubble
-                x: 400,
-                y: 280,
-                respawn_secs: Some(DEFAULT_RESPAWN_SECS),
-            },
-            CollectibleSpawn {
-                col_id: 1,
-                item_id: 50, // Firestone
-                x: 550,
-                y: 320,
-                respawn_secs: Some(DEFAULT_RESPAWN_SECS),
-            },
-        ],
-
-        // Crystal/Gem area - Tailphire, Magmanis
-        30 => vec![
-            CollectibleSpawn {
-                col_id: 0,
-                item_id: 21, // Tailphire
-                x: 250,
-                y: 350,
-                respawn_secs: Some(DEFAULT_RESPAWN_SECS),
-            },
-            CollectibleSpawn {
-                col_id: 1,
-                item_id: 22, // Magmanis
-                x: 500,
-                y: 380,
-                respawn_secs: Some(DEFAULT_RESPAWN_SECS),
-            },
-        ],
-
-        // Factory/Tech area - Screws
-        40 => vec![
-            CollectibleSpawn {
-                col_id: 0,
-                item_id: 46, // Screw
-                x: 180,
-                y: 400,
-                respawn_secs: Some(DEFAULT_RESPAWN_SECS),
-            },
-            CollectibleSpawn {
-                col_id: 1,
-                item_id: 47, // Rusty Screw
-                x: 420,
-                y: 380,
-                respawn_secs: Some(DEFAULT_RESPAWN_SECS),
-            },
-        ],
-
-        // No collectibles in this room
-        _ => vec![],
+/// Spawn points are defined in config/collectibles.toml.
+/// 
+/// Respawn times include randomized variance for each spawn.
+pub fn get_room_collectibles(config: &GameConfig, room_id: u16) -> Vec<CollectibleSpawn> {
+    use rand::Rng;
+    
+    match config.collectibles.get_room(room_id) {
+        Some(room_config) => {
+            let mut rng = rand::thread_rng();
+            
+            room_config.spawns.iter().map(|spawn| {
+                // Convert minutes to seconds
+                let base_respawn_secs = spawn.respawn * 60;
+                let variance_secs = spawn.variance * 60;
+                
+                // Add random variance: base + random(0, variance)
+                let random_variance = if variance_secs > 0 {
+                    rng.gen_range(0..=variance_secs)
+                } else {
+                    0
+                };
+                let total_respawn = base_respawn_secs + random_variance;
+                
+                CollectibleSpawn {
+                    col_id: spawn.id,
+                    item_id: spawn.item,
+                    x: spawn.x,
+                    y: spawn.y,
+                    respawn_secs: Some(total_respawn),
+                }
+            }).collect()
+        }
+        None => vec![],
     }
 }
 
@@ -142,8 +71,8 @@ pub async fn init_room_if_needed(server: &Arc<Server>, room_id: u16) {
         }
     }
 
-    // Get spawn definitions for this room
-    let spawns = get_room_collectibles(room_id);
+    // Get spawn definitions for this room from config
+    let spawns = get_room_collectibles(&server.game_config, room_id);
     if !spawns.is_empty() {
         server
             .game_state
