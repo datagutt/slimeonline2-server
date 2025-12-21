@@ -196,9 +196,10 @@ async fn handle_warp_wing(
     session: &Arc<RwLock<PlayerSession>>,
     character_id: i64,
 ) -> Result<()> {
-    let spawn_x = crate::constants::DEFAULT_SPAWN_X;
-    let spawn_y = crate::constants::DEFAULT_SPAWN_Y;
-    let spawn_room = crate::constants::DEFAULT_SPAWN_ROOM;
+    let defaults = &server.game_config.game.defaults;
+    let spawn_x = defaults.spawn_x;
+    let spawn_y = defaults.spawn_y;
+    let spawn_room = defaults.spawn_room;
 
     // Send use item response for warp effect
     let mut writer = MessageWriter::new();
