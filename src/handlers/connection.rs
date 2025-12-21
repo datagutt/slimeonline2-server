@@ -346,14 +346,21 @@ async fn handle_message(
 
         MessageType::MailpaperReq => {
             // Client wants to know which mail papers are available and their prices
-            // Response: for each paper style, send price (0 = unavailable, >0 = price)
-            // There are about 10 paper styles in spr_mailguipapers
+            // Response: for each paper style, send availability (0 = unavailable, 1 = owned/available)
+            // There are about 10 paper styles in spr_mailguipapers (indices 0-9)
             let mut writer = MessageWriter::new();
             writer.write_u16(MessageType::MailpaperReq.id());
-            // Make all papers available for free (price = 1, meaning owned/free)
-            // The client reads bytes until it runs out
-            for _ in 0..10 {
-                writer.write_u8(1); // 1 = available/owned, 0 = not available
+            
+            // Get unlocked mail papers from config (default: [0, 1, 2])
+            let unlocked = &server.game_config.game.defaults.unlocked_mail_paper;
+            
+            // Send availability for each paper type (0-9)
+            for paper_id in 0u8..10 {
+                if unlocked.contains(&paper_id) {
+                    writer.write_u8(1); // 1 = available/owned
+                } else {
+                    writer.write_u8(0); // 0 = not available
+                }
             }
             Ok(vec![writer.into_bytes()])
         }
