@@ -10,7 +10,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::Server;
 
-use super::{shop, collectibles};
+use super::{shop, collectibles, items};
 
 /// Handle warp/room change
 /// 
@@ -171,6 +171,10 @@ pub async fn handle_warp(
     if let Some(collectible_msg) = collectibles::write_collectible_info(server, new_room_id).await {
         responses.push(collectible_msg);
     }
+
+    // Send dropped items info for the new room (from room_check_discarded_item in original)
+    let dropped_item_msgs = items::write_room_dropped_items(server, new_room_id).await;
+    responses.extend(dropped_item_msgs);
 
     Ok(responses)
 }

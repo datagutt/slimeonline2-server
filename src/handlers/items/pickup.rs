@@ -2,6 +2,8 @@
 //!
 //! Client sends: instance_id (2 bytes)
 //! Server responds with MSG_GET_ITEM if successful
+//!
+//! Note: instance_id is the DB row id (cast to u16).
 
 use std::sync::Arc;
 
@@ -43,15 +45,15 @@ pub async fn handle_take_dropped_item(
         None => return Ok(vec![]),
     };
 
-    // Try to take the dropped item
-    let dropped_item = match server
-        .game_state
-        .take_dropped_item(room_id, instance_id)
-        .await
-    {
-        Some(item) => item,
+    // The instance_id is the DB row id (cast to u16)
+    // Look up the item in the database
+    let db_id = instance_id as i64;
+    let ground_items = crate::db::get_ground_items(&server.db, room_id).await?;
+    
+    let dropped_item = match ground_items.iter().find(|item| item.id == db_id) {
+        Some(item) => item.clone(),
         None => {
-            debug!("Dropped item {} not found or already taken", instance_id);
+            debug!("Dropped item {} not found in room {} DB", instance_id, room_id);
             return Ok(vec![]);
         }
     };
@@ -68,29 +70,23 @@ pub async fn handle_take_dropped_item(
     let slot = match empty_slot {
         Some(idx) => (idx + 1) as u8, // Slots are 1-indexed
         None => {
-            // Inventory full - put the item back
-            server
-                .game_state
-                .add_dropped_item_with_id(
-                    room_id,
-                    dropped_item.x,
-                    dropped_item.y,
-                    dropped_item.item_id,
-                    instance_id,
-                )
-                .await;
             debug!("Inventory full, cannot pick up item");
             return Ok(vec![]);
         }
     };
 
+    let item_id = dropped_item.item_id as u16;
+
+    // Remove from database FIRST (prevents race conditions)
+    crate::db::remove_ground_item(&server.db, db_id).await?;
+
     info!(
-        "Player {:?} picking up item {} (instance {}) into slot {}",
-        player_id, dropped_item.item_id, instance_id, slot
+        "Player {:?} picking up item {} (db_id {}) into slot {}",
+        player_id, item_id, db_id, slot
     );
 
     // Add item to inventory
-    crate::db::update_item_slot(&server.db, character_id, slot, dropped_item.item_id as i16)
+    crate::db::update_item_slot(&server.db, character_id, slot, item_id as i16)
         .await?;
 
     // Send MSG_GET_ITEM to player
@@ -98,7 +94,7 @@ pub async fn handle_take_dropped_item(
     writer
         .write_u16(MessageType::GetItem.id())
         .write_u8(slot)
-        .write_u16(dropped_item.item_id);
+        .write_u16(item_id);
 
     Ok(vec![writer.into_bytes()])
 }

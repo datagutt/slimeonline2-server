@@ -2,6 +2,8 @@
 //!
 //! Client sends: slot (1 byte) + x (2 bytes) + y (2 bytes)
 //! Server broadcasts: x (2) + y (2) + item_id (2) + instance_id (2)
+//!
+//! Also provides helper to send dropped items when player enters a room.
 
 use std::sync::Arc;
 
@@ -94,11 +96,19 @@ pub async fn handle_discard_item(
     // Remove item from inventory
     crate::db::update_item_slot(&server.db, character_id, slot, 0).await?;
 
-    // Add to dropped items in game state and get instance ID
-    let instance_id = server
-        .game_state
-        .add_dropped_item(room_id, drop_x, drop_y, item_id)
-        .await;
+    // Save to database with 3 minute expiration (180 seconds) like original server
+    let db_id = crate::db::add_ground_item(
+        &server.db,
+        room_id,
+        item_id,
+        drop_x,
+        drop_y,
+        Some(character_id),
+        Some(180), // 3 minutes expiration
+    ).await?;
+
+    // Use DB id as instance_id (cast to u16, will wrap for very large values but that's fine)
+    let instance_id = db_id as u16;
 
     // Broadcast to all players in the room
     let room_players = server.game_state.get_room_players(room_id).await;
@@ -121,4 +131,38 @@ pub async fn handle_discard_item(
     }
 
     Ok(vec![])
+}
+
+/// Build messages for all dropped items in a room.
+/// Called when a player enters a room to show them existing dropped items.
+/// 
+/// From original server (room_check_discarded_item.gml):
+/// For each obj_discarded_item in the room, send MSG_DISCARD_ITEM with x, y, item_id, _id
+/// 
+/// Items are loaded from the database for persistence across server restarts.
+/// The instance_id sent to client is the DB row id (cast to u16).
+pub async fn write_room_dropped_items(server: &Arc<Server>, room_id: u16) -> Vec<Vec<u8>> {
+    // Load dropped items from database
+    let dropped_items = match crate::db::get_ground_items(&server.db, room_id).await {
+        Ok(items) => items,
+        Err(e) => {
+            warn!("Failed to load ground items for room {}: {}", room_id, e);
+            return Vec::new();
+        }
+    };
+    
+    let mut messages = Vec::new();
+    for item in dropped_items {
+        let mut writer = MessageWriter::new();
+        // Use DB id as instance_id (cast to u16)
+        let instance_id = item.id as u16;
+        writer.write_u16(MessageType::DiscardItem.id())
+            .write_u16(item.x as u16)
+            .write_u16(item.y as u16)
+            .write_u16(item.item_id as u16)
+            .write_u16(instance_id);
+        messages.push(writer.into_bytes());
+    }
+    
+    messages
 }

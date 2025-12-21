@@ -138,6 +138,13 @@ pub const MAX_CONNECTIONS_PER_IP: usize = 3;
 pub const MAX_TOTAL_CONNECTIONS: usize = 1000;
 
 // =============================================================================
+// GAME TIMERS (from original server)
+// =============================================================================
+
+/// Collectibles respawn check interval in seconds
+pub const COLLECTIBLE_RESPAWN_CHECK_SECS: u64 = 30;
+
+// =============================================================================
 // PHYSICS CONSTANTS
 // =============================================================================
 

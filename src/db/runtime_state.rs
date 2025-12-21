@@ -548,6 +548,21 @@ pub async fn remove_ground_item(pool: &DbPool, item_db_id: i64) -> Result<(), sq
     Ok(())
 }
 
+/// Get expired ground items (for notification before cleanup)
+pub async fn get_expired_ground_items(pool: &DbPool) -> Result<Vec<GroundItem>, sqlx::Error> {
+    let now = Utc::now().to_rfc3339();
+    sqlx::query_as::<_, GroundItem>(
+        r#"
+        SELECT id, room_id, item_id, x, y, dropped_by, dropped_at, expires_at
+        FROM ground_items
+        WHERE expires_at IS NOT NULL AND expires_at <= ?
+        "#,
+    )
+    .bind(now)
+    .fetch_all(pool)
+    .await
+}
+
 /// Remove expired ground items
 pub async fn cleanup_expired_ground_items(pool: &DbPool) -> Result<u64, sqlx::Error> {
     let now = Utc::now().to_rfc3339();

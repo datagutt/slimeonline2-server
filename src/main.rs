@@ -442,15 +442,57 @@ fn spawn_background_tasks(server: Arc<Server>) {
                 }
             }
 
-            // Also cleanup expired ground items
-            match db::cleanup_expired_ground_items(&respawn_server.db).await {
-                Ok(count) if count > 0 => {
-                    info!("Cleaned up {} expired ground items", count);
+            // Cleanup expired ground items from DB, notifying clients first
+            match db::get_expired_ground_items(&respawn_server.db).await {
+                Ok(expired_items) => {
+                    if !expired_items.is_empty() {
+                        // Group expired items by room for efficient notification
+                        use std::collections::HashMap;
+                        let mut items_by_room: HashMap<u16, Vec<i64>> = HashMap::new();
+                        for item in &expired_items {
+                            items_by_room
+                                .entry(item.room_id as u16)
+                                .or_default()
+                                .push(item.id);
+                        }
+
+                        // Notify players in each room about expired items
+                        for (room_id, item_ids) in items_by_room {
+                            let room_players = respawn_server.game_state.get_room_players(room_id).await;
+                            for db_id in &item_ids {
+                                // instance_id sent to client is DB id cast to u16
+                                let instance_id = *db_id as u16;
+                                // Send MSG_DISCARDED_ITEM_TAKE to remove from client
+                                let mut writer = protocol::MessageWriter::new();
+                                writer.write_u16(protocol::MessageType::DiscardedItemTake.id());
+                                writer.write_u16(instance_id);
+                                let msg = writer.into_bytes();
+
+                                for player_id in &room_players {
+                                    if let Some(session_id) = respawn_server.game_state.players_by_id.get(player_id) {
+                                        if let Some(session) = respawn_server.sessions.get(&session_id) {
+                                            session.write().await.queue_message(msg.clone());
+                                        }
+                                    }
+                                }
+                            }
+                            tracing::debug!("Expired {} dropped items in room {}", item_ids.len(), room_id);
+                        }
+
+                        // Now delete expired items from DB
+                        match db::cleanup_expired_ground_items(&respawn_server.db).await {
+                            Ok(count) => {
+                                info!("Cleaned up {} expired ground items from DB", count);
+                            }
+                            Err(e) => {
+                                error!("Failed to cleanup ground items: {}", e);
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
-                    error!("Failed to cleanup ground items: {}", e);
+                    error!("Failed to get expired ground items: {}", e);
                 }
-                _ => {}
             }
         }
     });
