@@ -351,4 +351,149 @@ fn spawn_background_tasks(server: Arc<Server>) {
             }
         }
     });
+
+    // Collectible respawn task - check every 30 seconds for collectibles that should respawn
+    let respawn_server = server.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            
+            // Get all collectibles that need to respawn from DB
+            match db::get_collectibles_to_respawn(&respawn_server.db).await {
+                Ok(collectibles) => {
+                    for col in collectibles {
+                        let room_id = col.room_id as u16;
+                        let spawn_id = col.spawn_id as u8;
+                        
+                        // Mark as respawned in DB
+                        if let Err(e) = db::respawn_collectible(&respawn_server.db, room_id, spawn_id).await {
+                            error!("Failed to respawn collectible {}/{}: {}", room_id, spawn_id, e);
+                            continue;
+                        }
+                        
+                        // Update in-memory state if room is loaded
+                        if let Some(room) = respawn_server.game_state.get_room(room_id) {
+                            let mut collectibles = room.collectibles.write().await;
+                            if let Some(active_col) = collectibles.get_mut(&spawn_id) {
+                                active_col.taken_at = None;
+                            }
+                        }
+                        
+                        // Notify players in the room about the respawn
+                        let room_players = respawn_server.game_state.get_room_players(room_id).await;
+                        if !room_players.is_empty() {
+                            // Get the collectible info to send
+                            if let Some(room) = respawn_server.game_state.get_room(room_id) {
+                                let collectibles = room.collectibles.read().await;
+                                if let Some(active_col) = collectibles.get(&spawn_id) {
+                                    // Send MSG_COLLECTIBLE_INFO with just this one collectible
+                                    let mut writer = protocol::MessageWriter::new();
+                                    writer.write_u16(protocol::MessageType::CollectibleInfo.id());
+                                    writer.write_u8(1); // count = 1
+                                    writer.write_u8(active_col.spawn.col_id);
+                                    writer.write_u16(active_col.spawn.item_id);
+                                    writer.write_u16(active_col.spawn.x);
+                                    writer.write_u16(active_col.spawn.y);
+                                    let msg = writer.into_bytes();
+                                    
+                                    for player_id in room_players {
+                                        if let Some(session_id) = respawn_server.game_state.players_by_id.get(&player_id) {
+                                            if let Some(session) = respawn_server.sessions.get(&session_id) {
+                                                session.write().await.queue_message(msg.clone());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to check for collectible respawns: {}", e);
+                }
+            }
+            
+            // Also cleanup expired ground items
+            match db::cleanup_expired_ground_items(&respawn_server.db).await {
+                Ok(count) if count > 0 => {
+                    info!("Cleaned up {} expired ground items", count);
+                }
+                Err(e) => {
+                    error!("Failed to cleanup ground items: {}", e);
+                }
+                _ => {}
+            }
+        }
+    });
+
+    // Daily shop restock task - restocks all shops at midnight (server time)
+    let restock_server = server.clone();
+    tokio::spawn(async move {
+        use chrono::{Datelike, Local};
+        
+        let mut last_restock_day: Option<u32> = None;
+        let mut interval = tokio::time::interval(Duration::from_secs(60)); // Check every minute
+        
+        loop {
+            interval.tick().await;
+            
+            let now = Local::now();
+            let current_day = now.ordinal(); // Day of year (1-366)
+            
+            // Check if we need to restock (new day)
+            let should_restock = match last_restock_day {
+                None => true, // First run, do initial restock
+                Some(last_day) => current_day != last_day,
+            };
+            
+            if should_restock {
+                info!("Daily shop restock triggered (day {} -> {})", 
+                      last_restock_day.unwrap_or(0), current_day);
+                
+                // Restock all shops from config
+                let mut restocked_rooms = Vec::new();
+                
+                for (room_id, shop_config) in &restock_server.game_config.shops.rooms {
+                    for (slot_idx, slot) in shop_config.slots.iter().enumerate() {
+                        if slot.stock > 0 { // Only restock limited items (stock > 0 means limited)
+                            let slot_id = (slot_idx + 1) as u8;
+                            if let Err(e) = db::restock_shop_slot(
+                                &restock_server.db, 
+                                *room_id, 
+                                slot_id, 
+                                slot.stock
+                            ).await {
+                                error!("Failed to restock shop {}/{}: {}", room_id, slot_id, e);
+                            }
+                        }
+                    }
+                    restocked_rooms.push(*room_id);
+                }
+                
+                // Notify players in shop rooms about restock
+                for room_id in restocked_rooms {
+                    let room_players = restock_server.game_state.get_room_players(room_id).await;
+                    if !room_players.is_empty() {
+                        // Send MSG_SHOP_STOCK with code 2 (restocked)
+                        let mut writer = protocol::MessageWriter::new();
+                        writer.write_u16(protocol::MessageType::ShopStock.id());
+                        writer.write_u8(2); // 2 = restocked
+                        let msg = writer.into_bytes();
+                        
+                        for player_id in room_players {
+                            if let Some(session_id) = restock_server.game_state.players_by_id.get(&player_id) {
+                                if let Some(session) = restock_server.sessions.get(&session_id) {
+                                    session.write().await.queue_message(msg.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                last_restock_day = Some(current_day);
+                info!("Daily shop restock complete");
+            }
+        }
+    });
 }
