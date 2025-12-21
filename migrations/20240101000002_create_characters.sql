@@ -5,10 +5,10 @@ CREATE TABLE IF NOT EXISTS characters (
     username TEXT NOT NULL,
     
     -- Position
-    -- Note: room_id 37 = rm_around_new_1 (main spawn area)
-    x INTEGER NOT NULL DEFAULT 160,
-    y INTEGER NOT NULL DEFAULT 120,
-    room_id INTEGER NOT NULL DEFAULT 37,
+    -- Note: room_id 32 is the main spawn area (matches config/game.toml)
+    x INTEGER NOT NULL DEFAULT 385,
+    y INTEGER NOT NULL DEFAULT 71,
+    room_id INTEGER NOT NULL DEFAULT 32,
     
     -- Appearance
     body_id INTEGER NOT NULL DEFAULT 1,
