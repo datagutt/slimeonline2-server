@@ -157,55 +157,51 @@ total=3
 
 ## Rust Server Implementation
 
-Our Rust server stores prices in the database, making them configurable:
+Our Rust server uses **config files as the single source of truth** for static game data. The database only stores runtime state (current stock levels).
 
-```sql
-CREATE TABLE item_prices (
-    item_id SMALLINT PRIMARY KEY,
-    category VARCHAR(10) NOT NULL,  -- 'item', 'outfit', 'acs', 'tool'
-    buy_price INTEGER NOT NULL,
-    sellable BOOLEAN DEFAULT TRUE,
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-```
-
-Or via configuration file:
+### prices.toml
 ```toml
-# prices.toml
 [items]
 1 = { name = "Fly Wing", price = 10 }
 2 = { name = "Smoke Bomb", price = 30 }
-# ...
+# ... all items
 
 [outfits]
-1 = { name = "Default", price = 50 }
-# ...
+1 = 50
+2 = 200
+# ... all outfits
+
+[accessories]
+1 = 100
+# ... all accessories
+
+[tools]
+1 = { name = "Rusty Pickaxe", price = 500 }
+2 = { name = "Pickaxe", price = 1000 }
 ```
 
-## Shop Configuration (Per Room)
+### shops.toml
+```toml
+[room.44]
+slots = [
+    { cat = 1, item = 15, stock = 10 },
+    { cat = 1, item = 38, stock = 2 },
+]
 
-Original server stores shop inventory in room `.default` files:
-
-```ini
-[Shop]
-1 id=15        # Item ID
-1 cat=1        # Category (1=outfit, 2=item, 3=acs, 4=tool)
-1 stock=10     # Current stock
-1 max=10       # Max stock (resets daily)
-1 avail=1      # Is this slot active?
+[room.45]
+slots = [
+    { cat = 2, item = 1, stock = 0 },  # 0 = unlimited
+]
 ```
 
-Rust server equivalent in database:
+### Database (runtime state only)
 ```sql
-CREATE TABLE room_shops (
-    room_id SMALLINT NOT NULL,
-    slot SMALLINT NOT NULL,
-    item_id SMALLINT NOT NULL,
-    category SMALLINT NOT NULL,
-    max_stock SMALLINT NOT NULL,
-    current_stock SMALLINT NOT NULL,
-    available BOOLEAN DEFAULT TRUE,
-    PRIMARY KEY (room_id, slot)
+CREATE TABLE shop_stock (
+    room_id INTEGER NOT NULL,
+    slot_id INTEGER NOT NULL,
+    current_stock INTEGER,
+    last_restock TEXT,
+    PRIMARY KEY (room_id, slot_id)
 );
 ```
 

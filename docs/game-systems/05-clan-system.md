@@ -53,13 +53,15 @@ Unlocked=0
 
 ## Rust Server Implementation
 
-Our Rust server stores clan data in the database and makes creation requirements configurable:
+Our Rust server uses **config files** for clan rules. The database stores clan data and membership.
 
-```rust
-// Configuration (server_config.toml or database)
-[clan]
-creation_cost = 10000           # Slime Points required
-required_items = [51, 52]       # Item IDs consumed on creation
+### clans.toml
+```toml
+[creation]
+cost = 10000
+required_items = [51, 52]  # Proof of Nature, Proof of Earth
+
+[limits]
 min_name_length = 3
 max_name_length = 15
 initial_member_slots = 3

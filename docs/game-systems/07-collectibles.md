@@ -105,29 +105,37 @@ VarMinutes=20
 
 ## Rust Server Implementation
 
-Our Rust server stores collectible spawns in the database:
+Our Rust server uses **config files as the single source of truth** for spawn definitions. The database only stores runtime state (availability, respawn timers).
 
+### collectibles.toml
+```toml
+[room.100]
+spawns = [
+    { id = 1, item = 22, x = 196, y = 56, respawn = 20, variance = 20 },
+    { id = 2, item = 22, x = 112, y = 376, respawn = 30, variance = 20 },
+    { id = 3, item = 57, x = 176, y = 64, respawn = 40, variance = 30 },
+]
+
+[room.101]
+spawns = [
+    { id = 1, item = 22, x = 488, y = 216, respawn = 30, variance = 15 },
+    { id = 2, item = 22, x = 520, y = 216, respawn = 30, variance = 10 },
+]
+
+# Evolving collectibles
+[evolving]
+20 = { to = 58, minutes = 60, variance = 20 }  # Red Mushroom -> Squishy
+58 = { to = 59, minutes = 10, variance = 20 }  # Squishy -> Stinky
+```
+
+### Database (runtime state only)
 ```sql
-CREATE TABLE collectible_spawns (
-    id SERIAL PRIMARY KEY,
-    room_id SMALLINT NOT NULL,
-    spawn_index SMALLINT NOT NULL,
-    item_id SMALLINT NOT NULL,
-    original_item_id SMALLINT NOT NULL,
-    x SMALLINT NOT NULL,
-    y SMALLINT NOT NULL,
-    respawn_minutes SMALLINT NOT NULL,
-    variance_minutes SMALLINT NOT NULL DEFAULT 0,
-    available BOOLEAN DEFAULT TRUE,
-    next_available_at TIMESTAMP,
-    UNIQUE(room_id, spawn_index)
-);
-
-CREATE TABLE evolving_items (
-    item_id SMALLINT PRIMARY KEY,
-    evolves_to SMALLINT NOT NULL,
-    minutes SMALLINT NOT NULL,
-    variance_minutes SMALLINT NOT NULL DEFAULT 0
+CREATE TABLE collectible_state (
+    room_id INTEGER NOT NULL,
+    spawn_id INTEGER NOT NULL,
+    available INTEGER DEFAULT 1,
+    respawn_at TEXT,
+    PRIMARY KEY (room_id, spawn_id)
 );
 ```
 

@@ -149,51 +149,39 @@ From the original server data:
 
 ## Rust Server Implementation
 
-```sql
-CREATE TABLE plant_spots (
-    id SERIAL PRIMARY KEY,
-    room_id SMALLINT NOT NULL,
-    spot_index SMALLINT NOT NULL,
-    owner_id INTEGER REFERENCES characters(id),
-    seed_id SMALLINT DEFAULT 0,
-    growth_stage SMALLINT DEFAULT 0,
-    pinwheel_type SMALLINT DEFAULT 0,
-    fairy_count SMALLINT DEFAULT 0,
-    fruit_1 SMALLINT DEFAULT 0,
-    fruit_2 SMALLINT DEFAULT 0,
-    fruit_3 SMALLINT DEFAULT 0,
-    next_stage_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(room_id, spot_index)
-);
+Our Rust server uses **config files as the single source of truth** for plant growth rules. The database only stores runtime state (current plants, growth progress).
 
-CREATE TABLE plant_config (
-    seed_id SMALLINT PRIMARY KEY,
-    stage_1_minutes SMALLINT NOT NULL,
-    stage_2_minutes SMALLINT NOT NULL,
-    stage_3_minutes SMALLINT NOT NULL,
-    stage_4_minutes SMALLINT NOT NULL,
-    fruit_duration_minutes SMALLINT NOT NULL,
-    death_duration_minutes SMALLINT NOT NULL,
-    fruit_chance SMALLINT NOT NULL,
-    possible_fruits SMALLINT[] NOT NULL
-);
-```
-
-Configuration file alternative:
+### plants.toml
 ```toml
-# plants.toml
-[seed.9]
+[seeds.9]
 name = "Simple Seed"
-stages = [240, 240, 360, 360, 720, 60]
-fruits = [9, 9, 9, 9, 9]
-chance = 50
+stages = [240, 240, 360, 360, 720, 60]  # minutes per stage
+fruits = [9, 9, 9, 9, 9]                 # possible fruit items
+chance = 50                              # base % chance
 
-[seed.24]
+[seeds.24]
 name = "Blue Seed"
 stages = [240, 360, 360, 480, 720, 60]
 fruits = [25, 25, 24, 25, 25]
 chance = 35
+
+[bonuses]
+fairy_chance_bonus = 10  # +10% per fairy
+max_fairies = 5
+```
+
+### Database (runtime state only)
+```sql
+CREATE TABLE plant_state (
+    room_id INTEGER NOT NULL,
+    spot_id INTEGER NOT NULL,
+    owner_id INTEGER,
+    seed_id INTEGER,
+    stage INTEGER DEFAULT 0,
+    fairy_count INTEGER DEFAULT 0,
+    next_stage_at TEXT,
+    PRIMARY KEY (room_id, spot_id)
+);
 ```
 
 ## Validation
