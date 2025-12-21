@@ -201,7 +201,8 @@ pub const DIR_STOP_RIGHT_AIR: u8 = 13;
 ## Game Limits
 
 ```rust
-// Player Limits
+// Player Limits (server-enforced, stricter than client)
+// Note: Original client limits input to 10 chars, but modified clients could bypass
 pub const MAX_USERNAME_LENGTH: usize = 20;
 pub const MIN_USERNAME_LENGTH: usize = 3;
 pub const MAX_PASSWORD_LENGTH: usize = 50;
@@ -212,7 +213,7 @@ pub const MAX_CHAT_LENGTH: usize = 100;
 pub const MAX_POINTS: u32 = 10_000_000;
 pub const MAX_BANK_BALANCE: u32 = 100_000_000;
 
-// Inventory
+// Inventory (fixed by client)
 pub const INVENTORY_SLOTS: usize = 9;
 pub const EMOTE_SLOTS: usize = 5;
 pub const OUTFIT_SLOTS: usize = 9;
@@ -220,22 +221,30 @@ pub const ACCESSORY_SLOTS: usize = 9;
 pub const ITEM_SLOTS: usize = 9;
 pub const TOOL_SLOTS: usize = 9;
 
+// Storage (180 slots per category, from original server)
+pub const STORAGE_SLOTS_PER_CATEGORY: usize = 180;
+pub const STORAGE_SLOTS_PER_PAGE: usize = 9;
+pub const STORAGE_PAGES: usize = 20;
+
 // Clan
 pub const MAX_CLAN_NAME_LENGTH: usize = 20;
 pub const MIN_CLAN_NAME_LENGTH: usize = 3;
 pub const MAX_CLAN_MEMBERS: usize = 50;
 pub const MAX_CLAN_DESCRIPTION: usize = 500;
 pub const CLAN_CREATION_COST: u32 = 10_000;
+// Original server also requires: Proof of Nature (51), Proof of Earth (52)
 
 // Mail
 pub const MAX_MAIL_SUBJECT: usize = 50;
 pub const MAX_MAIL_BODY: usize = 1000;
 pub const MAX_MAILS_PER_PAGE: usize = 5;
+// Mail paper types: 0-3 (prices: 25, 40, 100, 50 from mail.prc)
 
 // BBS
 pub const MAX_BBS_TITLE: usize = 100;
 pub const MAX_BBS_CONTENT: usize = 5000;
 pub const MAX_BBS_POSTS_PER_PAGE: usize = 10;
+// Categories: 0=Hints, 1=Events, 2=Trade, 3=Adventures, 4=Jokes, 5=Other
 
 // Room
 pub const MAX_ROOM_ID: u16 = 1000;
@@ -245,6 +254,31 @@ pub const MAX_PLAYERS_PER_ROOM: usize = 50;
 pub const MAX_MESSAGE_SIZE: usize = 8192;
 pub const CONNECTION_TIMEOUT_SECS: u64 = 300;
 pub const PING_INTERVAL_SECS: u64 = 30;
+```
+
+## Original Server Defaults
+
+From `[Acc_Sample].soa`:
+
+```rust
+// Default spawn position
+pub const DEFAULT_SPAWN_X: u16 = 385;
+pub const DEFAULT_SPAWN_Y: u16 = 71;
+pub const DEFAULT_SPAWN_ROOM: u16 = 32;
+pub const DEFAULT_OUTFIT: u16 = 1;
+pub const DEFAULT_SIGNATURE: u8 = 1;
+pub const DEFAULT_SIGNATURE_BG: u8 = 1;
+
+// Default emotes
+pub const DEFAULT_EMOTES: [u8; 5] = [5, 4, 6, 8, 7];
+
+// Default starting inventory (slot, item_id)
+// Slot 1: Item 1 (Fly Wing)
+// Slot 2: Item 1 (Fly Wing)  
+// Slot 3: Item 1 (Fly Wing)
+// Slot 4: Item 24 (Blue Seed)
+
+// Welcome mail attached with 50 points
 ```
 
 ## Physics Constants
