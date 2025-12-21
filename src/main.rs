@@ -9,20 +9,20 @@ use anyhow::Result;
 use dashmap::DashMap;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing::{error, info, warn};
+use tracing_subscriber::{fmt, EnvFilter};
 use uuid::Uuid;
 
+mod anticheat;
 mod config;
 mod constants;
 mod crypto;
 mod db;
-mod protocol;
-mod handlers;
 mod game;
-mod validation;
+mod handlers;
+mod protocol;
 mod rate_limit;
-mod anticheat;
+mod validation;
 
 use config::GameConfig;
 use constants::*;
@@ -77,10 +77,10 @@ impl Server {
     pub async fn new(config: ServerConfig, game_config: GameConfig) -> Result<Self> {
         // Create database connection pool
         let db = db::create_pool(&config.database_url).await?;
-        
+
         // Run migrations
         db::init_database(&db).await?;
-        
+
         Ok(Self {
             config,
             game_config: Arc::new(game_config),
@@ -97,7 +97,8 @@ impl Server {
 
     /// Get the next available player ID.
     pub fn next_player_id(&self) -> u16 {
-        self.next_player_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        self.next_player_id
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Check if a player ID is in use.
@@ -147,9 +148,8 @@ impl Server {
 async fn main() -> Result<()> {
     // Initialize logging
     // Default to INFO, override with RUST_LOG env var (e.g., RUST_LOG=debug or RUST_LOG=trace)
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
-    
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
     let subscriber = fmt::Subscriber::builder()
         .with_env_filter(filter)
         .with_target(false)
@@ -158,7 +158,10 @@ async fn main() -> Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
-    info!("Starting Slime Online 2 Server v{}", env!("CARGO_PKG_VERSION"));
+    info!(
+        "Starting Slime Online 2 Server v{}",
+        env!("CARGO_PKG_VERSION")
+    );
 
     // Load game configuration from TOML files
     let game_config = match GameConfig::load("config") {
@@ -181,23 +184,23 @@ async fn main() -> Result<()> {
         database_url: format!("sqlite:{}?mode=rwc", srv.database_path),
         motd: srv.motd.clone(),
         max_connections: srv.max_connections,
-        max_connections_per_ip: if srv.max_connections_per_ip > 0 { 
-            srv.max_connections_per_ip 
-        } else { 
-            MAX_CONNECTIONS_PER_IP 
+        max_connections_per_ip: if srv.max_connections_per_ip > 0 {
+            srv.max_connections_per_ip
+        } else {
+            MAX_CONNECTIONS_PER_IP
         },
         auto_save_position: srv.auto_save_position,
     };
-    
+
     // Create server
     let server = Arc::new(Server::new(config.clone(), game_config).await?);
-    
+
     info!("Database initialized");
 
     // Bind to address
     let addr = format!("{}:{}", config.host, config.port);
     let listener = TcpListener::bind(&addr).await?;
-    
+
     info!("Server listening on {}", addr);
     info!("MOTD: {}", config.motd);
 
@@ -208,10 +211,12 @@ async fn main() -> Result<()> {
     let shutdown_server = server.clone();
     tokio::spawn(async move {
         // Wait for Ctrl+C
-        tokio::signal::ctrl_c().await.expect("Failed to install Ctrl+C handler");
-        
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to install Ctrl+C handler");
+
         info!("Shutdown signal received, saving all player data...");
-        
+
         // Save ALL player data on shutdown (position + points) regardless of config
         for session_ref in shutdown_server.sessions.iter() {
             let session = session_ref.value().read().await;
@@ -223,21 +228,25 @@ async fn main() -> Result<()> {
                     session.x as i16,
                     session.y as i16,
                     session.room_id as i16,
-                ).await {
+                )
+                .await
+                {
                     error!("Failed to save position for character {}: {}", char_id, e);
                 }
-                
+
                 // Always save points
-                if let Err(e) = db::update_points(&shutdown_server.db, char_id, session.points as i64).await {
+                if let Err(e) =
+                    db::update_points(&shutdown_server.db, char_id, session.points as i64).await
+                {
                     error!("Failed to save points for character {}: {}", char_id, e);
                 }
-                
+
                 if let Some(username) = &session.username {
                     info!("Saved data for player {}", username);
                 }
             }
         }
-        
+
         info!("All player data saved. Shutting down.");
         std::process::exit(0);
     });
@@ -247,7 +256,7 @@ async fn main() -> Result<()> {
         match listener.accept().await {
             Ok((socket, addr)) => {
                 let server = server.clone();
-                
+
                 // Check connection limits
                 if server.connection_count() >= server.config.max_connections {
                     warn!("Connection limit reached, rejecting {}", addr);
@@ -281,11 +290,11 @@ fn spawn_background_tasks(server: Arc<Server>) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(SAVE_INTERVAL_SECS));
         let auto_save_position = save_server.config.auto_save_position;
-        
+
         loop {
             interval.tick().await;
             info!("Running periodic save...");
-            
+
             // Save all active player data
             for session_ref in save_server.sessions.iter() {
                 let session = session_ref.value().read().await;
@@ -298,19 +307,26 @@ fn spawn_background_tasks(server: Arc<Server>) {
                             session.x as i16,
                             session.y as i16,
                             session.room_id as i16,
-                        ).await {
+                        )
+                        .await
+                        {
                             error!("Failed to save position for character {}: {}", char_id, e);
                         }
                     }
-                    
+
                     // Always save points
-                    if let Err(e) = db::update_points(&save_server.db, char_id, session.points as i64).await {
+                    if let Err(e) =
+                        db::update_points(&save_server.db, char_id, session.points as i64).await
+                    {
                         error!("Failed to save points for character {}: {}", char_id, e);
                     }
                 }
             }
-            
-            info!("Periodic save complete. Active sessions: {}", save_server.sessions.len());
+
+            info!(
+                "Periodic save complete. Active sessions: {}",
+                save_server.sessions.len()
+            );
         }
     });
 
@@ -320,31 +336,33 @@ fn spawn_background_tasks(server: Arc<Server>) {
         let mut interval = tokio::time::interval(Duration::from_secs(CLEANUP_INTERVAL_SECS));
         loop {
             interval.tick().await;
-            
+
             // Find and remove stale sessions
             let mut stale_sessions = Vec::new();
-            
+
             for session_ref in cleanup_server.sessions.iter() {
                 let session = session_ref.value().read().await;
                 if session.is_timed_out() {
                     stale_sessions.push(*session_ref.key());
                 }
             }
-            
+
             for session_id in stale_sessions {
                 if let Some((_, session)) = cleanup_server.sessions.remove(&session_id) {
                     let session_guard = session.read().await;
                     if let Some(username) = &session_guard.username {
                         info!("Cleaning up stale session for {}", username);
                     }
-                    
+
                     // Remove from room
                     if let Some(player_id) = session_guard.player_id {
-                        cleanup_server.game_state
-                            .remove_player_from_room(player_id, session_guard.room_id).await;
+                        cleanup_server
+                            .game_state
+                            .remove_player_from_room(player_id, session_guard.room_id)
+                            .await;
                         cleanup_server.active_player_ids.remove(&player_id);
                     }
-                    
+
                     // Remove IP connection count
                     cleanup_server.remove_ip_connection(&session_guard.ip_address);
                 }
@@ -358,20 +376,25 @@ fn spawn_background_tasks(server: Arc<Server>) {
         let mut interval = tokio::time::interval(Duration::from_secs(30));
         loop {
             interval.tick().await;
-            
+
             // Get all collectibles that need to respawn from DB
             match db::get_collectibles_to_respawn(&respawn_server.db).await {
                 Ok(collectibles) => {
                     for col in collectibles {
                         let room_id = col.room_id as u16;
                         let spawn_id = col.spawn_id as u8;
-                        
+
                         // Mark as respawned in DB
-                        if let Err(e) = db::respawn_collectible(&respawn_server.db, room_id, spawn_id).await {
-                            error!("Failed to respawn collectible {}/{}: {}", room_id, spawn_id, e);
+                        if let Err(e) =
+                            db::respawn_collectible(&respawn_server.db, room_id, spawn_id).await
+                        {
+                            error!(
+                                "Failed to respawn collectible {}/{}: {}",
+                                room_id, spawn_id, e
+                            );
                             continue;
                         }
-                        
+
                         // Update in-memory state if room is loaded
                         if let Some(room) = respawn_server.game_state.get_room(room_id) {
                             let mut collectibles = room.collectibles.write().await;
@@ -379,9 +402,10 @@ fn spawn_background_tasks(server: Arc<Server>) {
                                 active_col.taken_at = None;
                             }
                         }
-                        
+
                         // Notify players in the room about the respawn
-                        let room_players = respawn_server.game_state.get_room_players(room_id).await;
+                        let room_players =
+                            respawn_server.game_state.get_room_players(room_id).await;
                         if !room_players.is_empty() {
                             // Get the collectible info to send
                             if let Some(room) = respawn_server.game_state.get_room(room_id) {
@@ -396,10 +420,14 @@ fn spawn_background_tasks(server: Arc<Server>) {
                                     writer.write_u16(active_col.spawn.x);
                                     writer.write_u16(active_col.spawn.y);
                                     let msg = writer.into_bytes();
-                                    
+
                                     for player_id in room_players {
-                                        if let Some(session_id) = respawn_server.game_state.players_by_id.get(&player_id) {
-                                            if let Some(session) = respawn_server.sessions.get(&session_id) {
+                                        if let Some(session_id) =
+                                            respawn_server.game_state.players_by_id.get(&player_id)
+                                        {
+                                            if let Some(session) =
+                                                respawn_server.sessions.get(&session_id)
+                                            {
                                                 session.write().await.queue_message(msg.clone());
                                             }
                                         }
@@ -413,7 +441,7 @@ fn spawn_background_tasks(server: Arc<Server>) {
                     error!("Failed to check for collectible respawns: {}", e);
                 }
             }
-            
+
             // Also cleanup expired ground items
             match db::cleanup_expired_ground_items(&respawn_server.db).await {
                 Ok(count) if count > 0 => {
@@ -427,50 +455,74 @@ fn spawn_background_tasks(server: Arc<Server>) {
         }
     });
 
-    // Daily shop restock task - restocks all shops at midnight (server time)
+    // Daily shop restock task - restocks all shops when day changes
     let restock_server = server.clone();
     tokio::spawn(async move {
-        use chrono::{Datelike, Local};
-        
-        let mut last_restock_day: Option<u32> = None;
+        use chrono::Local;
+
+        // Load last restock date from database on startup
+        let mut last_restock_date: Option<String> = db::get_last_restock_date(&restock_server.db)
+            .await
+            .unwrap_or(None);
+
         let mut interval = tokio::time::interval(Duration::from_secs(60)); // Check every minute
-        
+
         loop {
             interval.tick().await;
-            
+
             let now = Local::now();
-            let current_day = now.ordinal(); // Day of year (1-366)
-            
-            // Check if we need to restock (new day)
-            let should_restock = match last_restock_day {
-                None => true, // First run, do initial restock
-                Some(last_day) => current_day != last_day,
+            let current_date = now.format("%Y-%m-%d").to_string(); // YYYY-MM-DD format
+
+            // Check if we need to restock (new day compared to last restock)
+            let should_restock = match &last_restock_date {
+                None => {
+                    // No record of previous restock - this is first run ever
+                    // Store current date but don't restock (matches original server behavior)
+                    if let Err(e) =
+                        db::set_last_restock_date(&restock_server.db, &current_date).await
+                    {
+                        error!("Failed to set initial restock date: {}", e);
+                    }
+                    last_restock_date = Some(current_date.clone());
+                    info!(
+                        "First server run - initialized restock date to {}",
+                        current_date
+                    );
+                    false
+                }
+                Some(last_date) => current_date != *last_date,
             };
-            
+
             if should_restock {
-                info!("Daily shop restock triggered (day {} -> {})", 
-                      last_restock_day.unwrap_or(0), current_day);
-                
+                info!(
+                    "Daily shop restock triggered (date {} -> {})",
+                    last_restock_date.as_deref().unwrap_or("none"),
+                    current_date
+                );
+
                 // Restock all shops from config
                 let mut restocked_rooms = Vec::new();
-                
+
                 for (room_id, shop_config) in &restock_server.game_config.shops.rooms {
                     for (slot_idx, slot) in shop_config.slots.iter().enumerate() {
-                        if slot.stock > 0 { // Only restock limited items (stock > 0 means limited)
+                        if slot.stock > 0 {
+                            // Only restock limited items (stock > 0 means limited)
                             let slot_id = (slot_idx + 1) as u8;
                             if let Err(e) = db::restock_shop_slot(
-                                &restock_server.db, 
-                                *room_id, 
-                                slot_id, 
-                                slot.stock
-                            ).await {
+                                &restock_server.db,
+                                *room_id,
+                                slot_id,
+                                slot.stock,
+                            )
+                            .await
+                            {
                                 error!("Failed to restock shop {}/{}: {}", room_id, slot_id, e);
                             }
                         }
                     }
                     restocked_rooms.push(*room_id);
                 }
-                
+
                 // Notify players in shop rooms about restock
                 for room_id in restocked_rooms {
                     let room_players = restock_server.game_state.get_room_players(room_id).await;
@@ -480,9 +532,11 @@ fn spawn_background_tasks(server: Arc<Server>) {
                         writer.write_u16(protocol::MessageType::ShopStock.id());
                         writer.write_u8(2); // 2 = restocked
                         let msg = writer.into_bytes();
-                        
+
                         for player_id in room_players {
-                            if let Some(session_id) = restock_server.game_state.players_by_id.get(&player_id) {
+                            if let Some(session_id) =
+                                restock_server.game_state.players_by_id.get(&player_id)
+                            {
                                 if let Some(session) = restock_server.sessions.get(&session_id) {
                                     session.write().await.queue_message(msg.clone());
                                 }
@@ -490,8 +544,12 @@ fn spawn_background_tasks(server: Arc<Server>) {
                         }
                     }
                 }
-                
-                last_restock_day = Some(current_day);
+
+                // Save the new restock date to database
+                if let Err(e) = db::set_last_restock_date(&restock_server.db, &current_date).await {
+                    error!("Failed to save restock date: {}", e);
+                }
+                last_restock_date = Some(current_date.clone());
                 info!("Daily shop restock complete");
             }
         }

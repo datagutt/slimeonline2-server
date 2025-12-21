@@ -562,3 +562,47 @@ pub async fn cleanup_expired_ground_items(pool: &DbPool) -> Result<u64, sqlx::Er
     .await?;
     Ok(result.rows_affected())
 }
+
+// =============================================================================
+// Server State (Key-Value Store)
+// =============================================================================
+
+/// Get a server state value by key
+pub async fn get_server_state(pool: &DbPool, key: &str) -> Result<Option<String>, sqlx::Error> {
+    let result: Option<(String,)> = sqlx::query_as(
+        "SELECT value FROM server_state WHERE key = ?"
+    )
+    .bind(key)
+    .fetch_optional(pool)
+    .await?;
+    
+    Ok(result.map(|r| r.0))
+}
+
+/// Set a server state value
+pub async fn set_server_state(pool: &DbPool, key: &str, value: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO server_state (key, value, updated_at)
+        VALUES (?, ?, datetime('now'))
+        ON CONFLICT (key) DO UPDATE SET
+            value = excluded.value,
+            updated_at = excluded.updated_at
+        "#,
+    )
+    .bind(key)
+    .bind(value)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Get the last shop restock date (YYYY-MM-DD format)
+pub async fn get_last_restock_date(pool: &DbPool) -> Result<Option<String>, sqlx::Error> {
+    get_server_state(pool, "last_restock_date").await
+}
+
+/// Set the last shop restock date (YYYY-MM-DD format)
+pub async fn set_last_restock_date(pool: &DbPool, date: &str) -> Result<(), sqlx::Error> {
+    set_server_state(pool, "last_restock_date", date).await
+}
