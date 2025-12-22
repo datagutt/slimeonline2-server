@@ -404,7 +404,7 @@ async fn handle_message(
 
         MessageType::Save => {
             // Player interacted with a save point - save their data to database
-            let (character_id, x, y, room_id, points) = {
+            let (character_id, x, y, room_id, points, username) = {
                 let session_guard = session.read().await;
                 (
                     session_guard.character_id,
@@ -412,6 +412,7 @@ async fn handle_message(
                     session_guard.y,
                     session_guard.room_id,
                     session_guard.points,
+                    session_guard.username.clone(),
                 )
             };
 
@@ -434,6 +435,12 @@ async fn handle_message(
 
                 debug!("Saved player data at save point (char_id: {}, room: {}, pos: {},{}, points: {})", 
                        char_id, room_id, x, y, points);
+
+                // Check if this player now has the top points and broadcast if so
+                // (from check_top_points.gml in original server)
+                if let Some(ref name) = username {
+                    check_and_broadcast_top_points(server, char_id, name, points).await;
+                }
             }
 
             // Send confirmation back to client
@@ -694,6 +701,69 @@ async fn cleanup_session(
 
         if let Some(name) = username {
             info!("Player {} (ID: {}) logged out", name, player_id);
+        }
+    }
+}
+
+/// Check if a player has the new top points and broadcast to city rooms if so.
+/// 
+/// From check_top_points.gml in original server:
+/// - When a player saves, check if their total points (points + bank) is highest
+/// - If so, broadcast MSG_GET_TOP_POINTS to all players in city rooms (42, 126)
+async fn check_and_broadcast_top_points(
+    server: &Arc<Server>,
+    character_id: i64,
+    username: &str,
+    current_points: u32,
+) {
+    // Get player's bank balance to calculate total
+    let bank_balance = match crate::db::get_bank_balance(&server.db, character_id).await {
+        Ok(balance) => balance,
+        Err(e) => {
+            error!("Failed to get bank balance for top points check: {}", e);
+            return;
+        }
+    };
+    
+    let player_total = current_points as i64 + bank_balance;
+    
+    // Get current top points from database
+    let current_top = match crate::db::get_top_points(&server.db).await {
+        Ok(top) => top,
+        Err(e) => {
+            error!("Failed to get top points: {}", e);
+            return;
+        }
+    };
+    
+    // Check if this player is now the top (or tied for top)
+    let is_new_top = match current_top {
+        Some(ref top) => player_total >= top.total_points,
+        None => true, // No existing top, this player is first
+    };
+    
+    if !is_new_top {
+        return;
+    }
+    
+    info!("New top points holder: {} with {} total points", username, player_total);
+    
+    // Build the top points message
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::GetTopPoints.id())
+        .write_string(username)
+        .write_u32(player_total as u32);
+    let msg = writer.into_bytes();
+    
+    // Broadcast to all players in city rooms (42 and 126)
+    for session_ref in server.sessions.iter() {
+        let session = session_ref.value().read().await;
+        if session.is_authenticated {
+            let room_id = session.room_id;
+            if room_id == 42 || room_id == 126 {
+                drop(session);
+                session_ref.value().write().await.queue_message(msg.clone());
+            }
         }
     }
 }

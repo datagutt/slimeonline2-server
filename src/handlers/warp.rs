@@ -176,5 +176,35 @@ pub async fn handle_warp(
     let dropped_item_msgs = items::write_room_dropped_items(server, new_room_id).await;
     responses.extend(dropped_item_msgs);
 
+    // Send top points info for city rooms (from room_check_city in original)
+    // Rooms 42 (New City) and 126 (Old City Back Alley) have the top points sign
+    if new_room_id == 42 || new_room_id == 126 {
+        if let Some(top_points_msg) = build_top_points_message(server).await {
+            responses.push(top_points_msg);
+        }
+    }
+
     Ok(responses)
+}
+
+/// Build MSG_GET_TOP_POINTS (73) message with the current top player
+/// Returns None if there are no players or on error
+async fn build_top_points_message(server: &Arc<Server>) -> Option<Vec<u8>> {
+    match crate::db::get_top_points(&server.db).await {
+        Ok(Some(top)) => {
+            let mut writer = MessageWriter::new();
+            writer.write_u16(MessageType::GetTopPoints.id())
+                .write_string(&top.username)
+                .write_u32(top.total_points as u32);
+            Some(writer.into_bytes())
+        }
+        Ok(None) => {
+            // No players in database yet
+            None
+        }
+        Err(e) => {
+            error!("Failed to get top points: {}", e);
+            None
+        }
+    }
 }

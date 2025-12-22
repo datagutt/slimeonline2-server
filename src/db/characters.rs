@@ -650,3 +650,31 @@ pub async fn mark_quest_cleared(
     
     Ok(())
 }
+
+// =============================================================================
+// Top Points Query
+// =============================================================================
+
+/// Top points result
+#[derive(Debug, Clone)]
+pub struct TopPoints {
+    pub username: String,
+    pub total_points: i64,
+}
+
+/// Get the player with the highest total points (points + bank_balance)
+/// Returns None if there are no characters in the database
+pub async fn get_top_points(pool: &DbPool) -> Result<Option<TopPoints>, sqlx::Error> {
+    let result: Option<(String, i64)> = sqlx::query_as(
+        r#"
+        SELECT username, (points + bank_balance) as total_points
+        FROM characters
+        ORDER BY total_points DESC
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?;
+    
+    Ok(result.map(|(username, total_points)| TopPoints { username, total_points }))
+}
