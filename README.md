@@ -216,7 +216,7 @@ cargo run -- create input_dir password output.sor
 ## Contributing
 
 While I do not expect a lot of contributions due to the obscurity of the project, any new features or bug fixes are welcome.
-Especially the protocol documentation could need some lovem as I am pretty sure it is has some LLM hallucinations still.
+Especially the protocol documentation could need some love, as I am pretty sure it is has some LLM hallucinations still.
 
 ## License
 
