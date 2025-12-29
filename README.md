@@ -211,6 +211,7 @@ cd sor_tool
 cargo run -- list archive.sor
 cargo run -- extract archive.sor password output_dir
 cargo run -- create input_dir password output.sor
+cargo run -- rekey archive.sor old_password new_password output.sor");
 ```
 
 ## Contributing
