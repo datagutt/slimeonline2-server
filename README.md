@@ -65,6 +65,12 @@ Some of these features, while __technically__ implemented, might not actually wo
 | __Music Changer__ | Low | 2 messages (95-96) |
 | __One-Time Items__ | Low | 3 messages (35-37) |
 
+### Might Implement
+
+- Automatic shop item rotation (new items for daily restock)
+- Mod tools (SO2 ones are weak)
+- Live player map in browser
+
 ### Untested / Needs Verification
 
 - Clan functionality
