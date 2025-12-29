@@ -16,6 +16,7 @@ The original server is Windows-only, and uses INI files for storage.
 This server is usable on any platform, uses modern SQLite databases and is more configurable and extensible.
 
 With the client frozen in time and for compatibility-reasons, this codebase does include weak game protocol encryption, hard-coded RC4 keys++ that can not really be changed.
+
 Luckily there seems to be a new iteration of the game in the works by the official creator...
 
 ## Client files
