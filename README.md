@@ -1,231 +1,208 @@
-# Slime Online 2 - Private Server Implementation (Rust)
+# Slime Online 2 - Private Server (Rust)
 
-Complete specifications for building a legacy-compatible Slime Online 2 server.
+A Rust implementation of the Slime Online 2 server, compatible with the v0.106 client.
 
-## 📚 Documentation
+## History
 
-**Start here:** [`DOCUMENTATION_INDEX.md`](./DOCUMENTATION_INDEX.md) - Full documentation overview
+Back when I was a kid, I used to play a small, cozy and community-focused platforming MMO called "Slime Online".
+It went through multiple iterations, and after the game died, the creator published the server and game files for both the first and second iteration of the game.
 
-**Quick start:** [`docs/IMPLEMENTATION_GUIDE.md`](./docs/IMPLEMENTATION_GUIDE.md) - Phase-by-phase implementation plan
+I backed up (most) of those files, but managed to lose the v2 server files for it.
+I still had the client, and mod tools, so I set out to create a Rust-powered modern server for it, so I could re-experience the game.
+The game was made in Game Maker 8.1, a game making engine that can easily be decompiled in modern times.
 
-## 🎯 What's Included
+Fast forward a week or so later, and I managed to get a copy of the server files, making it much more easy to finish this project.
+The original server is Windows-only, and uses INI files for storage.
+This server is usable on any platform, uses modern SQLite databases and is more configurable and extensible.
 
-✅ **Complete Network Protocol** - TCP/RC4 encryption, all 141 message types  
-✅ **Full Database Schema** - PostgreSQL + SQLite for local dev  
-✅ **Security Validation** - Comprehensive server-side input validation  
-✅ **Architecture Design** - Multi-threaded async Rust with tokio  
-✅ **Implementation Roadmap** - 16-week phase-by-phase plan  
-✅ **Reference Data** - All constants, item IDs, error codes  
+With the client frozen in time and for compatibility-reasons, this codebase does include weak game protocol encryption, hard-coded RC4 keys++ that can not really be changed.
+Luckily there seems to be a new iteration of the game in the works by the official creator...
 
-## 🚀 Quick Start
+## Features
+
+Both the game server and game client contains some unfinished or never released features.
+This is due to the game development ending at an abrupt point.
+
+### Implemented
+
+Some of these features, while __technically__ implemented, might not actually work or contain potentially game-crashing bugs.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| __Authentication__ | Complete | Login, registration, bcrypt password hashing |
+| __Movement__ | Complete | All 13 direction codes, room sync |
+| __Chat__ | Complete | Room chat, emotes, actions, typing indicator |
+| __Appearance__ | Complete | Outfit/accessory changes with persistence |
+| __Rooms__ | Complete | Warping, player tracking, broadcasts |
+| __Items__ | Complete | Use, discard, pickup with DB persistence |
+| __Collectibles__ | Complete | Spawn points, respawn timers, item collection |
+| __Shops__ | Complete | Buy items, daily stock restock (on day change) |
+| __Selling__ | Complete | Sell items/outfits/accessories/tools |
+| __Banking__ | Complete | Deposit, withdraw, transfer to other players |
+| __Mail__ | Complete | Send/receive mail with item/point attachments |
+| __BBS__ | Complete | Post, read, report messages |
+| __Clans__ | Complete | Create, dissolve, invite, kick, leave, info |
+| __Quests__ | Complete | Begin, cancel, step, reward (Quest 1 implemented) |
+| __Dropped Items__ | Complete | DB persistence, 3-min expiration, broadcast |
+| __Top Points__ | Complete | Leaderboard sign in city rooms (42, 126) |
+| __Tools__ | Complete | Equip/unequip with persistence |
+| __Save Points__ | Complete | Manual save at save point NPCs |
+
+### Not Yet Implemented
+
+| Feature | Priority | Messages |
+|---------|----------|----------|
+| __Planting System__ | Medium | 9 messages (63-70, 94) |
+| __Storage Extension__ | Medium | 3 messages (56-58) |
+| __Building System__ | Low | 4 messages (103-106) |
+| __Cannon System__ | Low | 4 messages (98-101) |
+| __Racing System__ | Low | 6 messages (120-125) |
+| __Upgrader System__ | Low | 5 messages (108-112) |
+| __Music Changer__ | Low | 2 messages (95-96) |
+| __One-Time Items__ | Low | 3 messages (35-37) |
+
+### Untested / Needs Verification
+
+- Clan functionality
+- Quests
+- Collectible evolution (mushroom transformation over time)
+- Full multi-player stress testing
+
+## Quick Start
 
 ### Prerequisites
 
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+- Rust 1.70+
+- SQLite3
 
-# Install SQLite (for local development)
-sudo apt-get install sqlite3 libsqlite3-dev
-
-# OR install PostgreSQL (for production)
-sudo apt-get install postgresql postgresql-contrib
-```
-
-### Setup
+### Build & Run
 
 ```bash
-# Create project
-cargo new --bin slime_server
-cd slime_server
+# Clone and build
+cd rust_server
+cargo build --release
 
-# Copy documentation
-cp -r /path/to/docs ./docs
+# Run (creates database automatically)
+cargo run --release
 
-# Add dependencies to Cargo.toml
-[dependencies]
-tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "migrate"] }
-rc4 = "0.1"
-bcrypt = "0.15"
-bytes = "1"
-dashmap = "5"
-tracing = "0.1"
-tracing-subscriber = "0.3"
-serde = { version = "1", features = ["derive"] }
-uuid = { version = "1", features = ["v4"] }
-chrono = "0.4"
-
-# Create database
-sqlite3 slime_online2.db < docs/database/sqlite-schema.sql
-
-# OR for PostgreSQL
-createdb slime_online2
-psql slime_online2 < docs/database/postgres-schema.sql
-
-# Build
-cargo build
-
-# Run
-cargo run
+# Server listens on 0.0.0.0:5555
 ```
 
-## 📖 Key Documentation Files
+### Configuration
 
-| File | Description | Size |
-|------|-------------|------|
-| [`docs/protocol/01-connection.md`](docs/protocol/01-connection.md) | TCP connection & RC4 encryption | 19 KB |
-| [`docs/protocol/02-message-format.md`](docs/protocol/02-message-format.md) | Binary message format | 23 KB |
-| [`docs/protocol/04-message-catalog.md`](docs/protocol/04-message-catalog.md) | All 141 message types | 18 KB |
-| [`docs/architecture/01-overview.md`](docs/architecture/01-overview.md) | System architecture | 23 KB |
-| [`docs/database/01-schema-overview.md`](docs/database/01-schema-overview.md) | Database schema | 21 KB |
-| [`docs/database/08-sqlite-adaptation.md`](docs/database/08-sqlite-adaptation.md) | SQLite for local dev | 15 KB |
-| [`docs/security/02-server-validation.md`](docs/security/02-server-validation.md) | Input validation | 36 KB |
-| [`docs/reference/01-constants.md`](docs/reference/01-constants.md) | All game constants | 21 KB |
+Configuration files are in `config/`:
 
-## 🔑 Critical Information
+| File | Description |
+|------|-------------|
+| `server.toml` | Server settings (port, database, MOTD) |
+| `game.toml` | Game rules, spawn point, limits |
+| `prices.toml` | Item/outfit/accessory/tool prices |
+| `shops.toml` | Shop inventories per room |
+| `collectibles.toml` | Collectible spawn points per room |
+| `plants.toml` | Plant growth configuration |
+| `clans.toml` | Clan system settings |
 
-### Encryption Keys (Hardcoded in Client)
+## Architecture
+
+```
+src/
+├── main.rs              # Entry point, TCP listener, background tasks
+├── config/              # Configuration loading (TOML)
+├── crypto.rs            # RC4 encryption
+├── protocol/            # Binary message parsing/writing
+├── handlers/            # Message handlers by category
+│   ├── auth.rs          # Login/register
+│   ├── movement.rs      # Player movement
+│   ├── chat.rs          # Chat, emotes, typing
+│   ├── warp.rs          # Room changes
+│   ├── items/           # Item use, discard, pickup
+│   ├── shop/            # Buy, sell
+│   ├── bank.rs          # Banking operations
+│   ├── mail.rs          # Mail system
+│   ├── bbs.rs           # Bulletin board
+│   ├── clan.rs          # Clan system
+│   ├── quest.rs         # Quest system
+│   └── collectibles.rs  # Collectible spawns
+├── game/                # Game state, rooms, sessions
+└── db/                  # Database operations
+    ├── accounts.rs
+    ├── characters.rs
+    ├── clans.rs
+    ├── mail.rs
+    ├── bbs.rs
+    └── runtime_state.rs # Collectibles, plants, shops, ground items
+
+migrations/              # SQLite migrations
+config/                  # TOML configuration files
+sor_tool/               # SOR archive encryption tool
+```
+
+## Database
+
+SQLite database with auto-migrations. Tables:
+
+- `accounts` - User authentication
+- `characters` - Player data (position, points, appearance)
+- `inventories` - Equipment slots (emotes, outfits, accessories, items, tools)
+- `clans` - Clan data
+- `clan_members` - Clan membership
+- `mail` - Player mail
+- `bbs_posts` - Bulletin board posts
+- `collectible_state` - Collectible availability/respawn
+- `plant_state` - Plant growth progress
+- `shop_stock` - Limited shop item stock
+- `ground_items` - Dropped items on ground
+- `server_state` - Key-value store (restock date, etc.)
+- `quest_progress` - Completed quests per character
+- `bans` - IP/MAC/account bans
+
+## Protocol
+
+- __Port:__ 5555
+- __Encryption:__ RC4 with hardcoded keys
+- __Client Version:__ 0.106
+- __Message Format:__ 2-byte length prefix + encrypted payload
 
 ```rust
-const CLIENT_ENCRYPT_KEY: &[u8] = b"retrtz7jmijb5467n47";
-const CLIENT_DECRYPT_KEY: &[u8] = b"t54gz65u74njb6zg6";
-
-// Server decrypts incoming messages with CLIENT_ENCRYPT_KEY
-// Server encrypts outgoing messages with CLIENT_DECRYPT_KEY
+// Server decrypts with:
+const DECRYPT_KEY: &[u8] = b"retrtz7jmijb5467n47";
+// Server encrypts with:
+const ENCRYPT_KEY: &[u8] = b"t54gz65u74njb6zg6";
 ```
 
-### Client Version
+## AI Usage
 
-```rust
-const VERSION: &str = "0.106";
-```
+Claude Opus 4.5 LLM model was used to generate the initial protocol docs, due to its ability to read and analyze huge codebases.
+I initially had it read the decompiled client code, mod tools, client data files and 39DLL C++ Source Code.
+After gaining access to the decompiled server source code, Claude attempted to update the docs based on the new knowledge.
 
-### Default Port
+A lot of the Rust code is also generated, but reviewed and adjusted by hand.
 
-```rust
-const PORT: u16 = 5555;
-```
+## Documentation
 
-## 🛠️ Implementation Phases
+Detailed documentation is in `docs/`:
 
-1. **Foundation (Week 1-2)** - TCP server, RC4, authentication
-2. **Core Gameplay (Week 3-5)** - Movement, chat, rooms
-3. **Items & Economy (Week 6-8)** - Inventory, shops, banking
-4. **Social Features (Week 9-11)** - Clans, mail, BBS
-5. **Game Systems (Week 12-14)** - Quests, planting, special features
-6. **Production (Week 15-16)** - Performance, monitoring, deployment
+- `docs/protocol/` - Network protocol, message formats
+- `docs/architecture/` - Server architecture design
+- `docs/database/` - Database schema
+- `docs/game-systems/` - Game mechanics
+- `docs/security/` - Validation, anti-cheat
 
-See [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md) for detailed breakdown.
+## Tools
 
-## 🗃️ Database Choice
+### SOR Tool
 
-**For Local Development:** SQLite
-- ✅ No separate DB server needed
-- ✅ Fast setup and testing
-- ✅ Good for < 50 concurrent players
-- 📖 See [`docs/database/08-sqlite-adaptation.md`](docs/database/08-sqlite-adaptation.md)
-
-**For Production:** PostgreSQL
-- ✅ Better concurrency (> 50 players)
-- ✅ More robust under load
-- ✅ Industry standard
-- 📖 See [`docs/database/01-schema-overview.md`](docs/database/01-schema-overview.md)
-
-## 🔒 Security Notes
-
-The client uses **RC4 encryption with public keys** - assume all traffic can be intercepted. The server must:
-
-- ✅ **Validate ALL input** - Never trust the client
-- ✅ **Server-authoritative** - Server decides what's valid
-- ✅ **Rate limiting** - Prevent spam/DDoS
-- ✅ **Anomaly detection** - Log suspicious behavior
-- ✅ **Quick banning** - Auto-ban on cheat detection
-
-See [`docs/security/02-server-validation.md`](docs/security/02-server-validation.md) for comprehensive examples.
-
-## 📋 Implementation Checklist
-
-### Foundation ✅
-- [ ] TCP server listening on port 5555
-- [ ] RC4 encryption/decryption
-- [ ] Binary message parser (MessageReader/Writer)
-- [ ] Database setup (SQLite or PostgreSQL)
-- [ ] MSG_LOGIN and MSG_REGISTER handlers
-- [ ] bcrypt password hashing
-
-### Core Features
-- [ ] Movement synchronization (MSG_MOVE_PLAYER)
-- [ ] Chat system (MSG_CHAT)
-- [ ] Room management
-- [ ] Item system
-- [ ] Shop system
-- [ ] Clan system
-- [ ] Mail system
-- [ ] Quest system
-
-### Production Ready
-- [ ] All 141 message types handled
-- [ ] Comprehensive validation
-- [ ] Rate limiting
-- [ ] Anti-cheat detection
-- [ ] Performance optimization
-- [ ] Monitoring & metrics
-- [ ] Automated backups
-
-## 🧪 Testing
+Decrypt/encrypt .sor archive files:
 
 ```bash
-# Unit tests
-cargo test
-
-# With real client
-1. Start server: cargo run
-2. Configure client to connect to localhost:5555
-3. Test login/registration
-4. Test movement, chat, items
-5. Test with multiple clients
-
-# Load testing
-# See docs/IMPLEMENTATION_GUIDE.md for load testing strategies
+cd sor_tool
+cargo run -- list archive.sor
+cargo run -- extract archive.sor password output_dir
+cargo run -- create input_dir password output.sor
 ```
 
-## 📊 Performance Targets
+## License
 
-- **Latency:** < 50ms message processing
-- **Throughput:** 10,000 messages/second
-- **Concurrent Players:** 500+ per instance
-- **Memory:** < 2GB for 500 players
+MIT license.
 
-## 🤝 Contributing
-
-This is a private server emulator for the legacy v0.106 client. The client cannot be modified.
-
-**Guidelines:**
-- Maintain 100% protocol compatibility
-- All security improvements must be server-side only
-- Document all changes thoroughly
-- Test with real v0.106 client
-
-## 📄 License
-
-This is a reverse-engineered protocol specification for educational and preservation purposes.
-
-## 🆘 Support
-
-For implementation questions:
-1. Check [`DOCUMENTATION_INDEX.md`](DOCUMENTATION_INDEX.md)
-2. Review specific documentation in `docs/`
-3. Test behavior with decompiled client code
-4. Validate with real v0.106 client
-
-## 📝 Notes
-
-- **Client Version:** 0.106 (fixed, cannot change)
-- **Protocol:** Custom binary over TCP with RC4 encryption
-- **Compatibility:** 100% with original client (no modifications)
-- **Security:** Server-side validation only (client is untrusted)
-
----
-
-**Ready to implement!** Start with [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md) 🎮🦀
+This is a legacy game preservation project, and is not intended to compete with any new game projects by the original Slime Online game owner.
