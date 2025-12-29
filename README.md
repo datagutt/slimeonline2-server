@@ -8,15 +8,19 @@ Back when I was a kid, I used to play a small, cozy and community-focused platfo
 It went through multiple iterations, and after the game died, the creator published the server and game files for both the first and second iteration of the game.
 
 I backed up (most) of those files, but managed to lose the v2 server files for it.
-I still had the client, and mod tools, so I set out to create a Rust-powered modern server for it, so I could re-experience the game.
+I still had the client and moderator tools, so I set out to create a Rust-powered modern server for it, so I could re-experience the game.
 The game was made in Game Maker 8.1, a game making engine that can easily be decompiled in modern times.
 
-Fast forward a week or so later, and I managed to get a copy of the server files, making it much more easy to finish this project.
+Fast forward a week or so later, and I managed to get a copy of the server files, making it much easier to finish this project.
 The original server is Windows-only, and uses INI files for storage.
 This server is usable on any platform, uses modern SQLite databases and is more configurable and extensible.
 
 With the client frozen in time and for compatibility-reasons, this codebase does include weak game protocol encryption, hard-coded RC4 keys++ that can not really be changed.
 Luckily there seems to be a new iteration of the game in the works by the official creator...
+
+## Client files
+
+Not currently available. Might upload them later.
 
 ## Features
 
@@ -158,6 +162,9 @@ SQLite database with auto-migrations. Tables:
 
 ## Protocol
 
+The game protocol security for this old game was not entirely great, but it is a 15 year old game or something at this point.
+I am not really interested in updating the game client, as that is outside the scope of the project.
+
 - __Port:__ 5555
 - __Encryption:__ RC4 with hardcoded keys
 - __Client Version:__ 0.106
@@ -172,7 +179,7 @@ const ENCRYPT_KEY: &[u8] = b"t54gz65u74njb6zg6";
 
 ## AI Usage
 
-Claude Opus 4.5 LLM model was used to generate the initial protocol docs, due to its ability to read and analyze huge codebases.
+The Claude Opus 4.5 LLM model was used to generate the initial protocol docs, due to its ability to rapidly read and analyze huge codebases.
 I initially had it read the decompiled client code, mod tools, client data files and 39DLL C++ Source Code.
 After gaining access to the decompiled server source code, Claude attempted to update the docs based on the new knowledge.
 
@@ -192,6 +199,11 @@ Detailed documentation is in `docs/`:
 
 ### SOR Tool
 
+SOR is a archive format used for the game client resource files.
+This tool lets you decrypt, re-encrypt and re-key game files.
+The SO2 client usually had the encryption key for this changed every client version.
+I at one point had to re-key an old game file, as i was missing the `.sor`-file belonging to the latest client.
+
 Decrypt/encrypt .sor archive files:
 
 ```bash
@@ -200,6 +212,11 @@ cargo run -- list archive.sor
 cargo run -- extract archive.sor password output_dir
 cargo run -- create input_dir password output.sor
 ```
+
+## Contributing
+
+While I do not expect a lot of contributions due to the obscurity of the project, any new features or bug fixes are welcome.
+Especially the protocol documentation could need some lovem as I am pretty sure it is has some LLM hallucinations still.
 
 ## License
 
