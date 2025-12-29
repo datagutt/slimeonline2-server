@@ -1,8 +1,8 @@
 [package]
-name = "slime_server"
-version = "0.1.0"
+name = "slime2_server"
+version = "1.0.0"
 edition = "2021"
-authors = ["Slime Online 2 Dev Team"]
+authors = ["Thomas Lekanger"]
 description = "Private server implementation for Slime Online 2 (v0.106 client)"
 
 [dependencies]
@@ -10,7 +10,11 @@ description = "Private server implementation for Slime Online 2 (v0.106 client)"
 tokio = { version = "1", features = ["full"] }
 
 # Database
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "migrate"] }
+sqlx = { version = "0.7", features = [
+	"runtime-tokio-rustls",
+	"sqlite",
+	"migrate",
+] }
 
 # Password hashing
 bcrypt = "0.15"
