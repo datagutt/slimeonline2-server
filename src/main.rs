@@ -704,10 +704,11 @@ async fn handle_admin_teleport(server: &Server, username: &str, room_id: u16, x:
                 server.game_state.add_player_to_room(player_id, room_id, session_id).await;
             }
             
-            // Send warp message to client
-            // MSG_WARP format: room_id (u16), x (u16), y (u16)
+            // Send warp message to client using MSG_WARP_CENTER_USE_SLOT (77)
+            // This is the same message used by warp centers to teleport players
+            // Format: room_id (u16), x (u16), y (u16)
             let mut writer = protocol::MessageWriter::new();
-            writer.write_u16(protocol::MessageType::Warp.id());
+            writer.write_u16(protocol::MessageType::WarpCenterUseSlot.id());
             writer.write_u16(room_id);
             writer.write_u16(x);
             writer.write_u16(y);
