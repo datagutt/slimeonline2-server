@@ -377,14 +377,14 @@ async fn apply_upgrade_effect(
                     }
                 }
                 2 => {
-                    // Increase shop stock
+                    // Increase shop stock bonus (permanent max stock increase)
                     let shop_room = upgrade.other1 as u16;
                     let increase = upgrade.other2 as u16;
                     
-                    if let Err(e) = db::increase_shop_max_stock(&server.db, shop_room, increase).await {
-                        warn!("Failed to increase shop stock: {}", e);
+                    if let Err(e) = db::increase_shop_stock_bonus(&server.db, shop_room, increase).await {
+                        warn!("Failed to increase shop stock bonus: {}", e);
                     } else {
-                        info!("Increased shop stock in room {} by {}", shop_room, increase);
+                        info!("Increased shop stock bonus in room {} by {}", shop_room, increase);
                         
                         // Broadcast to players in the shop room
                         broadcast_shop_stock_update(server, shop_room).await;

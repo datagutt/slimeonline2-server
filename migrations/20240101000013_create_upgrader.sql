@@ -52,3 +52,10 @@ CREATE TABLE IF NOT EXISTS shop_slot_unlocked (
     available INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (room_id, slot_id)
 );
+
+-- Track permanent stock bonuses per room (from upgrader investments)
+-- This bonus is added to the max_stock from config for all items in the room
+CREATE TABLE IF NOT EXISTS shop_stock_bonus (
+    room_id INTEGER NOT NULL PRIMARY KEY,
+    bonus INTEGER NOT NULL DEFAULT 0
+);

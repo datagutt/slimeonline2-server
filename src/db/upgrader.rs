@@ -417,24 +417,43 @@ pub async fn set_shop_slot_unlocked(
     Ok(())
 }
 
-/// Increase shop stock for all items in a room (upgrade effect)
-pub async fn increase_shop_max_stock(
+/// Get the stock bonus for a room (from upgrader investments)
+pub async fn get_shop_stock_bonus(
+    pool: &DbPool,
+    room_id: u16,
+) -> Result<u16, sqlx::Error> {
+    let result: Option<(i64,)> = sqlx::query_as(
+        r#"
+        SELECT bonus
+        FROM shop_stock_bonus
+        WHERE room_id = ?
+        "#,
+    )
+    .bind(room_id as i64)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(result.map(|(b,)| b as u16).unwrap_or(0))
+}
+
+/// Increase the permanent stock bonus for all items in a room (upgrade effect)
+/// This bonus is added to max_stock from config for all limited items
+pub async fn increase_shop_stock_bonus(
     pool: &DbPool,
     room_id: u16,
     increase_amount: u16,
 ) -> Result<(), sqlx::Error> {
-    // This updates the current stock for existing entries
-    // Note: This is a simplified version - in the original server, it modifies
-    // both current stock and max stock in the room file
     sqlx::query(
         r#"
-        UPDATE shop_stock
-        SET current_stock = current_stock + ?
-        WHERE room_id = ?
+        INSERT INTO shop_stock_bonus (room_id, bonus)
+        VALUES (?, ?)
+        ON CONFLICT (room_id) DO UPDATE SET
+            bonus = bonus + ?
         "#,
     )
-    .bind(increase_amount as i64)
     .bind(room_id as i64)
+    .bind(increase_amount as i64)
+    .bind(increase_amount as i64)
     .execute(pool)
     .await?;
     Ok(())
