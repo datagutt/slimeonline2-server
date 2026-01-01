@@ -14,3 +14,14 @@ level = "info"
 max_message_size = 8192
 connection_timeout_secs = 300
 ping_interval_secs = 30
+
+# Admin API Configuration
+# Enable this to allow remote administration via HTTP
+[admin]
+enabled = true
+port = 8080
+# API key for authentication (generate a secure random string for production)
+# Use: openssl rand -hex 32
+api_key = "change-me-in-production-use-openssl-rand-hex-32"
+# Bind address (use 127.0.0.1 for local-only, 0.0.0.0 for remote access)
+host = "127.0.0.1"

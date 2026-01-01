@@ -51,6 +51,8 @@ pub struct ServerConfig {
     pub logging: LoggingConfig,
     #[serde(default)]
     pub network: NetworkConfig,
+    #[serde(default)]
+    pub admin: AdminConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -98,6 +100,32 @@ impl Default for NetworkConfig {
         }
     }
 }
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AdminConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_admin_port")]
+    pub port: u16,
+    #[serde(default = "default_admin_host")]
+    pub host: String,
+    #[serde(default)]
+    pub api_key: String,
+}
+
+impl Default for AdminConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            port: default_admin_port(),
+            host: default_admin_host(),
+            api_key: String::new(),
+        }
+    }
+}
+
+fn default_admin_port() -> u16 { 8080 }
+fn default_admin_host() -> String { "127.0.0.1".to_string() }
 
 fn default_port() -> u16 { 5555 }
 fn default_database_path() -> String { "slime_online2.db".to_string() }

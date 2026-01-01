@@ -5,6 +5,9 @@ edition = "2021"
 authors = ["Thomas Lekanger"]
 description = "Private server implementation for Slime Online 2 (v0.106 client)"
 
+[workspace]
+members = [".", "mod_tools"]
+
 [dependencies]
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -48,6 +51,11 @@ anyhow = "1"
 
 # Random number generation
 rand = "0.8"
+
+# Admin API
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
+serde_json = "1"
 
 [dev-dependencies]
 hex = "0.4"
