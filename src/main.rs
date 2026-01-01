@@ -1035,23 +1035,60 @@ async fn handle_admin_set_appearance(
             if let Some(player_id) = session.player_id {
                 let room_id = session.room_id;
                 let body = session.body_id;
-                let _acs1 = session.acs1_id;
-                let _acs2 = session.acs2_id;
-
-                // Send MSG_CHANGE_OUTFIT to room
-                let mut writer = protocol::MessageWriter::new();
-                writer.write_u16(protocol::MessageType::ChangeOutfit.id());
-                writer.write_u16(player_id);
-                writer.write_u16(body);
-                let msg = writer.into_bytes();
+                let acs1 = session.acs1_id;
+                let acs2 = session.acs2_id;
 
                 drop(session); // Release lock before broadcasting
 
                 let room_players = server.game_state.get_room_players(room_id).await;
-                for pid in room_players {
-                    if let Some(sid) = server.game_state.players_by_id.get(&pid) {
-                        if let Some(s) = server.sessions.get(&sid) {
-                            s.write().await.queue_message(msg.clone());
+
+                // Send MSG_CHANGE_OUTFIT to room if body was changed
+                if body_id.is_some() {
+                    let mut writer = protocol::MessageWriter::new();
+                    writer.write_u16(protocol::MessageType::ChangeOutfit.id());
+                    writer.write_u16(player_id);
+                    writer.write_u16(body);
+                    let msg = writer.into_bytes();
+
+                    for pid in &room_players {
+                        if let Some(sid) = server.game_state.players_by_id.get(pid) {
+                            if let Some(s) = server.sessions.get(&sid) {
+                                s.write().await.queue_message(msg.clone());
+                            }
+                        }
+                    }
+                }
+
+                // Send MSG_CHANGE_ACCESSORY1 to room if acs1 was changed
+                if acs1_id.is_some() {
+                    let mut writer = protocol::MessageWriter::new();
+                    writer.write_u16(protocol::MessageType::ChangeAccessory1.id());
+                    writer.write_u16(player_id);
+                    writer.write_u16(acs1);
+                    let msg = writer.into_bytes();
+
+                    for pid in &room_players {
+                        if let Some(sid) = server.game_state.players_by_id.get(pid) {
+                            if let Some(s) = server.sessions.get(&sid) {
+                                s.write().await.queue_message(msg.clone());
+                            }
+                        }
+                    }
+                }
+
+                // Send MSG_CHANGE_ACCESSORY2 to room if acs2 was changed
+                if acs2_id.is_some() {
+                    let mut writer = protocol::MessageWriter::new();
+                    writer.write_u16(protocol::MessageType::ChangeAccessory2.id());
+                    writer.write_u16(player_id);
+                    writer.write_u16(acs2);
+                    let msg = writer.into_bytes();
+
+                    for pid in &room_players {
+                        if let Some(sid) = server.game_state.players_by_id.get(pid) {
+                            if let Some(s) = server.sessions.get(&sid) {
+                                s.write().await.queue_message(msg.clone());
+                            }
                         }
                     }
                 }
