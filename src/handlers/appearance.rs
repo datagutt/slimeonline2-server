@@ -28,7 +28,7 @@ pub async fn handle_change_outfit(
         return Ok(vec![]);
     }
 
-    let (player_id, room_id, character_id, new_body_id) = {
+    let (player_id, room_id, character_id, _new_body_id) = {
         let session_guard = session.read().await;
         
         if !session_guard.is_authenticated {

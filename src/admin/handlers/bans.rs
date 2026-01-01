@@ -190,7 +190,7 @@ pub async fn create_ban(
     if req.ban_type == "account" {
         let _ = sqlx::query("UPDATE accounts SET is_banned = 1, ban_reason = ? WHERE username = ?")
             .bind(&req.reason)
-            .bind(&req.value.to_lowercase())
+            .bind(req.value.to_lowercase())
             .execute(&state.db)
             .await;
     }
@@ -242,7 +242,7 @@ pub async fn delete_ban(
     if let Some((ban_type, value)) = ban_info {
         if ban_type == "account" {
             let _ = sqlx::query("UPDATE accounts SET is_banned = 0, ban_reason = NULL WHERE username = ?")
-                .bind(&value.to_lowercase())
+                .bind(value.to_lowercase())
                 .execute(&state.db)
                 .await;
         }

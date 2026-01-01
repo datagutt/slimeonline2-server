@@ -439,7 +439,7 @@ pub async fn handle_mail_send(
     // Handle item attachment based on present_cat
     // present_cat: 0=none, 1=outfits, 2=items, 3=accessories, 4=tools
     // present_id: slot number (1-9)
-    if present_cat > 0 && present_id >= 1 && present_id <= 9 {
+    if present_cat > 0 && (1..=9).contains(&present_id) {
         if let Ok(Some(inventory)) = db::get_inventory(&server.db, char_id).await {
             let slot_item: u16 = match present_cat {
                 1 => inventory.outfits()[(present_id - 1) as usize],

@@ -503,7 +503,7 @@ async fn handle_message(
             let mut reader = crate::protocol::MessageReader::new(payload);
             if let Ok(slot) = reader.read_u8() {
                 // Validate slot range
-                if slot < 1 || slot > 9 {
+                if !(1..=9).contains(&slot) {
                     warn!("Invalid tool slot: {}", slot);
                     return Ok(vec![]);
                 }

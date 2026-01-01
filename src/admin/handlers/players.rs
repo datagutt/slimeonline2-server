@@ -455,20 +455,17 @@ pub async fn teleport(
 
     if !is_online {
         // Update DB position for offline player
-        match db::find_account_by_username(&state.db, &username_lower).await {
-            Ok(Some(account)) => {
-                if let Ok(Some(character)) = db::find_character_by_account(&state.db, account.id).await {
-                    let _ = db::update_position(
-                        &state.db,
-                        character.id,
-                        req.x as i16,
-                        req.y as i16,
-                        req.room_id as i16,
-                    )
-                    .await;
-                }
+        if let Ok(Some(account)) = db::find_account_by_username(&state.db, &username_lower).await {
+            if let Ok(Some(character)) = db::find_character_by_account(&state.db, account.id).await {
+                let _ = db::update_position(
+                    &state.db,
+                    character.id,
+                    req.x as i16,
+                    req.y as i16,
+                    req.room_id as i16,
+                )
+                .await;
             }
-            _ => {}
         }
 
         return Ok(Json(ApiResponse::success(TeleportResponse {

@@ -935,8 +935,8 @@ async fn handle_admin_set_appearance(
             if let Some(player_id) = session.player_id {
                 let room_id = session.room_id;
                 let body = session.body_id;
-                let acs1 = session.acs1_id;
-                let acs2 = session.acs2_id;
+                let _acs1 = session.acs1_id;
+                let _acs2 = session.acs2_id;
                 
                 // Send MSG_CHANGE_OUTFIT to room
                 let mut writer = protocol::MessageWriter::new();

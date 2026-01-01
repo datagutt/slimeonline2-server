@@ -253,14 +253,13 @@ impl RateLimiter {
         let limiter = players.entry(session_id).or_insert_with(PlayerRateLimiter::new);
         let result = limiter.check(action);
 
-        if !result.is_allowed() {
-            if limiter.buckets.get(&action).map(|b| b.config.log_violations).unwrap_or(true) {
+        if !result.is_allowed()
+            && limiter.buckets.get(&action).map(|b| b.config.log_violations).unwrap_or(true) {
                 warn!(
                     "Rate limit {:?} for session {}: {:?} (total violations: {})",
                     action, session_id, result, limiter.total_violations
                 );
             }
-        }
 
         result
     }

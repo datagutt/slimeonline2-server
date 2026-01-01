@@ -124,7 +124,7 @@ pub fn get_sell_price(item_id: u16) -> u16 {
         4 => 15,   // Bubbles
         
         // Slimebags - can't sell (would be exploit)
-        5 | 6 | 7 => 0,
+        5..=7 => 0,
         
         // Chicken Mine
         8 => 50,

@@ -179,7 +179,7 @@ pub fn validate_position(x: u16, y: u16) -> ValidationResult<(u16, u16)> {
 
 /// Validate room ID
 pub fn validate_room_id(room_id: u16) -> ValidationResult<u16> {
-    if room_id > MAX_ROOM_ID as u16 {
+    if room_id > MAX_ROOM_ID {
         return Err(ValidationError::new(
             "room_id",
             format!("Invalid room ID: {}", room_id),
@@ -312,7 +312,7 @@ pub fn validate_item_id(item_id: u16) -> ValidationResult<u16> {
 pub fn validate_direction(direction: u8) -> ValidationResult<u8> {
     // Based on case_msg_move_player.gml:
     // 1-13 are valid direction codes
-    if direction < 1 || direction > 13 {
+    if !(1..=13).contains(&direction) {
         return Err(ValidationError::new(
             "direction",
             format!("Invalid direction: {}", direction),

@@ -14,7 +14,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use tokio::sync::RwLock;
-use tracing::{debug, warn, info};
+use tracing::{debug, warn};
 
 use crate::config::GameConfig;
 use crate::game::{CollectibleSpawn, PlayerSession};
@@ -74,7 +74,7 @@ pub async fn init_room_if_needed(server: &Arc<Server>, room_id: u16) {
     }
 
     // Get spawn definitions for this room from config
-    let mut spawns = get_room_collectibles(&server.game_config, room_id);
+    let spawns = get_room_collectibles(&server.game_config, room_id);
     if spawns.is_empty() {
         return;
     }

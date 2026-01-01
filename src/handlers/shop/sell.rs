@@ -144,7 +144,7 @@ pub async fn handle_sell(
     let mut slots_to_sell = Vec::with_capacity(count as usize);
     for _ in 0..count {
         if let Ok(slot) = reader.read_u8() {
-            if slot >= 1 && slot <= 9 {
+            if (1..=9).contains(&slot) {
                 slots_to_sell.push(slot);
             }
         }

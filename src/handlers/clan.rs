@@ -241,7 +241,7 @@ pub async fn handle_clan_dissolve(
         None => return Ok(vec![]),
     };
     
-    let pid = match player_id {
+    let _pid = match player_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
