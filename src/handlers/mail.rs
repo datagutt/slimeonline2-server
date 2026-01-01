@@ -528,7 +528,7 @@ pub async fn handle_mail_send(
     // Send the mail
     match db::send_mail(
         &server.db,
-        char_id,
+        Some(char_id),
         receiver.id,
         &sender_name,
         &message,

@@ -7,7 +7,7 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, FromRow)]
 pub struct Mail {
     pub id: i64,
-    pub from_character_id: i64,
+    pub from_character_id: Option<i64>, // NULL for system mail
     pub to_character_id: i64,
     pub sender_name: String,
     pub message: String,
@@ -22,9 +22,10 @@ pub struct Mail {
 
 /// Send mail from one character to another
 /// Returns the new mail ID on success
+/// Use from_character_id = None for system mail
 pub async fn send_mail(
     pool: &DbPool,
-    from_character_id: i64,
+    from_character_id: Option<i64>,
     to_character_id: i64,
     sender_name: &str,
     message: &str,

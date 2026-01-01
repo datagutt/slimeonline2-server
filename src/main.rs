@@ -957,10 +957,10 @@ async fn handle_admin_send_mail(
         }
     };
 
-    // Create mail (from_character_id = 0 for system mail)
+    // Create mail (from_character_id = None for system mail)
     match db::send_mail(
         &server.db,
-        0, // system sender
+        None, // system sender
         to_char_id,
         sender_name,
         message,
