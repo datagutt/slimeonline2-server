@@ -17,7 +17,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageWriter, write_player_left, MessageType, describe_message};
 use crate::Server;
 
-use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail, collectibles, bbs, clan, quest};
+use super::{auth, movement, chat, appearance, gameplay, warp, items, shop, bank, mail, collectibles, bbs, clan, quest, upgrader};
 
 /// Handle a client connection.
 pub async fn handle_connection(
@@ -604,6 +604,19 @@ async fn handle_message(
 
         MessageType::QuestStatusReq => {
             quest::handle_quest_status_req(payload, server, session).await
+        }
+
+        // Upgrader System
+        MessageType::UpgraderGet => {
+            upgrader::handle_upgrader_get(payload, server, session).await
+        }
+
+        MessageType::UpgraderPoints => {
+            upgrader::handle_upgrader_points(payload, server, session).await
+        }
+
+        MessageType::UpgraderInvest => {
+            upgrader::handle_upgrader_invest(payload, server, session).await
         }
 
         _ => {

@@ -1,0 +1,518 @@
+# Upgrader System Configuration
+# Community investment system for unlocking town features
+
+# =============================================================================
+# New City (Room 42) Upgrades
+# =============================================================================
+
+[[towns]]
+town_id = 42
+warp_center_room = 51  # Room where warp center is located
+
+# -----------------------------------------------------------------------------
+# Other Upgrades (category = 0)
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Other"
+slot = 1
+name = "Add Bubblegum Machine"
+need = 10000
+unlocked = true
+option = 1  # Unlock an unlockable object
+other1 = 42  # room_id
+other2 = 1   # unlockable_id
+
+[[towns.upgrades]]
+category = "Other"
+slot = 2
+name = "Add Soda Machine"
+need = 10000
+unlocked = true
+option = 1
+other1 = 42
+other2 = 2
+
+[[towns.upgrades]]
+category = "Other"
+slot = 3
+name = "Unlock a cute decoration"
+need = 10000
+unlocked = true
+option = 1
+other1 = 42
+other2 = 3
+
+[[towns.upgrades]]
+category = "Other"
+slot = 4
+name = "Unlock Music Changer"
+need = 20000
+unlocked = true
+option = 1
+other1 = 84  # Townhall room
+other2 = 1
+# When completed, unlock music upgrade slots
+unlock_chain = [
+    { category = "Other", slot = 5 },
+    { category = "Other", slot = 6 }
+]
+
+[[towns.upgrades]]
+category = "Other"
+slot = 5
+name = "New day music for Music Changer"
+need = 8000
+unlocked = false  # Unlocked by completing slot 4
+option = 2  # Unlock music
+other1 = 84  # room_id
+other2 = 3   # song_slot
+other3 = 1   # day (1) or night (2)
+
+[[towns.upgrades]]
+category = "Other"
+slot = 6
+name = "New night music for Music Changer"
+need = 8000
+unlocked = false  # Unlocked by completing slot 4
+option = 2
+other1 = 84
+other2 = 6
+other3 = 2  # night
+
+# -----------------------------------------------------------------------------
+# Warp Center Upgrades (category = 1)
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Warp Center"
+slot = 1
+name = "Unlock Warp to Small-Cave"
+need = 5000
+unlocked = true
+warp_slot = 1
+warp_category = 2  # Fields
+
+[[towns.upgrades]]
+category = "Warp Center"
+slot = 2
+name = "Unlock Warp to Deep Woods"
+need = 10000
+unlocked = true
+warp_slot = 2
+warp_category = 2  # Fields
+
+# -----------------------------------------------------------------------------
+# Outfit Shop Upgrades (category = 2)
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 1
+name = "Unlock new outfit"
+need = 5000
+unlocked = true
+option = 1  # Unlock shop slot
+other1 = 44  # shop room
+other2 = 4   # slot to unlock
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 2
+name = "Unlock new outfit"
+need = 5000
+unlocked = true
+option = 1
+other1 = 44
+other2 = 5
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 3
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2  # Increase stock
+other1 = 44
+other2 = 1  # amount to increase
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 4
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 44
+other2 = 1
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 5
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 44
+other2 = 1
+
+# -----------------------------------------------------------------------------
+# Accessory Shop Upgrades (category = 3)
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 1
+name = "Unlock new accessory"
+need = 5000
+unlocked = true
+option = 1
+other1 = 45
+other2 = 4
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 2
+name = "Unlock new accessory"
+need = 5000
+unlocked = true
+option = 1
+other1 = 45
+other2 = 5
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 3
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 45
+other2 = 1
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 4
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 45
+other2 = 1
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 5
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 45
+other2 = 1
+
+# -----------------------------------------------------------------------------
+# Item Shop Upgrades (category = 4)
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 1
+name = "Unlock new item"
+need = 5000
+unlocked = true
+option = 1
+other1 = 46
+other2 = 4
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 2
+name = "Unlock new item"
+need = 5000
+unlocked = true
+option = 1
+other1 = 46
+other2 = 5
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 3
+name = "Increase daily stock by 3"
+need = 6000
+unlocked = true
+option = 2
+other1 = 46
+other2 = 3
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 4
+name = "Increase daily stock by 3"
+need = 10000
+unlocked = true
+option = 2
+other1 = 46
+other2 = 5
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 5
+name = "Increase daily stock by 3"
+need = 20000
+unlocked = true
+option = 2
+other1 = 46
+other2 = 12
+
+# =============================================================================
+# Old City (Room 121) Upgrades
+# =============================================================================
+
+[[towns]]
+town_id = 121
+warp_center_room = 127
+
+# -----------------------------------------------------------------------------
+# Other Upgrades
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Other"
+slot = 1
+name = "Add Bubblegum Machine"
+need = 8000
+unlocked = true
+option = 1
+other1 = 121
+other2 = 1
+
+[[towns.upgrades]]
+category = "Other"
+slot = 2
+name = "Add Soda Machine"
+need = 8000
+unlocked = true
+option = 1
+other1 = 121
+other2 = 2
+
+[[towns.upgrades]]
+category = "Other"
+slot = 3
+name = "Unlock Music Changer"
+need = 15000
+unlocked = true
+option = 1
+other1 = 128
+other2 = 1
+unlock_chain = [
+    { category = "Other", slot = 4 },
+    { category = "Other", slot = 5 }
+]
+
+[[towns.upgrades]]
+category = "Other"
+slot = 4
+name = "New day music for Music Changer"
+need = 3000
+unlocked = false
+option = 2
+other1 = 128
+other2 = 3
+other3 = 1
+
+[[towns.upgrades]]
+category = "Other"
+slot = 5
+name = "New night music for Music Changer"
+need = 3000
+unlocked = false
+option = 2
+other1 = 128
+other2 = 6
+other3 = 2
+
+[[towns.upgrades]]
+category = "Other"
+slot = 6
+name = "Unlock a cute swamp-decoration"
+need = 10000
+unlocked = true
+option = 1
+other1 = 146
+other2 = 1
+
+# -----------------------------------------------------------------------------
+# Warp Center Upgrades
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Warp Center"
+slot = 1
+name = "Unlock Warp to Wastelands 1"
+need = 4000
+unlocked = true
+warp_slot = 1
+warp_category = 2
+
+# -----------------------------------------------------------------------------
+# Outfit Shop Upgrades
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 1
+name = "Unlock new outfit"
+need = 4000
+unlocked = true
+option = 1
+other1 = 123
+other2 = 4
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 2
+name = "Unlock new outfit"
+need = 4000
+unlocked = true
+option = 1
+other1 = 123
+other2 = 5
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 3
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 123
+other2 = 1
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 4
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 123
+other2 = 1
+
+[[towns.upgrades]]
+category = "Outfit Shop"
+slot = 5
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 123
+other2 = 1
+
+# -----------------------------------------------------------------------------
+# Accessory Shop Upgrades
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 1
+name = "Unlock new accessory"
+need = 4000
+unlocked = true
+option = 1
+other1 = 124
+other2 = 4
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 2
+name = "Unlock new accessory"
+need = 4000
+unlocked = true
+option = 1
+other1 = 124
+other2 = 5
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 3
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 124
+other2 = 1
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 4
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 124
+other2 = 1
+
+[[towns.upgrades]]
+category = "Acs Shop"
+slot = 5
+name = "Increase daily stock by 1"
+need = 5000
+unlocked = true
+option = 2
+other1 = 124
+other2 = 1
+
+# -----------------------------------------------------------------------------
+# Item Shop Upgrades
+# -----------------------------------------------------------------------------
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 1
+name = "Unlock new item"
+need = 6000
+unlocked = true
+option = 1
+other1 = 125
+other2 = 4
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 2
+name = "Unlock new item"
+need = 6000
+unlocked = true
+option = 1
+other1 = 125
+other2 = 5
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 3
+name = "Increase daily stock by 10"
+need = 10000
+unlocked = true
+option = 2
+other1 = 125
+other2 = 10
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 4
+name = "Increase daily stock by 10"
+need = 20000
+unlocked = true
+option = 2
+other1 = 125
+other2 = 10
+
+[[towns.upgrades]]
+category = "Item Shop"
+slot = 5
+name = "Increase daily stock by 20"
+need = 30000
+unlocked = true
+option = 2
+other1 = 125
+other2 = 20

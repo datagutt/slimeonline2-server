@@ -37,6 +37,7 @@ pub struct GameConfig {
     pub collectibles: CollectiblesConfig,
     pub plants: PlantsConfig,
     pub clans: ClansConfig,
+    pub upgrader: UpgraderConfig,
 }
 
 // =============================================================================
@@ -435,6 +436,134 @@ impl PlantsConfig {
 }
 
 // =============================================================================
+// upgrader.toml
+// =============================================================================
+
+/// Raw upgrader config as parsed from TOML
+#[derive(Debug, Clone, Deserialize)]
+struct UpgraderConfigRaw {
+    #[serde(default)]
+    towns: Vec<TownUpgraderConfigRaw>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct TownUpgraderConfigRaw {
+    town_id: u16,
+    #[serde(default)]
+    warp_center_room: u16,
+    #[serde(default)]
+    upgrades: Vec<UpgradeSlotConfig>,
+}
+
+/// Processed upgrader config with easy lookups
+#[derive(Debug, Clone, Default)]
+pub struct UpgraderConfig {
+    pub towns: HashMap<u16, TownUpgraderConfig>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TownUpgraderConfig {
+    pub town_id: u16,
+    pub warp_center_room: u16,
+    /// Upgrades indexed by (category, slot)
+    pub upgrades: HashMap<(String, u8), UpgradeSlotConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpgradeSlotConfig {
+    pub category: String,
+    pub slot: u8,
+    pub name: String,
+    pub need: u32,
+    #[serde(default)]
+    pub unlocked: bool,
+    #[serde(default)]
+    pub option: u8,
+    #[serde(default)]
+    pub other1: i32,
+    #[serde(default)]
+    pub other2: i32,
+    #[serde(default)]
+    pub other3: i32,
+    #[serde(default)]
+    pub other4: i32,
+    #[serde(default)]
+    pub other5: i32,
+    // For warp center upgrades
+    #[serde(default)]
+    pub warp_slot: u8,
+    #[serde(default)]
+    pub warp_category: u8,
+    // For unlock chaining
+    #[serde(default)]
+    pub unlock_chain: Vec<UnlockChainEntry>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UnlockChainEntry {
+    pub category: String,
+    pub slot: u8,
+}
+
+impl From<UpgraderConfigRaw> for UpgraderConfig {
+    fn from(raw: UpgraderConfigRaw) -> Self {
+        let towns = raw.towns.into_iter().map(|town| {
+            let upgrades = town.upgrades.into_iter()
+                .map(|u| ((u.category.clone(), u.slot), u))
+                .collect();
+            (town.town_id, TownUpgraderConfig {
+                town_id: town.town_id,
+                warp_center_room: town.warp_center_room,
+                upgrades,
+            })
+        }).collect();
+        Self { towns }
+    }
+}
+
+impl UpgraderConfig {
+    /// Get town upgrader config by town room ID
+    pub fn get_town(&self, town_id: u16) -> Option<&TownUpgraderConfig> {
+        self.towns.get(&town_id)
+    }
+
+    /// Get a specific upgrade slot
+    pub fn get_upgrade(&self, town_id: u16, category: &str, slot: u8) -> Option<&UpgradeSlotConfig> {
+        self.towns.get(&town_id)
+            .and_then(|t| t.upgrades.get(&(category.to_string(), slot)))
+    }
+
+    /// Get all upgrades for a town and category
+    pub fn get_category_upgrades(&self, town_id: u16, category: &str) -> Vec<&UpgradeSlotConfig> {
+        self.towns.get(&town_id)
+            .map(|t| {
+                t.upgrades.iter()
+                    .filter(|((cat, _), _)| cat == category)
+                    .map(|(_, u)| u)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+}
+
+impl TownUpgraderConfig {
+    /// Get upgrades for a specific page (4 per page, 1-based slots)
+    pub fn get_page_upgrades(&self, category: &str, page: u8) -> Vec<Option<&UpgradeSlotConfig>> {
+        let start_slot = (page * 4) + 1;
+        (0..4).map(|i| {
+            let slot = start_slot + i;
+            self.upgrades.get(&(category.to_string(), slot))
+        }).collect()
+    }
+
+    /// Check if there are more slots after the given page
+    pub fn has_more_slots(&self, category: &str, page: u8) -> bool {
+        let next_slot = (page * 4) + 5;
+        self.upgrades.contains_key(&(category.to_string(), next_slot))
+    }
+}
+
+// =============================================================================
 // clans.toml
 // =============================================================================
 
@@ -513,6 +642,8 @@ impl GameConfig {
         let collectibles: CollectiblesConfig = collectibles_raw.into();
         let plants = load_toml::<PlantsConfig>(&dir.join("plants.toml"))?;
         let clans = load_toml::<ClansConfig>(&dir.join("clans.toml"))?;
+        let upgrader_raw = load_toml::<UpgraderConfigRaw>(&dir.join("upgrader.toml"))?;
+        let upgrader: UpgraderConfig = upgrader_raw.into();
 
         Ok(Self {
             server,
@@ -522,6 +653,7 @@ impl GameConfig {
             collectibles,
             plants,
             clans,
+            upgrader,
         })
     }
 }

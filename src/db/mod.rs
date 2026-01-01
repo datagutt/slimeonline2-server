@@ -11,6 +11,7 @@ mod characters;
 mod clans;
 mod mail;
 mod runtime_state;
+mod upgrader;
 
 pub use accounts::*;
 pub use bbs::*;
@@ -18,6 +19,7 @@ pub use characters::*;
 pub use clans::*;
 pub use mail::*;
 pub use runtime_state::*;
+pub use upgrader::*;
 
 /// Database connection pool type.
 pub type DbPool = SqlitePool;

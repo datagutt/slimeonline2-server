@@ -15,5 +15,6 @@ pub mod collectibles;
 pub mod bbs;
 pub mod clan;
 pub mod quest;
+pub mod upgrader;
 
 pub use connection::handle_connection;

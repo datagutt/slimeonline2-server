@@ -10,7 +10,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::Server;
 
-use super::{shop, collectibles, items};
+use super::{shop, collectibles, items, upgrader};
 
 /// Handle warp/room change
 /// 
@@ -183,6 +183,10 @@ pub async fn handle_warp(
             responses.push(top_points_msg);
         }
     }
+
+    // Send unlockable objects info for the new room (bubblegum machines, etc.)
+    let unlockable_msgs = upgrader::send_room_unlockables(server, new_room_id).await;
+    responses.extend(unlockable_msgs);
 
     Ok(responses)
 }
