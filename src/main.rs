@@ -754,15 +754,15 @@ async fn handle_admin_set_points(server: &Server, username: &str, points: i64, m
             let old_points = session.points;
             session.points = new_points as u32;
             
-            // Send points update to client
-            // MSG_POINTS_COLLECTED: points_gained (i32)
-            let points_diff = (new_points as i32) - (old_points as i32);
+            // Send points update to client using MSG_POINT
+            // Format: u8 subtype (1=with sound, 2=silent) + u32 total points
             let mut writer = protocol::MessageWriter::new();
-            writer.write_u16(protocol::MessageType::PointsCollected.id());
-            writer.write_i32(points_diff);
+            writer.write_u16(protocol::MessageType::Point.id());
+            writer.write_u8(2); // Silent update (no sound)
+            writer.write_u32(new_points as u32);
             session.queue_message(writer.into_bytes());
             
-            info!("Admin set {} points: {} -> {} (diff: {})", username, old_points, new_points, points_diff);
+            info!("Admin set {} points: {} -> {}", username, old_points, new_points);
             return;
         }
     }
