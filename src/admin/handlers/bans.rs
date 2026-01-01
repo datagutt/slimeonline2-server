@@ -43,7 +43,7 @@ pub async fn list_bans(
         if !["ip", "mac", "account"].contains(&ban_type.as_str()) {
             return Err((
                 StatusCode::BAD_REQUEST,
-                Json(ApiResponse::error("Invalid ban_type filter")),
+                Json(ApiResponse::<()>::error("Invalid ban_type filter")),
             ));
         }
 
@@ -60,7 +60,7 @@ pub async fn list_bans(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ApiResponse::error(format!("Database error: {}", e))),
+                    Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
                 )
             })?
             .into_iter()
@@ -91,7 +91,7 @@ pub async fn list_bans(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ApiResponse::error(format!("Database error: {}", e))),
+                    Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
                 )
             })?
             .into_iter()
@@ -138,21 +138,21 @@ pub async fn create_ban(
     if !["ip", "mac", "account"].contains(&req.ban_type.as_str()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Invalid ban_type. Must be 'ip', 'mac', or 'account'")),
+            Json(ApiResponse::<()>::error("Invalid ban_type. Must be 'ip', 'mac', or 'account'")),
         ));
     }
 
     if req.value.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Ban value cannot be empty")),
+            Json(ApiResponse::<()>::error("Ban value cannot be empty")),
         ));
     }
 
     if req.reason.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Ban reason cannot be empty")),
+            Json(ApiResponse::<()>::error("Ban reason cannot be empty")),
         ));
     }
 
@@ -182,7 +182,7 @@ pub async fn create_ban(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error(format!("Failed to create ban: {}", e))),
+            Json(ApiResponse::<()>::error(format!("Failed to create ban: {}", e))),
         )
     })?;
 
@@ -223,7 +223,7 @@ pub async fn delete_ban(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error(format!("Database error: {}", e))),
+            Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
         )
     })?;
 
@@ -234,7 +234,7 @@ pub async fn delete_ban(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Failed to delete ban: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Failed to delete ban: {}", e))),
             )
         })?;
 

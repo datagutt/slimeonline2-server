@@ -58,7 +58,7 @@ pub async fn list_accounts(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             )
         })?
         .into_iter()
@@ -86,7 +86,7 @@ pub async fn list_accounts(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             )
         })?
         .into_iter()
@@ -132,13 +132,13 @@ pub async fn get_account(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error(format!("Account '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!("Account '{}' not found", username))),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };

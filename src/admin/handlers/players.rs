@@ -103,13 +103,13 @@ pub async fn get_info(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error(format!("Player '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!("Player '{}' not found", username))),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -120,13 +120,13 @@ pub async fn get_info(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error("Player has no character")),
+                Json(ApiResponse::<()>::error("Player has no character")),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -137,13 +137,13 @@ pub async fn get_info(
         Ok(None) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error("Player has no inventory")),
+                Json(ApiResponse::<()>::error("Player has no inventory")),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -244,7 +244,7 @@ pub async fn kick(
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error("Failed to queue kick action")),
+            Json(ApiResponse::<()>::error("Failed to queue kick action")),
         ));
     }
 
@@ -290,7 +290,7 @@ pub async fn ban(
     if !["ip", "mac", "account"].contains(&req.ban_type.as_str()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Invalid ban_type. Must be 'ip', 'mac', or 'account'")),
+            Json(ApiResponse::<()>::error("Invalid ban_type. Must be 'ip', 'mac', or 'account'")),
         ));
     }
 
@@ -300,13 +300,13 @@ pub async fn ban(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error(format!("Player '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!("Player '{}' not found", username))),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -331,7 +331,7 @@ pub async fn ban(
                 None => {
                     return Err((
                         StatusCode::BAD_REQUEST,
-                        Json(ApiResponse::error("Cannot ban by IP: player is not online")),
+                        Json(ApiResponse::<()>::error("Cannot ban by IP: player is not online")),
                     ))
                 }
             }
@@ -369,7 +369,7 @@ pub async fn ban(
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Failed to create ban: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Failed to create ban: {}", e))),
             ))
         }
     };
@@ -491,7 +491,7 @@ pub async fn teleport(
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error("Failed to queue teleport action")),
+            Json(ApiResponse::<()>::error("Failed to queue teleport action")),
         ));
     }
 
@@ -530,7 +530,7 @@ pub async fn set_points(
     let mode = PointsMode::from_str(&req.mode).ok_or_else(|| {
         (
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Invalid mode. Use 'set', 'add', or 'subtract'")),
+            Json(ApiResponse::<()>::error("Invalid mode. Use 'set', 'add', or 'subtract'")),
         )
     })?;
 
@@ -538,7 +538,7 @@ pub async fn set_points(
     if req.points < 0 && mode == PointsMode::Set {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Points cannot be negative for 'set' mode")),
+            Json(ApiResponse::<()>::error("Points cannot be negative for 'set' mode")),
         ));
     }
 
@@ -555,7 +555,7 @@ pub async fn set_points(
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error("Failed to queue points action")),
+            Json(ApiResponse::<()>::error("Failed to queue points action")),
         ));
     }
 
@@ -586,7 +586,7 @@ pub async fn set_bank(
     let mode = PointsMode::from_str(&req.mode).ok_or_else(|| {
         (
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Invalid mode. Use 'set', 'add', or 'subtract'")),
+            Json(ApiResponse::<()>::error("Invalid mode. Use 'set', 'add', or 'subtract'")),
         )
     })?;
 
@@ -602,7 +602,7 @@ pub async fn set_bank(
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error("Failed to queue bank action")),
+            Json(ApiResponse::<()>::error("Failed to queue bank action")),
         ));
     }
 
@@ -633,7 +633,7 @@ pub async fn set_inventory_slot(
     let category = InventoryCategory::from_str(&req.category).ok_or_else(|| {
         (
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error(
+            Json(ApiResponse::<()>::error(
                 "Invalid category. Use 'item', 'outfit', 'accessory', 'tool', or 'emote'",
             )),
         )
@@ -643,7 +643,7 @@ pub async fn set_inventory_slot(
     if req.slot < 1 || req.slot > category.max_slot() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error(format!(
+            Json(ApiResponse::<()>::error(format!(
                 "Invalid slot. Must be 1-{} for {:?}",
                 category.max_slot(),
                 category
@@ -664,7 +664,7 @@ pub async fn set_inventory_slot(
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error("Failed to queue inventory action")),
+            Json(ApiResponse::<()>::error("Failed to queue inventory action")),
         ));
     }
 
@@ -701,13 +701,13 @@ pub async fn set_moderator(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error(format!("Player '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!("Player '{}' not found", username))),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -717,13 +717,13 @@ pub async fn set_moderator(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error("Player has no character")),
+                Json(ApiResponse::<()>::error("Player has no character")),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -737,7 +737,7 @@ pub async fn set_moderator(
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error(format!("Failed to update moderator status: {}", e))),
+            Json(ApiResponse::<()>::error(format!("Failed to update moderator status: {}", e))),
         ));
     }
 

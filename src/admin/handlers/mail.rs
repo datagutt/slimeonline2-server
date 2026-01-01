@@ -54,21 +54,21 @@ pub async fn send_system_mail(
     if req.to.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Recipient cannot be empty")),
+            Json(ApiResponse::<()>::error("Recipient cannot be empty")),
         ));
     }
 
     if req.message.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Message cannot be empty")),
+            Json(ApiResponse::<()>::error("Message cannot be empty")),
         ));
     }
 
     if req.message.len() > 1000 {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("Message too long (max 1000 chars)")),
+            Json(ApiResponse::<()>::error("Message too long (max 1000 chars)")),
         ));
     }
 
@@ -76,7 +76,7 @@ pub async fn send_system_mail(
     if req.item_id > 0 && req.item_category == 0 {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::error("item_category required when item_id is provided (1=outfit, 2=item, 3=accessory, 4=tool)")),
+            Json(ApiResponse::<()>::error("item_category required when item_id is provided (1=outfit, 2=item, 3=accessory, 4=tool)")),
         ));
     }
 
@@ -95,7 +95,7 @@ pub async fn send_system_mail(
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error("Failed to queue mail action")),
+            Json(ApiResponse::<()>::error("Failed to queue mail action")),
         ));
     }
 
@@ -144,13 +144,13 @@ pub async fn get_mailbox(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error(format!("Player '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!("Player '{}' not found", username))),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -160,13 +160,13 @@ pub async fn get_mailbox(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error("Player has no character")),
+                Json(ApiResponse::<()>::error("Player has no character")),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -177,7 +177,7 @@ pub async fn get_mailbox(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             )
         })?;
 

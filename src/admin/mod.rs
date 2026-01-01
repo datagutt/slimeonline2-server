@@ -183,11 +183,11 @@ fn verify_api_key(headers: &HeaderMap, expected_key: &str) -> Result<(), (Status
         Some(key) if key == expected_key => Ok(()),
         Some(_) => Err((
             StatusCode::UNAUTHORIZED,
-            Json(ApiResponse::error("Invalid API key")),
+            Json(ApiResponse::<()>::error("Invalid API key")),
         )),
         None => Err((
             StatusCode::UNAUTHORIZED,
-            Json(ApiResponse::error("Missing API key. Use X-API-Key header or Authorization: Bearer <key>")),
+            Json(ApiResponse::<()>::error("Missing API key. Use X-API-Key header or Authorization: Bearer <key>")),
         )),
     }
 }

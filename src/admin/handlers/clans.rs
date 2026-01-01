@@ -42,7 +42,7 @@ pub async fn list_clans(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error(format!("Database error: {}", e))),
+            Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
         )
     })?;
 
@@ -101,13 +101,13 @@ pub async fn get_clan(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error(format!("Clan '{}' not found", name))),
+                Json(ApiResponse::<()>::error(format!("Clan '{}' not found", name))),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -115,7 +115,7 @@ pub async fn get_clan(
     let members_raw = db::get_clan_members(&state.db, clan.id).await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error(format!("Database error: {}", e))),
+            Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
         )
     })?;
 
@@ -165,13 +165,13 @@ pub async fn dissolve_clan(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error(format!("Clan '{}' not found", name))),
+                Json(ApiResponse::<()>::error(format!("Clan '{}' not found", name))),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -181,7 +181,7 @@ pub async fn dissolve_clan(
     if let Err(e) = db::dissolve_clan(&state.db, clan.id).await {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error(format!("Failed to dissolve clan: {}", e))),
+            Json(ApiResponse::<()>::error(format!("Failed to dissolve clan: {}", e))),
         ));
     }
 
@@ -217,13 +217,13 @@ pub async fn add_points(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error(format!("Clan '{}' not found", name))),
+                Json(ApiResponse::<()>::error(format!("Clan '{}' not found", name))),
             ))
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error(format!("Database error: {}", e))),
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
             ))
         }
     };
@@ -231,7 +231,7 @@ pub async fn add_points(
     if let Err(e) = db::add_clan_points(&state.db, clan.id, req.points).await {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::error(format!("Failed to add points: {}", e))),
+            Json(ApiResponse::<()>::error(format!("Failed to add points: {}", e))),
         ));
     }
 
