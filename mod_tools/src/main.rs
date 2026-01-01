@@ -686,11 +686,26 @@ async fn run_interactive_mode(client: &AdminClient) -> Result<()> {
                     ["tp", username, room] => {
                         if let Ok(r) = room.parse::<u16>() {
                             match client.teleport_player(username, r, 100, 100).await {
-                                Ok(_) => println!("Teleported {} to room {}", username, r),
+                                Ok(_) => println!("Teleported {} to room {} (100, 100)", username, r),
                                 Err(e) => println!("{} {}", "Error:".red(), e),
                             }
                         } else {
                             println!("Invalid room ID");
+                        }
+                    }
+                    ["tp", username, room, x, y] => {
+                        let room_parsed = room.parse::<u16>();
+                        let x_parsed = x.parse::<u16>();
+                        let y_parsed = y.parse::<u16>();
+                        
+                        match (room_parsed, x_parsed, y_parsed) {
+                            (Ok(r), Ok(px), Ok(py)) => {
+                                match client.teleport_player(username, r, px, py).await {
+                                    Ok(_) => println!("Teleported {} to room {} ({}, {})", username, r, px, py),
+                                    Err(e) => println!("{} {}", "Error:".red(), e),
+                                }
+                            }
+                            _ => println!("Invalid arguments. Usage: tp <name> <room> <x> <y>"),
                         }
                     }
                     ["bans"] => {
@@ -762,17 +777,18 @@ async fn run_interactive_mode(client: &AdminClient) -> Result<()> {
 
 fn print_interactive_help() {
     println!("{}", "Available commands:".bold());
-    println!("  stats              - Show server statistics");
-    println!("  players            - List online players");
-    println!("  player <name>      - Show player info");
-    println!("  kick <name>        - Kick a player");
-    println!("  give <name> <pts>  - Give points to a player");
-    println!("  tp <name> <room>   - Teleport player to room");
-    println!("  bans               - List active bans");
-    println!("  unban <id>         - Remove a ban");
-    println!("  clans              - List all clans");
-    println!("  help               - Show this help");
-    println!("  quit               - Exit interactive mode");
+    println!("  stats                    - Show server statistics");
+    println!("  players                  - List online players");
+    println!("  player <name>            - Show player info");
+    println!("  kick <name>              - Kick a player");
+    println!("  give <name> <pts>        - Give points to a player");
+    println!("  tp <name> <room>         - Teleport player to room (100, 100)");
+    println!("  tp <name> <room> <x> <y> - Teleport player to room at coordinates");
+    println!("  bans                     - List active bans");
+    println!("  unban <id>               - Remove a ban");
+    println!("  clans                    - List all clans");
+    println!("  help                     - Show this help");
+    println!("  quit                     - Exit interactive mode");
     println!();
     println!("For advanced commands, use the CLI directly:");
     println!("  mod_tools --help");
