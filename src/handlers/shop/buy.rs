@@ -539,11 +539,15 @@ pub async fn build_room_shop_info(server: &Arc<Server>, room_id: u16) -> Result<
     if count == 1 {
         // Special case: single item includes slot_id first
         let item = &shop_items[0];
-        // For stock: 0 = unlimited in protocol, otherwise current stock (capped at 255)
+        // Stock byte: 0 = sold out, 1+ = in stock
+        // Original server sends 1 for "in stock", 0 for "sold out"
+        // Unlimited items (max_stock=0) are always in stock
         let stock_value = if item.max_stock == 0 {
-            0u8 // Unlimited
+            1u8 // Unlimited = always in stock
+        } else if item.stock == 0 {
+            0u8 // Sold out
         } else {
-            item.stock.min(255) as u8
+            1u8 // In stock
         };
         writer
             .write_u8(item.slot_id)
@@ -555,9 +559,11 @@ pub async fn build_room_shop_info(server: &Arc<Server>, room_id: u16) -> Result<
         // Multiple items: slot is implicit (1, 2, 3, ...)
         for item in &shop_items {
             let stock_value = if item.max_stock == 0 {
-                0u8 // Unlimited
+                1u8 // Unlimited = always in stock
+            } else if item.stock == 0 {
+                0u8 // Sold out
             } else {
-                item.stock.min(255) as u8
+                1u8 // In stock
             };
             debug!(
                 "  Shop slot {}: cat={}, price={}, stock={}, item_id={}",
