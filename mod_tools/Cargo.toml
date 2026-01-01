@@ -1,0 +1,34 @@
+[package]
+name = "mod_tools"
+version = "1.0.0"
+edition = "2021"
+authors = ["Thomas Lekanger"]
+description = "CLI moderation tools for Slime Online 2 server"
+
+[[bin]]
+name = "mod_tools"
+path = "src/main.rs"
+
+[dependencies]
+# HTTP client
+reqwest = { version = "0.11", features = ["json"] }
+
+# CLI argument parsing
+clap = { version = "4", features = ["derive", "env"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1"
+
+# Interactive mode
+rustyline = "12"
+
+# Pretty printing
+colored = "2"
+tabled = "0.14"

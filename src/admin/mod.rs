@@ -5,18 +5,15 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
-    response::IntoResponse,
     routing::{delete, get, post},
     Json, Router,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tokio::sync::mpsc;
-use tracing::{error, info, warn};
+use tracing::info;
 
 use crate::db::DbPool;
-use crate::protocol::MessageWriter;
 
 mod handlers;
 
