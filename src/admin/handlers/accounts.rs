@@ -62,13 +62,15 @@ pub async fn list_accounts(
             )
         })?
         .into_iter()
-        .map(|(id, username, is_banned, created_at, last_login)| AccountSummary {
-            id,
-            username,
-            is_banned,
-            created_at,
-            last_login,
-        })
+        .map(
+            |(id, username, is_banned, created_at, last_login)| AccountSummary {
+                id,
+                username,
+                is_banned,
+                created_at,
+                last_login,
+            },
+        )
         .collect()
     } else {
         sqlx::query_as::<_, (i64, String, bool, String, Option<String>)>(
@@ -90,13 +92,15 @@ pub async fn list_accounts(
             )
         })?
         .into_iter()
-        .map(|(id, username, is_banned, created_at, last_login)| AccountSummary {
-            id,
-            username,
-            is_banned,
-            created_at,
-            last_login,
-        })
+        .map(
+            |(id, username, is_banned, created_at, last_login)| AccountSummary {
+                id,
+                username,
+                is_banned,
+                created_at,
+                last_login,
+            },
+        )
         .collect()
     };
 
@@ -132,7 +136,10 @@ pub async fn get_account(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::<()>::error(format!("Account '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!(
+                    "Account '{}' not found",
+                    username
+                ))),
             ))
         }
         Err(e) => {

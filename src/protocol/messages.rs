@@ -3,12 +3,11 @@
 //! This module defines typed message structures that can be parsed from
 //! and serialized to the binary protocol format.
 
-use super::{MessageReader, MessageWriter, MessageType};
 use super::reader::ReadResult;
+use super::{MessageReader, MessageType, MessageWriter};
 use crate::constants::{
-    Direction, LOGIN_SUCCESS,
-    PROTOCOL_VERSION, MIN_USERNAME_LENGTH, MAX_USERNAME_LENGTH,
-    MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH,
+    Direction, LOGIN_SUCCESS, MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, MIN_PASSWORD_LENGTH,
+    MIN_USERNAME_LENGTH, PROTOCOL_VERSION,
 };
 
 // =============================================================================
@@ -48,7 +47,11 @@ impl LoginRequest {
             return Err("Invalid password length");
         }
         // Validate username contains only allowed characters
-        if !self.username.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        if !self
+            .username
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_')
+        {
             return Err("Invalid characters in username");
         }
         Ok(())
@@ -139,7 +142,9 @@ impl LoginSuccessData {
 
 /// Write a login failure response.
 pub fn write_login_failure(writer: &mut MessageWriter, error_code: u8) {
-    writer.write_u16(MessageType::Login.id()).write_u8(error_code);
+    writer
+        .write_u16(MessageType::Login.id())
+        .write_u8(error_code);
 }
 
 /// Client registration request (MSG_REGISTER = 7)
@@ -172,7 +177,11 @@ impl RegisterRequest {
             return Err("Invalid password length");
         }
         // Validate username contains only allowed characters
-        if !self.username.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        if !self
+            .username
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_')
+        {
             return Err("Invalid characters in username");
         }
         Ok(())
@@ -181,7 +190,9 @@ impl RegisterRequest {
 
 /// Write a registration response.
 pub fn write_register_response(writer: &mut MessageWriter, result_code: u8) {
-    writer.write_u16(MessageType::Register.id()).write_u8(result_code);
+    writer
+        .write_u16(MessageType::Register.id())
+        .write_u8(result_code);
 }
 
 // =============================================================================
@@ -246,7 +257,9 @@ impl NewPlayerInfo {
 
 /// Player left notification (MSG_LOGOUT = 6)
 pub fn write_player_left(writer: &mut MessageWriter, player_id: u16) {
-    writer.write_u16(MessageType::Logout.id()).write_u16(player_id);
+    writer
+        .write_u16(MessageType::Logout.id())
+        .write_u16(player_id);
 }
 
 // =============================================================================
@@ -266,24 +279,22 @@ pub struct MovementUpdate {
 impl MovementUpdate {
     /// Parse a movement update from the message buffer.
     /// Assumes the message type (u16) has already been read.
-    /// 
+    ///
     /// Note: Direction 3 (Jump) uses a **signed i16** for x coordinate.
     pub fn parse(reader: &mut MessageReader) -> ReadResult<Self> {
         let direction = reader.read_u8()?;
-        
+
         // Determine if x/y coordinates are included based on direction
         let (x, y, jump_x) = if let Some(dir) = Direction::from_u8(direction) {
             match dir {
                 // Directions that include x and y (unsigned)
-                Direction::StartLeftGround | Direction::StartRightGround |
-                Direction::StopLeftGround | Direction::StopRightGround |
-                Direction::Landing => {
-                    (Some(reader.read_u16()?), Some(reader.read_u16()?), None)
-                }
+                Direction::StartLeftGround
+                | Direction::StartRightGround
+                | Direction::StopLeftGround
+                | Direction::StopRightGround
+                | Direction::Landing => (Some(reader.read_u16()?), Some(reader.read_u16()?), None),
                 // Jump direction uses SIGNED i16 for x coordinate
-                Direction::Jump => {
-                    (None, None, Some(reader.read_i16()?))
-                }
+                Direction::Jump => (None, None, Some(reader.read_i16()?)),
                 // Directions with no coordinates
                 _ => (None, None, None),
             }
@@ -292,7 +303,12 @@ impl MovementUpdate {
             (None, None, None)
         };
 
-        Ok(Self { direction, x, y, jump_x })
+        Ok(Self {
+            direction,
+            x,
+            y,
+            jump_x,
+        })
     }
 
     /// Write a movement broadcast to other players.
@@ -301,7 +317,7 @@ impl MovementUpdate {
             .write_u16(MessageType::MovePlayer.id())
             .write_u16(player_id)
             .write_u8(self.direction);
-        
+
         if let Some(x) = self.x {
             writer.write_u16(x);
         }
@@ -413,11 +429,11 @@ pub fn is_valid_message_type(msg_type: u16) -> bool {
 // =============================================================================
 
 /// Build a points update message (MSG_POINT = 18)
-/// 
+///
 /// Server → Client format:
 /// - u8 subtype: 1 = with collection sound, 2 = silent update
 /// - u32 total_points: player's new total points
-/// 
+///
 /// This is the standard way to update a client's point display.
 pub fn build_points_update(total_points: u32, play_sound: bool) -> Vec<u8> {
     let mut writer = MessageWriter::new();
@@ -511,7 +527,7 @@ mod tests {
         data.write(&mut writer);
 
         let bytes = writer.into_bytes();
-        
+
         // Check message type (Login = 10)
         assert_eq!(bytes[0..2], [10, 0]);
         // Check success case

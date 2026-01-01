@@ -69,35 +69,35 @@ impl ActionType {
         match self {
             // Chat: 10 messages per 10 seconds, 5 second cooldown
             ActionType::Chat => RateLimitConfig::new(10, 10, 5),
-            
+
             // Movement: 60 updates per second (client runs at 30fps, allow some margin)
             // This is very lenient to avoid false positives
             ActionType::Movement => RateLimitConfig::new(120, 1, 1),
-            
+
             // Item use: 5 per 10 seconds
             ActionType::UseItem => RateLimitConfig::new(5, 10, 3),
-            
+
             // Shop: 10 purchases per minute
             ActionType::ShopBuy => RateLimitConfig::new(10, 60, 5),
-            
+
             // Bank: 20 transactions per minute
             ActionType::Bank => RateLimitConfig::new(20, 60, 5),
-            
+
             // Login: 5 attempts per minute per IP
             ActionType::Login => RateLimitConfig::new(5, 60, 30),
-            
+
             // Register: 3 attempts per 5 minutes per IP
             ActionType::Register => RateLimitConfig::new(3, 300, 60),
-            
+
             // Warp: 5 per 30 seconds
             ActionType::Warp => RateLimitConfig::new(5, 30, 5),
-            
+
             // Mail: 10 per minute
             ActionType::Mail => RateLimitConfig::new(10, 60, 10),
-            
+
             // BBS: 5 posts per 5 minutes
             ActionType::BbsPost => RateLimitConfig::new(5, 300, 30),
-            
+
             // Generic: 30 per minute
             ActionType::Generic => RateLimitConfig::new(30, 60, 5),
         }
@@ -204,9 +204,10 @@ impl PlayerRateLimiter {
     fn check(&mut self, action: ActionType) -> RateLimitResult {
         self.last_activity = Instant::now();
 
-        let bucket = self.buckets.entry(action).or_insert_with(|| {
-            RateLimitBucket::new(action.default_config())
-        });
+        let bucket = self
+            .buckets
+            .entry(action)
+            .or_insert_with(|| RateLimitBucket::new(action.default_config()));
 
         let result = bucket.check_and_record();
 
@@ -250,16 +251,23 @@ impl RateLimiter {
     /// Check if a player action is rate limited
     pub async fn check_player(&self, session_id: u64, action: ActionType) -> RateLimitResult {
         let mut players = self.players.write().await;
-        let limiter = players.entry(session_id).or_insert_with(PlayerRateLimiter::new);
+        let limiter = players
+            .entry(session_id)
+            .or_insert_with(PlayerRateLimiter::new);
         let result = limiter.check(action);
 
         if !result.is_allowed()
-            && limiter.buckets.get(&action).map(|b| b.config.log_violations).unwrap_or(true) {
-                warn!(
-                    "Rate limit {:?} for session {}: {:?} (total violations: {})",
-                    action, session_id, result, limiter.total_violations
-                );
-            }
+            && limiter
+                .buckets
+                .get(&action)
+                .map(|b| b.config.log_violations)
+                .unwrap_or(true)
+        {
+            warn!(
+                "Rate limit {:?} for session {}: {:?} (total violations: {})",
+                action, session_id, result, limiter.total_violations
+            );
+        }
 
         result
     }
@@ -267,14 +275,13 @@ impl RateLimiter {
     /// Check if an IP action is rate limited (for unauthenticated requests)
     pub async fn check_ip(&self, ip: &str, action: ActionType) -> RateLimitResult {
         let mut ips = self.ips.write().await;
-        let limiter = ips.entry(ip.to_string()).or_insert_with(PlayerRateLimiter::new);
+        let limiter = ips
+            .entry(ip.to_string())
+            .or_insert_with(PlayerRateLimiter::new);
         let result = limiter.check(action);
 
         if !result.is_allowed() {
-            warn!(
-                "Rate limit {:?} for IP {}: {:?}",
-                action, ip, result
-            );
+            warn!("Rate limit {:?} for IP {}: {:?}", action, ip, result);
         }
 
         result
@@ -283,7 +290,10 @@ impl RateLimiter {
     /// Get violation count for a player
     pub async fn get_violations(&self, session_id: u64) -> u32 {
         let players = self.players.read().await;
-        players.get(&session_id).map(|l| l.total_violations).unwrap_or(0)
+        players
+            .get(&session_id)
+            .map(|l| l.total_violations)
+            .unwrap_or(0)
     }
 
     /// Check if player should be warned/kicked for too many violations
@@ -346,7 +356,7 @@ impl Default for RateLimiter {
 macro_rules! rate_limit {
     ($rate_limiter:expr, $session_id:expr, $action:expr) => {{
         use $crate::rate_limit::{ActionType, RateLimitResult};
-        
+
         let result = $rate_limiter.check_player($session_id, $action).await;
         if !result.is_allowed() {
             return Ok(vec![]);
@@ -372,7 +382,7 @@ mod tests {
     #[tokio::test]
     async fn test_rate_limit_allowed() {
         let limiter = RateLimiter::new();
-        
+
         // First few requests should be allowed
         for _ in 0..5 {
             let result = limiter.check_player(1, ActionType::Chat).await;
@@ -383,7 +393,7 @@ mod tests {
     #[tokio::test]
     async fn test_rate_limit_exceeded() {
         let limiter = RateLimiter::new();
-        
+
         // Exhaust the limit (chat is 10 per 10 seconds)
         for i in 0..12 {
             let result = limiter.check_player(1, ActionType::Chat).await;
@@ -398,7 +408,7 @@ mod tests {
     #[tokio::test]
     async fn test_separate_players() {
         let limiter = RateLimiter::new();
-        
+
         // Each player has their own limits
         for _ in 0..5 {
             assert!(limiter.check_player(1, ActionType::Chat).await.is_allowed());
@@ -409,7 +419,7 @@ mod tests {
     #[tokio::test]
     async fn test_ip_rate_limit() {
         let limiter = RateLimiter::new();
-        
+
         // Login is 5 per minute
         for i in 0..7 {
             let result = limiter.check_ip("192.168.1.1", ActionType::Login).await;

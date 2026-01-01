@@ -56,7 +56,10 @@ pub async fn create_clan(
         .execute(pool)
         .await?;
 
-    debug!("Created clan '{}' (id={}) with leader_id={}", name, clan_id, leader_id);
+    debug!(
+        "Created clan '{}' (id={}) with leader_id={}",
+        name, clan_id, leader_id
+    );
     Ok(clan_id)
 }
 
@@ -205,41 +208,48 @@ pub async fn add_clan_points(pool: &DbPool, clan_id: i64, points: i64) -> Result
 }
 
 /// Get a character's clan_id
-pub async fn get_character_clan_id(pool: &DbPool, character_id: i64) -> Result<Option<i64>, sqlx::Error> {
-    let result: Option<(Option<i64>,)> = sqlx::query_as(
-        "SELECT clan_id FROM characters WHERE id = ?"
-    )
-    .bind(character_id)
-    .fetch_optional(pool)
-    .await?;
-    
+pub async fn get_character_clan_id(
+    pool: &DbPool,
+    character_id: i64,
+) -> Result<Option<i64>, sqlx::Error> {
+    let result: Option<(Option<i64>,)> =
+        sqlx::query_as("SELECT clan_id FROM characters WHERE id = ?")
+            .bind(character_id)
+            .fetch_optional(pool)
+            .await?;
+
     Ok(result.and_then(|r| r.0))
 }
 
 /// Check if a character is the leader of their clan
-pub async fn is_clan_leader(pool: &DbPool, character_id: i64, clan_id: i64) -> Result<bool, sqlx::Error> {
-    let result: Option<(i64,)> = sqlx::query_as(
-        "SELECT id FROM clans WHERE id = ? AND leader_id = ?"
-    )
-    .bind(clan_id)
-    .bind(character_id)
-    .fetch_optional(pool)
-    .await?;
-    
+pub async fn is_clan_leader(
+    pool: &DbPool,
+    character_id: i64,
+    clan_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let result: Option<(i64,)> =
+        sqlx::query_as("SELECT id FROM clans WHERE id = ? AND leader_id = ?")
+            .bind(clan_id)
+            .bind(character_id)
+            .fetch_optional(pool)
+            .await?;
+
     Ok(result.is_some())
 }
 
 /// Increase max member slots for a clan
 pub async fn increase_clan_slots(pool: &DbPool, clan_id: i64) -> Result<i64, sqlx::Error> {
-    sqlx::query("UPDATE clans SET max_members = max_members + 1, updated_at = datetime('now') WHERE id = ?")
-        .bind(clan_id)
-        .execute(pool)
-        .await?;
-    
+    sqlx::query(
+        "UPDATE clans SET max_members = max_members + 1, updated_at = datetime('now') WHERE id = ?",
+    )
+    .bind(clan_id)
+    .execute(pool)
+    .await?;
+
     let result: (i64,) = sqlx::query_as("SELECT max_members FROM clans WHERE id = ?")
         .bind(clan_id)
         .fetch_one(pool)
         .await?;
-    
+
     Ok(result.0)
 }

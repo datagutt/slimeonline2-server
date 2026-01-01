@@ -8,11 +8,11 @@ use tracing::debug;
 
 use crate::constants::MAX_POINTS;
 use crate::game::PlayerSession;
-use crate::protocol::{MessageWriter, MessageType};
+use crate::protocol::{MessageType, MessageWriter};
 use crate::Server;
 
 /// Handle point collection (slime points scattered on maps)
-/// 
+///
 /// Client sends: MSG_POINT (18) + point_index (1 byte)
 /// Server should:
 /// 1. Increment player's points
@@ -30,7 +30,7 @@ pub async fn handle_point_collection(
 
     let (player_id, room_id, _new_points) = {
         let mut session_guard = session.write().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -55,7 +55,7 @@ pub async fn handle_point_collection(
 
     // Broadcast to other players in the room that this point was taken
     let room_players = server.game_state.get_room_players(room_id).await;
-    
+
     for other_player_id in room_players {
         if other_player_id == player_id {
             continue;
@@ -65,8 +65,13 @@ pub async fn handle_point_collection(
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
                 // Tell other clients this point was taken
-                writer.write_u16(MessageType::Point.id()).write_u8(point_index);
-                other_session.write().await.queue_message(writer.into_bytes());
+                writer
+                    .write_u16(MessageType::Point.id())
+                    .write_u8(point_index);
+                other_session
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
             }
         }
     }

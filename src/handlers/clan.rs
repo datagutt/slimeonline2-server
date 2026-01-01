@@ -13,12 +13,12 @@ use std::time::Instant;
 
 use anyhow::Result;
 use tokio::sync::RwLock;
-use tracing::{debug, warn, info};
+use tracing::{debug, info, warn};
 
-use crate::game::{PlayerSession, PendingClanInvite};
-use crate::protocol::{MessageReader, MessageWriter, MessageType};
-use crate::Server;
 use crate::db;
+use crate::game::{PendingClanInvite, PlayerSession};
+use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::Server;
 
 /// Clan invite cooldown in seconds (15s between invites to the same player)
 const CLAN_INVITE_COOLDOWN_SECS: u64 = 15;
@@ -36,7 +36,7 @@ pub async fn handle_clan_create(
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let clan_name = reader.read_string()?;
-    
+
     let (character_id, player_id, current_clan_id, points) = {
         let session_guard = session.read().await;
         (
@@ -46,12 +46,12 @@ pub async fn handle_clan_create(
             session_guard.points,
         )
     };
-    
+
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     let pid = match player_id {
         Some(id) => id,
         None => return Ok(vec![]),
@@ -65,16 +65,21 @@ pub async fn handle_clan_create(
 
     // Validate clan name length
     let config = &server.game_config.clans;
-    if clan_name.len() < config.limits.min_name_length 
-        || clan_name.len() > config.limits.max_name_length 
+    if clan_name.len() < config.limits.min_name_length
+        || clan_name.len() > config.limits.max_name_length
     {
-        debug!("Clan create failed: name '{}' invalid length (need {}-{})", 
-               clan_name, config.limits.min_name_length, config.limits.max_name_length);
+        debug!(
+            "Clan create failed: name '{}' invalid length (need {}-{})",
+            clan_name, config.limits.min_name_length, config.limits.max_name_length
+        );
         return Ok(vec![build_clan_create_error(1)]); // 1 = name error
     }
 
     // Check if clan name is already taken
-    if db::is_clan_name_taken(&server.db, &clan_name).await.unwrap_or(true) {
+    if db::is_clan_name_taken(&server.db, &clan_name)
+        .await
+        .unwrap_or(true)
+    {
         debug!("Clan create failed: name '{}' already exists", clan_name);
         return Ok(vec![build_clan_create_error(1)]); // 1 = name in use
     }
@@ -82,7 +87,10 @@ pub async fn handle_clan_create(
     // Check player has enough points
     let creation_cost = config.creation.cost;
     if points < creation_cost {
-        debug!("Clan create failed: player {} has {} points, need {}", char_id, points, creation_cost);
+        debug!(
+            "Clan create failed: player {} has {} points, need {}",
+            char_id, points, creation_cost
+        );
         return Ok(vec![]);
     }
 
@@ -117,13 +125,16 @@ pub async fn handle_clan_create(
             }
         }
         if !found {
-            debug!("Clan create failed: player {} missing required item {}", char_id, required_item);
+            debug!(
+                "Clan create failed: player {} missing required item {}",
+                char_id, required_item
+            );
             return Ok(vec![]);
         }
     }
 
     // All checks passed - create the clan!
-    
+
     // 1. Deduct points
     let new_points = points - creation_cost;
     if let Err(e) = db::update_points(&server.db, char_id, new_points as i64).await {
@@ -135,18 +146,23 @@ pub async fn handle_clan_create(
     for (slot_idx, _) in &item_slots {
         let slot_num = (*slot_idx + 1) as u8;
         if let Err(e) = db::update_item_slot(&server.db, char_id, slot_num, 0).await {
-            warn!("Failed to remove item from slot {} for clan create: {}", slot_num, e);
+            warn!(
+                "Failed to remove item from slot {} for clan create: {}",
+                slot_num, e
+            );
             // Continue anyway, clan is being created
         }
     }
 
     // 3. Create the clan
     let clan_id = match db::create_clan(
-        &server.db, 
-        &clan_name, 
-        char_id, 
-        config.limits.initial_member_slots
-    ).await {
+        &server.db,
+        &clan_name,
+        char_id,
+        config.limits.initial_member_slots,
+    )
+    .await
+    {
         Ok(id) => id,
         Err(e) => {
             warn!("Failed to create clan '{}': {}", clan_name, e);
@@ -163,7 +179,10 @@ pub async fn handle_clan_create(
         session_guard.points = new_points;
     }
 
-    info!("Player {} created clan '{}' (id={})", char_id, clan_name, clan_id);
+    info!(
+        "Player {} created clan '{}' (id={})",
+        char_id, clan_name, clan_id
+    );
 
     // Build response messages
     let mut responses = Vec::new();
@@ -184,7 +203,8 @@ pub async fn handle_clan_create(
 /// Build clan create error response
 fn build_clan_create_error(error_code: u8) -> Vec<u8> {
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanCreate.id())
+    writer
+        .write_u16(MessageType::ClanCreate.id())
         .write_u8(error_code);
     writer.into_bytes()
 }
@@ -192,8 +212,9 @@ fn build_clan_create_error(error_code: u8) -> Vec<u8> {
 /// Build MSG_CLAN_INFO type 1 (self notification - joined clan)
 fn build_clan_info_self(clan_id: i64, is_leader: bool, has_base: bool) -> Vec<u8> {
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanInfo.id())
-        .write_u8(1)  // type 1 = self joined clan
+    writer
+        .write_u16(MessageType::ClanInfo.id())
+        .write_u8(1) // type 1 = self joined clan
         .write_u16(clan_id as u16)
         .write_u8(if is_leader { 1 } else { 0 })
         .write_u8(if has_base { 1 } else { 0 });
@@ -203,8 +224,9 @@ fn build_clan_info_self(clan_id: i64, is_leader: bool, has_base: bool) -> Vec<u8
 /// Build MSG_CLAN_INFO type 2 (broadcast - player is in clan)
 fn build_clan_info_broadcast(player_id: u16, clan_id: i64) -> Vec<u8> {
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanInfo.id())
-        .write_u8(2)  // type 2 = broadcast
+    writer
+        .write_u16(MessageType::ClanInfo.id())
+        .write_u8(2) // type 2 = broadcast
         .write_u16(player_id)
         .write_u16(clan_id as u16);
     writer.into_bytes()
@@ -235,12 +257,12 @@ pub async fn handle_clan_dissolve(
             session_guard.is_clan_leader,
         )
     };
-    
+
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     let _pid = match player_id {
         Some(id) => id,
         None => return Ok(vec![]),
@@ -262,13 +284,18 @@ pub async fn handle_clan_dissolve(
     }
 
     // Double-check with database
-    if !db::is_clan_leader(&server.db, char_id, current_clan_id).await.unwrap_or(false) {
+    if !db::is_clan_leader(&server.db, char_id, current_clan_id)
+        .await
+        .unwrap_or(false)
+    {
         warn!("Clan dissolve: session says leader but DB disagrees");
         return Ok(vec![]);
     }
 
     // Get all members before dissolving (to notify them)
-    let members = db::get_clan_members(&server.db, current_clan_id).await.unwrap_or_default();
+    let members = db::get_clan_members(&server.db, current_clan_id)
+        .await
+        .unwrap_or_default();
 
     // Dissolve the clan
     if let Err(e) = db::dissolve_clan(&server.db, current_clan_id).await {
@@ -316,8 +343,7 @@ pub async fn handle_clan_dissolve(
 /// Build MSG_CLAN_INFO type 6 (left/kicked from clan)
 fn build_clan_info_left() -> Vec<u8> {
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanInfo.id())
-        .write_u8(6);  // type 6 = left clan
+    writer.write_u16(MessageType::ClanInfo.id()).write_u8(6); // type 6 = left clan
     writer.into_bytes()
 }
 
@@ -334,7 +360,7 @@ pub async fn handle_clan_invite_response(
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let response = reader.read_u8()?; // 1=Accept, 2=Decline
-    
+
     let (character_id, player_id, pending_invite, current_clan_id) = {
         let session_guard = session.read().await;
         (
@@ -344,12 +370,12 @@ pub async fn handle_clan_invite_response(
             session_guard.clan_id,
         )
     };
-    
+
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     let pid = match player_id {
         Some(id) => id,
         None => return Ok(vec![]),
@@ -359,7 +385,10 @@ pub async fn handle_clan_invite_response(
     let invite = match pending_invite {
         Some(inv) => inv,
         None => {
-            debug!("Clan invite response: player {} has no pending invite", char_id);
+            debug!(
+                "Clan invite response: player {} has no pending invite",
+                char_id
+            );
             return Ok(vec![]);
         }
     };
@@ -372,15 +401,21 @@ pub async fn handle_clan_invite_response(
 
     if response == 2 {
         // Declined
-        debug!("Player {} declined invite to clan {}", char_id, invite.clan_name);
+        debug!(
+            "Player {} declined invite to clan {}",
+            char_id, invite.clan_name
+        );
         return Ok(vec![]);
     }
 
     // Accept - validate requirements
-    
+
     // Player must not already be in a clan
     if current_clan_id.is_some() {
-        debug!("Clan invite accept failed: player {} already in a clan", char_id);
+        debug!(
+            "Clan invite accept failed: player {} already in a clan",
+            char_id
+        );
         return Ok(vec![]);
     }
 
@@ -388,7 +423,10 @@ pub async fn handle_clan_invite_response(
     let clan = match db::get_clan(&server.db, invite.clan_id).await {
         Ok(Some(c)) => c,
         Ok(None) => {
-            debug!("Clan invite accept failed: clan {} no longer exists", invite.clan_id);
+            debug!(
+                "Clan invite accept failed: clan {} no longer exists",
+                invite.clan_id
+            );
             return Ok(vec![]);
         }
         Err(e) => {
@@ -398,20 +436,30 @@ pub async fn handle_clan_invite_response(
     };
 
     // Clan must have room for new member
-    let member_count = db::get_clan_member_count(&server.db, invite.clan_id).await.unwrap_or(999);
+    let member_count = db::get_clan_member_count(&server.db, invite.clan_id)
+        .await
+        .unwrap_or(999);
     if member_count >= clan.max_members {
-        debug!("Clan invite accept failed: clan {} is full ({}/{})", 
-               invite.clan_id, member_count, clan.max_members);
+        debug!(
+            "Clan invite accept failed: clan {} is full ({}/{})",
+            invite.clan_id, member_count, clan.max_members
+        );
         return Ok(vec![]);
     }
 
     // Add player to clan
     if let Err(e) = db::add_clan_member(&server.db, invite.clan_id, char_id).await {
-        warn!("Failed to add player {} to clan {}: {}", char_id, invite.clan_id, e);
+        warn!(
+            "Failed to add player {} to clan {}: {}",
+            char_id, invite.clan_id, e
+        );
         return Ok(vec![]);
     }
 
-    info!("Player {} joined clan '{}' (id={})", char_id, clan.name, invite.clan_id);
+    info!(
+        "Player {} joined clan '{}' (id={})",
+        char_id, clan.name, invite.clan_id
+    );
 
     // Update session
     {
@@ -451,12 +499,12 @@ pub async fn handle_clan_leave(
             session_guard.is_clan_leader,
         )
     };
-    
+
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     let pid = match player_id {
         Some(id) => id,
         None => return Ok(vec![]),
@@ -473,7 +521,10 @@ pub async fn handle_clan_leave(
 
     // Leader cannot leave (must dissolve instead)
     if is_leader {
-        debug!("Clan leave failed: player {} is the leader (must dissolve)", char_id);
+        debug!(
+            "Clan leave failed: player {} is the leader (must dissolve)",
+            char_id
+        );
         return Ok(vec![]);
     }
 
@@ -513,7 +564,7 @@ pub async fn handle_clan_info(
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let info_type = reader.read_u8()?;
-    
+
     match info_type {
         1 => handle_clan_info_name(&mut reader, server, session).await,
         2 => handle_clan_info_members(server, session).await,
@@ -534,13 +585,13 @@ async fn handle_clan_info_name(
     _session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let clan_id = reader.read_u16()? as i64;
-    
+
     let clan = match db::get_clan(&server.db, clan_id).await {
         Ok(Some(c)) => c,
         Ok(None) => return Ok(vec![]),
         Err(_) => return Ok(vec![]),
     };
-    
+
     // Parse colors (stored as RGB packed into i64)
     let inner_r = ((clan.color_inner >> 16) & 0xFF) as u8;
     let inner_g = ((clan.color_inner >> 8) & 0xFF) as u8;
@@ -548,10 +599,11 @@ async fn handle_clan_info_name(
     let outer_r = ((clan.color_outer >> 16) & 0xFF) as u8;
     let outer_g = ((clan.color_outer >> 8) & 0xFF) as u8;
     let outer_b = (clan.color_outer & 0xFF) as u8;
-    
+
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanInfo.id())
-        .write_u8(3)  // type 3 = name/colors response
+    writer
+        .write_u16(MessageType::ClanInfo.id())
+        .write_u8(3) // type 3 = name/colors response
         .write_u16(clan_id as u16)
         .write_string(&clan.name)
         .write_u8(inner_r)
@@ -560,7 +612,7 @@ async fn handle_clan_info_name(
         .write_u8(outer_r)
         .write_u8(outer_g)
         .write_u8(outer_b);
-    
+
     Ok(vec![writer.into_bytes()])
 }
 
@@ -570,35 +622,38 @@ async fn handle_clan_info_members(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let clan_id = session.read().await.clan_id;
-    
+
     let current_clan_id = match clan_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     let clan = match db::get_clan(&server.db, current_clan_id).await {
         Ok(Some(c)) => c,
         Ok(None) => return Ok(vec![]),
         Err(_) => return Ok(vec![]),
     };
-    
-    let members = db::get_clan_members(&server.db, current_clan_id).await.unwrap_or_default();
-    
+
+    let members = db::get_clan_members(&server.db, current_clan_id)
+        .await
+        .unwrap_or_default();
+
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanInfo.id())
-        .write_u8(4)  // type 4 = member list
+    writer
+        .write_u16(MessageType::ClanInfo.id())
+        .write_u8(4) // type 4 = member list
         .write_u8(clan.max_members as u8)
         .write_u8(members.len() as u8);
-    
+
     // Write leader ID first
     writer.write_u32(clan.leader_id as u32);
-    
+
     // Write each member (up to max slots)
     for member in &members {
         writer.write_u32(member.character_id as u32);
         writer.write_string(&member.username);
     }
-    
+
     Ok(vec![writer.into_bytes()])
 }
 
@@ -609,34 +664,34 @@ async fn handle_clan_info_status(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let sub_type = reader.read_u8()?; // 1=points only, 2=full
-    
+
     let clan_id = session.read().await.clan_id;
-    
+
     let current_clan_id = match clan_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     let clan = match db::get_clan(&server.db, current_clan_id).await {
         Ok(Some(c)) => c,
         Ok(None) => return Ok(vec![]),
         Err(_) => return Ok(vec![]),
     };
-    
+
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanInfo.id())
-        .write_u8(5);  // type 5 = status response
-    
+    writer.write_u16(MessageType::ClanInfo.id()).write_u8(5); // type 5 = status response
+
     if sub_type == 1 {
         // Points only
         writer.write_u32(clan.points as u32);
     } else {
         // Full status
-        writer.write_u32(clan.points as u32)
+        writer
+            .write_u32(clan.points as u32)
             .write_u8(clan.level as u8)
             .write_u8(if clan.has_base != 0 { 1 } else { 0 });
     }
-    
+
     Ok(vec![writer.into_bytes()])
 }
 
@@ -649,29 +704,30 @@ async fn handle_clan_info_text(
         let sg = session.read().await;
         (sg.clan_id, sg.is_clan_leader)
     };
-    
+
     // Leader only
     if !is_leader {
         return Ok(vec![]);
     }
-    
+
     let current_clan_id = match clan_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     let clan = match db::get_clan(&server.db, current_clan_id).await {
         Ok(Some(c)) => c,
         Ok(None) => return Ok(vec![]),
         Err(_) => return Ok(vec![]),
     };
-    
+
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanInfo.id())
-        .write_u8(7)  // type 7 = info text response
+    writer
+        .write_u16(MessageType::ClanInfo.id())
+        .write_u8(7) // type 7 = info text response
         .write_u8(clan.show_name as u8)
         .write_string(&clan.description.unwrap_or_default());
-    
+
     Ok(vec![writer.into_bytes()])
 }
 
@@ -681,23 +737,24 @@ async fn handle_clan_info_news(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let clan_id = session.read().await.clan_id;
-    
+
     let current_clan_id = match clan_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     let clan = match db::get_clan(&server.db, current_clan_id).await {
         Ok(Some(c)) => c,
         Ok(None) => return Ok(vec![]),
         Err(_) => return Ok(vec![]),
     };
-    
+
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanInfo.id())
-        .write_u8(8)  // type 8 = news response
+    writer
+        .write_u16(MessageType::ClanInfo.id())
+        .write_u8(8) // type 8 = news response
         .write_string(&clan.news.unwrap_or_default());
-    
+
     Ok(vec![writer.into_bytes()])
 }
 
@@ -714,7 +771,7 @@ pub async fn handle_clan_admin(
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let action = reader.read_u8()?;
-    
+
     match action {
         1 => handle_admin_kick(&mut reader, server, session).await,
         2 => handle_admin_invite(&mut reader, server, session).await,
@@ -735,52 +792,62 @@ async fn handle_admin_kick(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let member_slot = reader.read_u8()?;
-    
+
     let (character_id, clan_id, is_leader) = {
         let sg = session.read().await;
         (sg.character_id, sg.clan_id, sg.is_clan_leader)
     };
-    
+
     let _char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     // Leader only
     if !is_leader {
         return Ok(vec![]);
     }
-    
+
     let current_clan_id = match clan_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     // Get members to find who to kick
-    let members = db::get_clan_members(&server.db, current_clan_id).await.unwrap_or_default();
-    
+    let members = db::get_clan_members(&server.db, current_clan_id)
+        .await
+        .unwrap_or_default();
+
     if member_slot as usize >= members.len() {
         return Ok(vec![]);
     }
-    
+
     let kicked_member = &members[member_slot as usize];
-    
+
     // Remove from clan
     if let Err(e) = db::remove_clan_member(&server.db, kicked_member.character_id).await {
-        warn!("Failed to kick member {}: {}", kicked_member.character_id, e);
+        warn!(
+            "Failed to kick member {}: {}",
+            kicked_member.character_id, e
+        );
         return Ok(vec![]);
     }
-    
-    info!("Kicked {} from clan {}", kicked_member.username, current_clan_id);
-    
+
+    info!(
+        "Kicked {} from clan {}",
+        kicked_member.username, current_clan_id
+    );
+
     // Notify the kicked player if online
-    if let Some(session_ref) = find_session_by_character_id(server, kicked_member.character_id).await {
+    if let Some(session_ref) =
+        find_session_by_character_id(server, kicked_member.character_id).await
+    {
         let mut session_guard = session_ref.write().await;
         session_guard.clan_id = None;
         session_guard.is_clan_leader = false;
         session_guard.has_clan_base = false;
         session_guard.queue_message(build_clan_info_left());
-        
+
         // Broadcast
         if let Some(pid) = session_guard.player_id {
             drop(session_guard);
@@ -788,7 +855,7 @@ async fn handle_admin_kick(
             broadcast_to_all_players(server, pid, broadcast).await;
         }
     }
-    
+
     Ok(vec![])
 }
 
@@ -799,50 +866,55 @@ async fn handle_admin_invite(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let target_pid = reader.read_u16()?;
-    
+
     let (character_id, player_id, clan_id, is_leader) = {
         let sg = session.read().await;
         (sg.character_id, sg.player_id, sg.clan_id, sg.is_clan_leader)
     };
-    
+
     let _char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     let my_pid = match player_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     // Leader only
     if !is_leader {
         return Ok(vec![]);
     }
-    
+
     let current_clan_id = match clan_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     // Check invite cooldown
     {
         let session_guard = session.read().await;
         if let Some(last_invite) = session_guard.clan_invite_cooldowns.get(&target_pid) {
             if last_invite.elapsed().as_secs() < CLAN_INVITE_COOLDOWN_SECS {
-                debug!("Clan invite cooldown for player {} ({}s remaining)", 
-                       target_pid, CLAN_INVITE_COOLDOWN_SECS - last_invite.elapsed().as_secs());
+                debug!(
+                    "Clan invite cooldown for player {} ({}s remaining)",
+                    target_pid,
+                    CLAN_INVITE_COOLDOWN_SECS - last_invite.elapsed().as_secs()
+                );
                 return Ok(vec![]);
             }
         }
     }
-    
+
     // Update cooldown
     {
         let mut session_guard = session.write().await;
-        session_guard.clan_invite_cooldowns.insert(target_pid, Instant::now());
+        session_guard
+            .clan_invite_cooldowns
+            .insert(target_pid, Instant::now());
     }
-    
+
     // Find target player's session
     let target_session_ref = match find_session_by_player_id(server, target_pid).await {
         Some(s) => s,
@@ -851,30 +923,35 @@ async fn handle_admin_invite(
             return Ok(vec![]);
         }
     };
-    
+
     // Check if target is already in a clan
     {
         let tg = target_session_ref.read().await;
         if tg.clan_id.is_some() {
-            debug!("Clan invite failed: player {} already in a clan", target_pid);
+            debug!(
+                "Clan invite failed: player {} already in a clan",
+                target_pid
+            );
             return Ok(vec![]);
         }
     }
-    
+
     // Get clan info
     let clan = match db::get_clan(&server.db, current_clan_id).await {
         Ok(Some(c)) => c,
         Ok(None) => return Ok(vec![]),
         Err(_) => return Ok(vec![]),
     };
-    
+
     // Check if clan has room
-    let member_count = db::get_clan_member_count(&server.db, current_clan_id).await.unwrap_or(999);
+    let member_count = db::get_clan_member_count(&server.db, current_clan_id)
+        .await
+        .unwrap_or(999);
     if member_count >= clan.max_members {
         debug!("Clan invite failed: clan {} is full", current_clan_id);
         return Ok(vec![]);
     }
-    
+
     // Set pending invite on target
     {
         let mut tg = target_session_ref.write().await;
@@ -884,21 +961,25 @@ async fn handle_admin_invite(
             inviter_id: my_pid,
             invited_at: Instant::now(),
         });
-        
+
         // Send invite message to target
         let invite_msg = build_clan_invite(my_pid, &clan.name);
         tg.queue_message(invite_msg);
     }
-    
-    debug!("Sent clan invite to player {} for clan '{}'", target_pid, clan.name);
-    
+
+    debug!(
+        "Sent clan invite to player {} for clan '{}'",
+        target_pid, clan.name
+    );
+
     Ok(vec![])
 }
 
 /// Build clan invite message to send to invited player
 fn build_clan_invite(inviter_pid: u16, clan_name: &str) -> Vec<u8> {
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::ClanInvite.id())
+    writer
+        .write_u16(MessageType::ClanInvite.id())
         .write_u16(inviter_pid)
         .write_string(clan_name);
     writer.into_bytes()
@@ -916,33 +997,35 @@ async fn handle_admin_colors(
     let outer_r = reader.read_u8()?;
     let outer_g = reader.read_u8()?;
     let outer_b = reader.read_u8()?;
-    
+
     let (clan_id, is_leader) = {
         let sg = session.read().await;
         (sg.clan_id, sg.is_clan_leader)
     };
-    
+
     // Leader only
     if !is_leader {
         return Ok(vec![]);
     }
-    
+
     let current_clan_id = match clan_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     // Pack colors into u32
     let inner_color = ((inner_r as u32) << 16) | ((inner_g as u32) << 8) | (inner_b as u32);
     let outer_color = ((outer_r as u32) << 16) | ((outer_g as u32) << 8) | (outer_b as u32);
-    
-    if let Err(e) = db::update_clan_colors(&server.db, current_clan_id, inner_color, outer_color).await {
+
+    if let Err(e) =
+        db::update_clan_colors(&server.db, current_clan_id, inner_color, outer_color).await
+    {
         warn!("Failed to update clan colors: {}", e);
         return Ok(vec![]);
     }
-    
+
     debug!("Updated clan {} colors", current_clan_id);
-    
+
     Ok(vec![])
 }
 
@@ -954,29 +1037,30 @@ async fn handle_admin_info(
 ) -> Result<Vec<Vec<u8>>> {
     let show_leader = reader.read_u8()? != 0;
     let info_text = reader.read_string()?;
-    
+
     let (clan_id, is_leader) = {
         let sg = session.read().await;
         (sg.clan_id, sg.is_clan_leader)
     };
-    
+
     // Leader only
     if !is_leader {
         return Ok(vec![]);
     }
-    
+
     let current_clan_id = match clan_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
-    if let Err(e) = db::update_clan_info(&server.db, current_clan_id, show_leader, &info_text).await {
+
+    if let Err(e) = db::update_clan_info(&server.db, current_clan_id, show_leader, &info_text).await
+    {
         warn!("Failed to update clan info: {}", e);
         return Ok(vec![]);
     }
-    
+
     debug!("Updated clan {} info", current_clan_id);
-    
+
     Ok(vec![])
 }
 
@@ -987,29 +1071,29 @@ async fn handle_admin_news(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let news_text = reader.read_string()?;
-    
+
     let (clan_id, is_leader) = {
         let sg = session.read().await;
         (sg.clan_id, sg.is_clan_leader)
     };
-    
+
     // Leader only
     if !is_leader {
         return Ok(vec![]);
     }
-    
+
     let current_clan_id = match clan_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     if let Err(e) = db::update_clan_news(&server.db, current_clan_id, &news_text).await {
         warn!("Failed to update clan news: {}", e);
         return Ok(vec![]);
     }
-    
+
     debug!("Updated clan {} news", current_clan_id);
-    
+
     Ok(vec![])
 }
 

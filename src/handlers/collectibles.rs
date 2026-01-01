@@ -25,36 +25,40 @@ use crate::Server;
 ///
 /// This function returns the spawn points for collectibles in each room.
 /// Spawn points are defined in config/collectibles.toml.
-/// 
+///
 /// Respawn times include randomized variance for each spawn.
 pub fn get_room_collectibles(config: &GameConfig, room_id: u16) -> Vec<CollectibleSpawn> {
     use rand::Rng;
-    
+
     match config.collectibles.get_room(room_id) {
         Some(room_config) => {
             let mut rng = rand::thread_rng();
-            
-            room_config.spawns.iter().map(|spawn| {
-                // Convert minutes to seconds
-                let base_respawn_secs = spawn.respawn * 60;
-                let variance_secs = spawn.variance * 60;
-                
-                // Add random variance: base + random(0, variance)
-                let random_variance = if variance_secs > 0 {
-                    rng.gen_range(0..=variance_secs)
-                } else {
-                    0
-                };
-                let total_respawn = base_respawn_secs + random_variance;
-                
-                CollectibleSpawn {
-                    col_id: spawn.id,
-                    item_id: spawn.item,
-                    x: spawn.x,
-                    y: spawn.y,
-                    respawn_secs: Some(total_respawn),
-                }
-            }).collect()
+
+            room_config
+                .spawns
+                .iter()
+                .map(|spawn| {
+                    // Convert minutes to seconds
+                    let base_respawn_secs = spawn.respawn * 60;
+                    let variance_secs = spawn.variance * 60;
+
+                    // Add random variance: base + random(0, variance)
+                    let random_variance = if variance_secs > 0 {
+                        rng.gen_range(0..=variance_secs)
+                    } else {
+                        0
+                    };
+                    let total_respawn = base_respawn_secs + random_variance;
+
+                    CollectibleSpawn {
+                        col_id: spawn.id,
+                        item_id: spawn.item,
+                        x: spawn.x,
+                        y: spawn.y,
+                        respawn_secs: Some(total_respawn),
+                    }
+                })
+                .collect()
         }
         None => vec![],
     }
@@ -83,7 +87,10 @@ pub async fn init_room_if_needed(server: &Arc<Server>, room_id: u16) {
     let db_states = match crate::db::get_collectible_states(&server.db, room_id).await {
         Ok(states) => states,
         Err(e) => {
-            warn!("Failed to load collectible state for room {}: {}", room_id, e);
+            warn!(
+                "Failed to load collectible state for room {}: {}",
+                room_id, e
+            );
             vec![]
         }
     };
@@ -100,8 +107,11 @@ pub async fn init_room_if_needed(server: &Arc<Server>, room_id: u16) {
         .game_state
         .init_room_collectibles_with_state(room_id, spawns, state_map)
         .await;
-    
-    debug!("Initialized collectibles for room {} from config + database", room_id);
+
+    debug!(
+        "Initialized collectibles for room {} from config + database",
+        room_id
+    );
 }
 
 /// Write MSG_COLLECTIBLE_INFO message for a room
@@ -193,7 +203,7 @@ pub async fn handle_collectible_take(
     // Persist the taken state to database with respawn time
     let respawn_secs = spawn.respawn_secs.unwrap_or(3600); // Default 1 hour if not specified
     let respawn_at = Utc::now() + Duration::seconds(respawn_secs as i64);
-    
+
     if let Err(e) = crate::db::take_collectible(&server.db, room_id, col_id, respawn_at).await {
         warn!("Failed to persist collectible state: {}", e);
         // Continue anyway - the in-memory state is updated
@@ -235,7 +245,9 @@ pub async fn handle_collectible_take(
     };
 
     // Add item to inventory at the found slot
-    if let Err(e) = crate::db::update_item_slot(&server.db, character_id, slot, spawn.item_id as i16).await {
+    if let Err(e) =
+        crate::db::update_item_slot(&server.db, character_id, slot, spawn.item_id as i16).await
+    {
         warn!(
             "Failed to add collectible item {} to player {}: {}",
             spawn.item_id, player_id, e

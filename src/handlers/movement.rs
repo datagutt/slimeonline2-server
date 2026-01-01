@@ -23,7 +23,7 @@ pub async fn handle_movement(
 
     let (player_id, room_id, session_id, old_x, old_y) = {
         let session_guard = session.read().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -43,7 +43,9 @@ pub async fn handle_movement(
     };
 
     // Rate limiting for movement (very lenient)
-    if !server.rate_limiter.check_player(session_id.as_u128() as u64, ActionType::Movement)
+    if !server
+        .rate_limiter
+        .check_player(session_id.as_u128() as u64, ActionType::Movement)
         .await
         .is_allowed()
     {
@@ -59,12 +61,10 @@ pub async fn handle_movement(
         }
 
         // Anti-cheat: check for teleportation
-        let cheat_result = server.anticheat.check_movement(
-            session_id.as_u128() as u64,
-            x,
-            y,
-            room_id,
-        ).await;
+        let cheat_result = server
+            .anticheat
+            .check_movement(session_id.as_u128() as u64, x, y, room_id)
+            .await;
 
         match cheat_result {
             CheatResult::Clean => {
@@ -87,18 +87,19 @@ pub async fn handle_movement(
                 session_guard.y = y;
             }
             CheatResult::Cheating { reason } => {
-                warn!(
-                    "Cheat detected for player {}: {}",
-                    player_id, reason
-                );
-                
+                warn!("Cheat detected for player {}: {}", player_id, reason);
+
                 // Check if player should be kicked (repeated violations)
-                if server.anticheat.should_kick(session_id.as_u128() as u64).await {
+                if server
+                    .anticheat
+                    .should_kick(session_id.as_u128() as u64)
+                    .await
+                {
                     warn!("Kicking player {} for repeated movement cheats", player_id);
                     let mut session_guard = session.write().await;
                     session_guard.kick(format!("Movement cheat detected: {}", reason));
                 }
-                
+
                 // Don't update position or broadcast this movement
                 return Ok(vec![]);
             }
@@ -110,7 +111,7 @@ pub async fn handle_movement(
 
     // Broadcast movement to other players in the room
     let room_players = server.game_state.get_room_players(room_id).await;
-    
+
     for other_player_id in room_players {
         if other_player_id == player_id {
             continue; // Don't send to self
@@ -122,9 +123,12 @@ pub async fn handle_movement(
                 // Build movement broadcast
                 let mut writer = MessageWriter::new();
                 movement.write_broadcast(&mut writer, player_id);
-                
+
                 // Queue message for the other player
-                other_session.write().await.queue_message(writer.into_bytes());
+                other_session
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
             }
         }
     }

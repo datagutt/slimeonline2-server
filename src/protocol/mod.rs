@@ -2,12 +2,12 @@
 //!
 //! Messages use little-endian byte order with null-terminated strings.
 
-mod reader;
-mod writer;
 mod messages;
+mod reader;
 pub mod types;
+mod writer;
 
-pub use reader::MessageReader;
-pub use writer::MessageWriter;
 pub use messages::*;
-pub use types::{MessageType, describe_message};
+pub use reader::MessageReader;
+pub use types::{describe_message, MessageType};
+pub use writer::MessageWriter;

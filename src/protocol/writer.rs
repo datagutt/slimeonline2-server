@@ -186,10 +186,7 @@ mod tests {
     #[test]
     fn test_chained_writes() {
         let mut writer = MessageWriter::new();
-        writer
-            .write_u16(10)
-            .write_string("test")
-            .write_u32(12345);
+        writer.write_u16(10).write_string("test").write_u32(12345);
 
         let bytes = writer.into_bytes();
         assert_eq!(bytes.len(), 2 + 5 + 4); // u16 + "test\0" + u32
@@ -199,18 +196,18 @@ mod tests {
     fn test_write_login_response() {
         let mut writer = MessageWriter::new();
         writer
-            .write_u16(10)     // MSG_LOGIN
-            .write_u8(1)      // Success case
-            .write_u16(42)    // Player ID
+            .write_u16(10) // MSG_LOGIN
+            .write_u8(1) // Success case
+            .write_u16(42) // Player ID
             .write_u32(1234567890) // Server time
             .write_string("Welcome!");
 
         let bytes = writer.into_bytes();
-        
+
         // Verify structure
         assert_eq!(bytes[0..2], [10, 0]); // MSG_LOGIN (little endian)
-        assert_eq!(bytes[2], 1);           // Success case
-        assert_eq!(bytes[3..5], [42, 0]);  // Player ID (little endian)
+        assert_eq!(bytes[2], 1); // Success case
+        assert_eq!(bytes[3..5], [42, 0]); // Player ID (little endian)
     }
 
     #[test]
@@ -227,7 +224,7 @@ mod tests {
         let mut writer = MessageWriter::new();
         writer.write_u32(0xDEADBEEF);
         assert_eq!(writer.len(), 4);
-        
+
         writer.clear();
         assert_eq!(writer.len(), 0);
         assert!(writer.is_empty());

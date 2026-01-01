@@ -298,7 +298,7 @@ mod tests {
     fn test_read_login_message() {
         // Simulate MSG_LOGIN structure (after type is already read)
         let mut data = Vec::new();
-        data.extend_from_slice(b"0.106\x00");   // version
+        data.extend_from_slice(b"0.106\x00"); // version
         data.extend_from_slice(b"Player1\x00"); // username
         data.extend_from_slice(b"pass123\x00"); // password
         data.extend_from_slice(b"00-11-22-33-44-55\x00"); // mac

@@ -7,10 +7,10 @@
 //! - MSG_GET_ITEM (41) - Server -> Client item received
 
 pub mod database;
-mod use_item;
 mod discard;
 mod pickup;
+mod use_item;
 
-pub use use_item::handle_use_item;
 pub use discard::{handle_discard_item, write_room_dropped_items};
 pub use pickup::handle_take_dropped_item;
+pub use use_item::handle_use_item;

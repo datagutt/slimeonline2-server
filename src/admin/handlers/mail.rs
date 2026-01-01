@@ -68,7 +68,9 @@ pub async fn send_system_mail(
     if req.message.len() > 1000 {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::error("Message too long (max 1000 chars)")),
+            Json(ApiResponse::<()>::error(
+                "Message too long (max 1000 chars)",
+            )),
         ));
     }
 
@@ -99,7 +101,9 @@ pub async fn send_system_mail(
         ));
     }
 
-    Ok(Json(ApiResponse::success(SendMailResponse { queued: true })))
+    Ok(Json(ApiResponse::success(SendMailResponse {
+        queued: true,
+    })))
 }
 
 #[derive(Serialize)]
@@ -144,7 +148,10 @@ pub async fn get_mailbox(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::<()>::error(format!("Player '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!(
+                    "Player '{}' not found",
+                    username
+                ))),
             ))
         }
         Err(e) => {

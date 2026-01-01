@@ -213,7 +213,9 @@ async fn main() -> Result<()> {
     // Start admin API if enabled
     let admin_config = &game_config.server.admin;
     if admin_config.enabled {
-        if admin_config.api_key.is_empty() || admin_config.api_key == "change-me-in-production-use-openssl-rand-hex-32" {
+        if admin_config.api_key.is_empty()
+            || admin_config.api_key == "change-me-in-production-use-openssl-rand-hex-32"
+        {
             warn!("Admin API enabled but using default/empty API key! Set a secure key in config/server.toml");
         }
 
@@ -492,7 +494,8 @@ fn spawn_background_tasks(server: Arc<Server>) {
 
                         // Notify players in each room about expired items
                         for (room_id, item_ids) in items_by_room {
-                            let room_players = respawn_server.game_state.get_room_players(room_id).await;
+                            let room_players =
+                                respawn_server.game_state.get_room_players(room_id).await;
                             for db_id in &item_ids {
                                 // instance_id sent to client is DB id cast to u16
                                 let instance_id = *db_id as u16;
@@ -503,14 +506,22 @@ fn spawn_background_tasks(server: Arc<Server>) {
                                 let msg = writer.into_bytes();
 
                                 for player_id in &room_players {
-                                    if let Some(session_id) = respawn_server.game_state.players_by_id.get(player_id) {
-                                        if let Some(session) = respawn_server.sessions.get(&session_id) {
+                                    if let Some(session_id) =
+                                        respawn_server.game_state.players_by_id.get(player_id)
+                                    {
+                                        if let Some(session) =
+                                            respawn_server.sessions.get(&session_id)
+                                        {
                                             session.write().await.queue_message(msg.clone());
                                         }
                                     }
                                 }
                             }
-                            tracing::debug!("Expired {} dropped items in room {}", item_ids.len(), room_id);
+                            tracing::debug!(
+                                "Expired {} dropped items in room {}",
+                                item_ids.len(),
+                                room_id
+                            );
                         }
 
                         // Now delete expired items from DB
@@ -640,23 +651,63 @@ fn spawn_admin_action_handler(server: Arc<Server>, mut action_rx: mpsc::Receiver
                 AdminAction::KickPlayer { username, reason } => {
                     handle_admin_kick(&server, &username, reason.as_deref()).await;
                 }
-                AdminAction::TeleportPlayer { username, room_id, x, y } => {
+                AdminAction::TeleportPlayer {
+                    username,
+                    room_id,
+                    x,
+                    y,
+                } => {
                     handle_admin_teleport(&server, &username, room_id, x, y).await;
                 }
-                AdminAction::SetPoints { username, points, mode } => {
+                AdminAction::SetPoints {
+                    username,
+                    points,
+                    mode,
+                } => {
                     handle_admin_set_points(&server, &username, points, mode).await;
                 }
-                AdminAction::GiveItem { username, category, slot, item_id } => {
+                AdminAction::GiveItem {
+                    username,
+                    category,
+                    slot,
+                    item_id,
+                } => {
                     handle_admin_give_item(&server, &username, category, slot, item_id).await;
                 }
-                AdminAction::SetBank { username, balance, mode } => {
+                AdminAction::SetBank {
+                    username,
+                    balance,
+                    mode,
+                } => {
                     handle_admin_set_bank(&server, &username, balance, mode).await;
                 }
-                AdminAction::SendMail { to_username, sender_name, message, points, item_id, item_category } => {
-                    handle_admin_send_mail(&server, &to_username, &sender_name, &message, points, item_id, item_category).await;
+                AdminAction::SendMail {
+                    to_username,
+                    sender_name,
+                    message,
+                    points,
+                    item_id,
+                    item_category,
+                } => {
+                    handle_admin_send_mail(
+                        &server,
+                        &to_username,
+                        &sender_name,
+                        &message,
+                        points,
+                        item_id,
+                        item_category,
+                    )
+                    .await;
                 }
-                AdminAction::SetAppearance { username, body_id, acs1_id, acs2_id } => {
-                    handle_admin_set_appearance(&server, &username, body_id, acs1_id, acs2_id).await;
+                AdminAction::SetAppearance {
+                    username,
+                    body_id,
+                    acs1_id,
+                    acs2_id,
+                } => {
+                    handle_admin_set_appearance(&server, &username, body_id, acs1_id, acs2_id)
+                        .await;
                 }
             }
         }
@@ -666,7 +717,7 @@ fn spawn_admin_action_handler(server: Arc<Server>, mut action_rx: mpsc::Receiver
 /// Handle admin kick action
 async fn handle_admin_kick(server: &Server, username: &str, reason: Option<&str>) {
     let username_lower = username.to_lowercase();
-    
+
     for session_ref in server.sessions.iter() {
         let mut session = session_ref.value().write().await;
         if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
@@ -681,29 +732,35 @@ async fn handle_admin_kick(server: &Server, username: &str, reason: Option<&str>
 /// Handle admin teleport action
 async fn handle_admin_teleport(server: &Server, username: &str, room_id: u16, x: u16, y: u16) {
     let username_lower = username.to_lowercase();
-    
+
     for session_ref in server.sessions.iter() {
         let session_id = *session_ref.key();
         let mut session = session_ref.value().write().await;
-        
+
         if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
             let old_room = session.room_id;
             let player_id = match session.player_id {
                 Some(pid) => pid,
                 None => return,
             };
-            
+
             // Update session state
             session.room_id = room_id;
             session.x = x;
             session.y = y;
-            
+
             // Update game state - remove from old room, add to new
             if old_room != room_id {
-                server.game_state.remove_player_from_room(player_id, old_room).await;
-                server.game_state.add_player_to_room(player_id, room_id, session_id).await;
+                server
+                    .game_state
+                    .remove_player_from_room(player_id, old_room)
+                    .await;
+                server
+                    .game_state
+                    .add_player_to_room(player_id, room_id, session_id)
+                    .await;
             }
-            
+
             // Send warp message to client using MSG_WARP_CENTER_USE_SLOT (77)
             // This is the same message used by warp centers to teleport players
             // Format: room_id (u16), x (u16), y (u16)
@@ -713,13 +770,18 @@ async fn handle_admin_teleport(server: &Server, username: &str, room_id: u16, x:
             writer.write_u16(x);
             writer.write_u16(y);
             session.queue_message(writer.into_bytes());
-            
+
             // Update DB
             if let Some(char_id) = session.character_id {
-                let _ = db::update_position(&server.db, char_id, x as i16, y as i16, room_id as i16).await;
+                let _ =
+                    db::update_position(&server.db, char_id, x as i16, y as i16, room_id as i16)
+                        .await;
             }
-            
-            info!("Admin teleported {} to room {} ({}, {})", username, room_id, x, y);
+
+            info!(
+                "Admin teleported {} to room {} ({}, {})",
+                username, room_id, x, y
+            );
             return;
         }
     }
@@ -728,108 +790,142 @@ async fn handle_admin_teleport(server: &Server, username: &str, room_id: u16, x:
 /// Handle admin set points action
 async fn handle_admin_set_points(server: &Server, username: &str, points: i64, mode: PointsMode) {
     let username_lower = username.to_lowercase();
-    
+
     // First get character info from DB
-    let (char_id, current_points) = match db::find_account_by_username(&server.db, &username_lower).await {
-        Ok(Some(account)) => {
-            match db::find_character_by_account(&server.db, account.id).await {
-                Ok(Some(char)) => (char.id, char.points),
-                _ => return,
-            }
-        }
+    let (char_id, current_points) = match db::find_account_by_username(&server.db, &username_lower)
+        .await
+    {
+        Ok(Some(account)) => match db::find_character_by_account(&server.db, account.id).await {
+            Ok(Some(char)) => (char.id, char.points),
+            _ => return,
+        },
         _ => return,
     };
-    
+
     // Calculate new points
     let new_points = mode.apply(current_points, points).max(0).min(999_999_999);
-    
+
     // Update DB
-    if db::update_points(&server.db, char_id, new_points).await.is_err() {
+    if db::update_points(&server.db, char_id, new_points)
+        .await
+        .is_err()
+    {
         return;
     }
-    
+
     // Find online session and update + notify
     for session_ref in server.sessions.iter() {
         let mut session = session_ref.value().write().await;
         if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
             let old_points = session.points;
             session.points = new_points as u32;
-            
+
             // Send points update to client
             session.queue_message(protocol::build_points_update(new_points as u32, false));
-            
-            info!("Admin set {} points: {} -> {}", username, old_points, new_points);
+
+            info!(
+                "Admin set {} points: {} -> {}",
+                username, old_points, new_points
+            );
             return;
         }
     }
-    
+
     info!("Admin set {} points to {} (offline)", username, new_points);
 }
 
 /// Handle admin give item action
-async fn handle_admin_give_item(server: &Server, username: &str, category: InventoryCategory, slot: u8, item_id: u16) {
+async fn handle_admin_give_item(
+    server: &Server,
+    username: &str,
+    category: InventoryCategory,
+    slot: u8,
+    item_id: u16,
+) {
     let username_lower = username.to_lowercase();
-    
+
     // Get character ID
     let char_id = match db::find_account_by_username(&server.db, &username_lower).await {
-        Ok(Some(account)) => {
-            match db::find_character_by_account(&server.db, account.id).await {
-                Ok(Some(char)) => char.id,
-                _ => return,
-            }
-        }
+        Ok(Some(account)) => match db::find_character_by_account(&server.db, account.id).await {
+            Ok(Some(char)) => char.id,
+            _ => return,
+        },
         _ => return,
     };
-    
+
     // Update DB based on category
     let result = match category {
-        InventoryCategory::Item => db::update_item_slot(&server.db, char_id, slot, item_id as i16).await,
-        InventoryCategory::Outfit => db::update_outfit_slot(&server.db, char_id, slot, item_id as i16).await,
-        InventoryCategory::Accessory => db::update_accessory_slot(&server.db, char_id, slot, item_id as i16).await,
-        InventoryCategory::Tool => db::update_tool_slot(&server.db, char_id, slot, item_id as i16).await,
+        InventoryCategory::Item => {
+            db::update_item_slot(&server.db, char_id, slot, item_id as i16).await
+        }
+        InventoryCategory::Outfit => {
+            db::update_outfit_slot(&server.db, char_id, slot, item_id as i16).await
+        }
+        InventoryCategory::Accessory => {
+            db::update_accessory_slot(&server.db, char_id, slot, item_id as i16).await
+        }
+        InventoryCategory::Tool => {
+            db::update_tool_slot(&server.db, char_id, slot, item_id as i16).await
+        }
         InventoryCategory::Emote => {
             let column = match slot {
-                1 => "emote_1", 2 => "emote_2", 3 => "emote_3", 4 => "emote_4", 5 => "emote_5",
+                1 => "emote_1",
+                2 => "emote_2",
+                3 => "emote_3",
+                4 => "emote_4",
+                5 => "emote_5",
                 _ => return,
             };
-            sqlx::query(&format!("UPDATE inventories SET {} = ? WHERE character_id = ?", column))
-                .bind(item_id as i16)
-                .bind(char_id)
-                .execute(&server.db)
-                .await
-                .map(|_| ())
+            sqlx::query(&format!(
+                "UPDATE inventories SET {} = ? WHERE character_id = ?",
+                column
+            ))
+            .bind(item_id as i16)
+            .bind(char_id)
+            .execute(&server.db)
+            .await
+            .map(|_| ())
         }
     };
-    
+
     if result.is_err() {
         error!("Failed to give item to {}", username);
         return;
     }
-    
+
     // Note: Client would need to relog to see inventory changes
     // There's no simple "refresh inventory" message in the protocol
-    info!("Admin gave {:?} slot {} = {} to {}", category, slot, item_id, username);
+    info!(
+        "Admin gave {:?} slot {} = {} to {}",
+        category, slot, item_id, username
+    );
 }
 
 /// Handle admin set bank action
 async fn handle_admin_set_bank(server: &Server, username: &str, balance: i64, mode: PointsMode) {
     let username_lower = username.to_lowercase();
-    
+
     // Get character info
-    let (char_id, current_balance) = match db::find_account_by_username(&server.db, &username_lower).await {
-        Ok(Some(account)) => {
-            match db::find_character_by_account(&server.db, account.id).await {
-                Ok(Some(char)) => (char.id, char.bank_balance),
-                _ => return,
-            }
-        }
+    let (char_id, current_balance) = match db::find_account_by_username(&server.db, &username_lower)
+        .await
+    {
+        Ok(Some(account)) => match db::find_character_by_account(&server.db, account.id).await {
+            Ok(Some(char)) => (char.id, char.bank_balance),
+            _ => return,
+        },
         _ => return,
     };
-    
+
     let new_balance = mode.apply(current_balance, balance).max(0).min(999_999_999);
-    
-    if db::update_bank_balance(&server.db, char_id, new_balance).await.is_ok() {
-        info!("Admin set {} bank balance: {} -> {}", username, current_balance, new_balance);
+
+    if db::update_bank_balance(&server.db, char_id, new_balance)
+        .await
+        .is_ok()
+    {
+        info!(
+            "Admin set {} bank balance: {} -> {}",
+            username, current_balance, new_balance
+        );
     }
 }
 
@@ -845,21 +941,22 @@ async fn handle_admin_send_mail(
 ) {
     // Get recipient character ID
     let to_char_id = match db::find_account_by_username(&server.db, to_username).await {
-        Ok(Some(account)) => {
-            match db::find_character_by_account(&server.db, account.id).await {
-                Ok(Some(char)) => char.id,
-                _ => {
-                    error!("Cannot send mail: recipient {} has no character", to_username);
-                    return;
-                }
+        Ok(Some(account)) => match db::find_character_by_account(&server.db, account.id).await {
+            Ok(Some(char)) => char.id,
+            _ => {
+                error!(
+                    "Cannot send mail: recipient {} has no character",
+                    to_username
+                );
+                return;
             }
-        }
+        },
         _ => {
             error!("Cannot send mail: recipient {} not found", to_username);
             return;
         }
     };
-    
+
     // Create mail (from_character_id = 0 for system mail)
     match db::send_mail(
         &server.db,
@@ -872,10 +969,15 @@ async fn handle_admin_send_mail(
         points,
         1, // default paper
         0, // default font color
-    ).await {
+    )
+    .await
+    {
         Ok(mail_id) => {
-            info!("Admin sent mail {} to {} from '{}'", mail_id, to_username, sender_name);
-            
+            info!(
+                "Admin sent mail {} to {} from '{}'",
+                mail_id, to_username, sender_name
+            );
+
             // Notify player if online (they have new mail)
             // The client checks mail count, there's no push notification in the protocol
         }
@@ -894,18 +996,16 @@ async fn handle_admin_set_appearance(
     acs2_id: Option<u16>,
 ) {
     let username_lower = username.to_lowercase();
-    
+
     // Get character ID
     let char_id = match db::find_account_by_username(&server.db, &username_lower).await {
-        Ok(Some(account)) => {
-            match db::find_character_by_account(&server.db, account.id).await {
-                Ok(Some(char)) => char.id,
-                _ => return,
-            }
-        }
+        Ok(Some(account)) => match db::find_character_by_account(&server.db, account.id).await {
+            Ok(Some(char)) => char.id,
+            _ => return,
+        },
         _ => return,
     };
-    
+
     // Update each provided field
     if let Some(body) = body_id {
         let _ = db::update_body_id(&server.db, char_id, body as i16).await;
@@ -916,7 +1016,7 @@ async fn handle_admin_set_appearance(
     if let Some(acs2) = acs2_id {
         let _ = db::update_accessory2_id(&server.db, char_id, acs2 as i16).await;
     }
-    
+
     // Update online session and broadcast appearance change
     for session_ref in server.sessions.iter() {
         let mut session = session_ref.value().write().await;
@@ -930,23 +1030,23 @@ async fn handle_admin_set_appearance(
             if let Some(acs2) = acs2_id {
                 session.acs2_id = acs2;
             }
-            
+
             // Broadcast appearance change to room
             if let Some(player_id) = session.player_id {
                 let room_id = session.room_id;
                 let body = session.body_id;
                 let _acs1 = session.acs1_id;
                 let _acs2 = session.acs2_id;
-                
+
                 // Send MSG_CHANGE_OUTFIT to room
                 let mut writer = protocol::MessageWriter::new();
                 writer.write_u16(protocol::MessageType::ChangeOutfit.id());
                 writer.write_u16(player_id);
                 writer.write_u16(body);
                 let msg = writer.into_bytes();
-                
+
                 drop(session); // Release lock before broadcasting
-                
+
                 let room_players = server.game_state.get_room_players(room_id).await;
                 for pid in room_players {
                     if let Some(sid) = server.game_state.players_by_id.get(&pid) {
@@ -956,13 +1056,17 @@ async fn handle_admin_set_appearance(
                     }
                 }
             }
-            
-            info!("Admin set {} appearance: body={:?}, acs1={:?}, acs2={:?}", 
-                  username, body_id, acs1_id, acs2_id);
+
+            info!(
+                "Admin set {} appearance: body={:?}, acs1={:?}, acs2={:?}",
+                username, body_id, acs1_id, acs2_id
+            );
             return;
         }
     }
-    
-    info!("Admin set {} appearance (offline): body={:?}, acs1={:?}, acs2={:?}", 
-          username, body_id, acs1_id, acs2_id);
+
+    info!(
+        "Admin set {} appearance (offline): body={:?}, acs1={:?}, acs2={:?}",
+        username, body_id, acs1_id, acs2_id
+    );
 }

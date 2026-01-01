@@ -55,7 +55,9 @@ pub async fn handle_use_item(
     };
 
     // Rate limit item usage
-    if !server.rate_limiter.check_player(session_id.as_u128() as u64, ActionType::UseItem)
+    if !server
+        .rate_limiter
+        .check_player(session_id.as_u128() as u64, ActionType::UseItem)
         .await
         .is_allowed()
     {
@@ -115,7 +117,10 @@ pub async fn handle_use_item(
             if validate_position_bounds(ux, uy) {
                 (ux, uy)
             } else {
-                warn!("Invalid item use position: ({}, {}), using session position", ux, uy);
+                warn!(
+                    "Invalid item use position: ({}, {}), using session position",
+                    ux, uy
+                );
                 (session_x, session_y)
             }
         }
@@ -145,7 +150,9 @@ pub async fn handle_use_item(
 
         ItemType::ChickenMine => {
             let mut writer = MessageWriter::new();
-            writer.write_u16(MessageType::UseItem.id()).write_u16(item_id);
+            writer
+                .write_u16(MessageType::UseItem.id())
+                .write_u16(item_id);
             responses.push(writer.into_bytes());
             crate::db::update_item_slot(&server.db, character_id, slot, 0).await?;
         }
@@ -171,7 +178,10 @@ pub async fn handle_use_item(
             crate::db::update_item_slot(&server.db, character_id, slot, 0).await?;
         }
 
-        ItemType::Fairy | ItemType::BluePinwheel | ItemType::RedPinwheel | ItemType::GlowPinwheel => {
+        ItemType::Fairy
+        | ItemType::BluePinwheel
+        | ItemType::RedPinwheel
+        | ItemType::GlowPinwheel => {
             // These require targeting a tree
             debug!("Tree enhancement items not fully implemented yet");
         }
@@ -190,7 +200,7 @@ pub async fn handle_use_item(
 }
 
 /// Handle Warp-Wing (Fly Wing) usage - teleport to last save point
-/// 
+///
 /// The original server reads the player's saved position from their account file.
 /// In our implementation, this is the character's stored x/y/room_id in the database.
 async fn handle_warp_wing(
@@ -204,7 +214,7 @@ async fn handle_warp_wing(
 ) -> Result<()> {
     // Get character's saved position from database (last save point)
     let character = crate::db::find_character_by_id(&server.db, character_id).await?;
-    
+
     let (save_x, save_y, save_room) = match character {
         Some(char) => (char.x as u16, char.y as u16, char.room_id as u16),
         None => {
@@ -220,7 +230,7 @@ async fn handle_warp_wing(
     writer
         .write_u16(MessageType::UseItem.id())
         .write_u16(1) // item_id for Fly Wing
-        .write_u8(1)  // self = true
+        .write_u8(1) // self = true
         .write_u16(save_room)
         .write_u16(save_x)
         .write_u16(save_y);
@@ -230,16 +240,16 @@ async fn handle_warp_wing(
     // Format: msg_type(2) + item_id(2) + self_flag(0) + x(2) + y(2)
     let room_id = session.read().await.room_id;
     let player_id = session.read().await.player_id;
-    
+
     let mut broadcast_writer = MessageWriter::new();
     broadcast_writer
         .write_u16(MessageType::UseItem.id())
         .write_u16(1) // item_id for Fly Wing
-        .write_u8(0)  // self = false (for others)
+        .write_u8(0) // self = false (for others)
         .write_u16(current_x)
         .write_u16(current_y);
     let broadcast_msg = broadcast_writer.into_bytes();
-    
+
     // Send to other players in the same room
     let room_players = server.game_state.get_room_players(room_id).await;
     for other_player_id in room_players {
@@ -248,7 +258,10 @@ async fn handle_warp_wing(
         }
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
-                other_session.write().await.queue_message(broadcast_msg.clone());
+                other_session
+                    .write()
+                    .await
+                    .queue_message(broadcast_msg.clone());
             }
         }
     }
@@ -284,7 +297,7 @@ async fn handle_slimebag(
 
     let account_id = session.read().await.account_id.unwrap_or(0);
     let character = crate::db::find_character_by_account(&server.db, account_id).await?;
-    
+
     if let Some(char) = character {
         let new_points = (char.points + points_to_add).min(crate::constants::MAX_POINTS as i64);
         crate::db::update_points(&server.db, character_id, new_points).await?;
@@ -305,12 +318,20 @@ async fn broadcast_visual_effect(server: &Arc<Server>, room_id: u16, item_id: u1
         .write_u16(x)
         .write_u16(y);
     let msg = writer.into_bytes();
-    
-    debug!("Broadcasting visual effect for item {} at ({}, {}) to room {}", item_id, x, y, room_id);
-    
+
+    debug!(
+        "Broadcasting visual effect for item {} at ({}, {}) to room {}",
+        item_id, x, y, room_id
+    );
+
     let room_players = server.game_state.get_room_players(room_id).await;
-    debug!("Room {} has {} players: {:?}", room_id, room_players.len(), room_players);
-    
+    debug!(
+        "Room {} has {} players: {:?}",
+        room_id,
+        room_players.len(),
+        room_players
+    );
+
     for player_id in room_players {
         if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
             if let Some(session) = server.sessions.get(&session_id) {
@@ -323,7 +344,14 @@ async fn broadcast_visual_effect(server: &Arc<Server>, room_id: u16, item_id: u1
 
 /// Broadcast bubbles effect to room
 /// Includes the sender - they need to receive the message to show the effect
-async fn broadcast_bubbles(server: &Arc<Server>, room_id: u16, item_id: u16, x: u16, y: u16, direction: u8) {
+async fn broadcast_bubbles(
+    server: &Arc<Server>,
+    room_id: u16,
+    item_id: u16,
+    x: u16,
+    y: u16,
+    direction: u8,
+) {
     let amount = 5u8;
     let mut writer = MessageWriter::new();
     writer
@@ -334,7 +362,7 @@ async fn broadcast_bubbles(server: &Arc<Server>, room_id: u16, item_id: u16, x: 
         .write_u8(direction)
         .write_u8(amount);
     let msg = writer.into_bytes();
-    
+
     let room_players = server.game_state.get_room_players(room_id).await;
     for player_id in room_players {
         if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
@@ -347,14 +375,19 @@ async fn broadcast_bubbles(server: &Arc<Server>, room_id: u16, item_id: u16, x: 
 
 /// Broadcast soundmaker to room
 /// Includes the sender - they need to receive the message to play the sound
-async fn broadcast_soundmaker(server: &Arc<Server>, room_id: u16, item_id: u16, user_player_id: u16) {
+async fn broadcast_soundmaker(
+    server: &Arc<Server>,
+    room_id: u16,
+    item_id: u16,
+    user_player_id: u16,
+) {
     let mut writer = MessageWriter::new();
     writer
         .write_u16(MessageType::UseItem.id())
         .write_u16(item_id)
         .write_u16(user_player_id);
     let msg = writer.into_bytes();
-    
+
     let room_players = server.game_state.get_room_players(room_id).await;
     for pid in room_players {
         if let Some(session_id) = server.game_state.players_by_id.get(&pid) {

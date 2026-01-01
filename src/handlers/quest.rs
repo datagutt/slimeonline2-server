@@ -17,10 +17,10 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
-use crate::game::PlayerSession;
-use crate::protocol::{MessageReader, MessageWriter, MessageType};
-use crate::Server;
 use crate::db;
+use crate::game::PlayerSession;
+use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::Server;
 
 // =============================================================================
 // MSG_QUEST_BEGIN (83)
@@ -36,7 +36,7 @@ pub async fn handle_quest_begin(
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let quest_id = reader.read_u8()? as i16;
-    
+
     let character_id = session.read().await.character_id;
     let char_id = match character_id {
         Some(id) => id,
@@ -44,8 +44,14 @@ pub async fn handle_quest_begin(
     };
 
     // Check if quest is already cleared
-    if db::is_quest_cleared(&server.db, char_id, quest_id).await.unwrap_or(false) {
-        warn!("HACK: Player {} tried to start already-cleared quest {}", char_id, quest_id);
+    if db::is_quest_cleared(&server.db, char_id, quest_id)
+        .await
+        .unwrap_or(false)
+    {
+        warn!(
+            "HACK: Player {} tried to start already-cleared quest {}",
+            char_id, quest_id
+        );
         return Ok(vec![]);
     }
 
@@ -78,10 +84,15 @@ pub async fn handle_quest_cancel(
     };
 
     // Get current quest state
-    let (quest_id, _, _) = db::get_quest_state(&server.db, char_id).await.unwrap_or((0, 0, 0));
-    
+    let (quest_id, _, _) = db::get_quest_state(&server.db, char_id)
+        .await
+        .unwrap_or((0, 0, 0));
+
     if quest_id == 0 {
-        warn!("HACK: Player {} tried to cancel quest but has no active quest", char_id);
+        warn!(
+            "HACK: Player {} tried to cancel quest but has no active quest",
+            char_id
+        );
         return Ok(vec![]);
     }
 
@@ -109,7 +120,7 @@ pub async fn handle_quest_clear(
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let quest_id = reader.read_u8()? as i16;
-    
+
     let character_id = session.read().await.character_id;
     let char_id = match character_id {
         Some(id) => id,
@@ -117,11 +128,15 @@ pub async fn handle_quest_clear(
     };
 
     // Get current quest state
-    let (current_quest_id, _, _) = db::get_quest_state(&server.db, char_id).await.unwrap_or((0, 0, 0));
-    
+    let (current_quest_id, _, _) = db::get_quest_state(&server.db, char_id)
+        .await
+        .unwrap_or((0, 0, 0));
+
     if current_quest_id != quest_id {
-        warn!("HACK: Player {} tried to clear quest {} but current quest is {}", 
-              char_id, quest_id, current_quest_id);
+        warn!(
+            "HACK: Player {} tried to clear quest {} but current quest is {}",
+            char_id, quest_id, current_quest_id
+        );
         return Ok(vec![]);
     }
 
@@ -159,10 +174,15 @@ pub async fn handle_quest_step_inc(
     };
 
     // Get current quest state
-    let (quest_id, quest_step, quest_var) = db::get_quest_state(&server.db, char_id).await.unwrap_or((0, 0, 0));
-    
+    let (quest_id, quest_step, quest_var) = db::get_quest_state(&server.db, char_id)
+        .await
+        .unwrap_or((0, 0, 0));
+
     if quest_id == 0 {
-        warn!("HACK: Player {} tried to increment quest step but has no active quest", char_id);
+        warn!(
+            "HACK: Player {} tried to increment quest step but has no active quest",
+            char_id
+        );
         return Ok(vec![]);
     }
 
@@ -173,7 +193,10 @@ pub async fn handle_quest_step_inc(
         return Ok(vec![]);
     }
 
-    debug!("Player {} quest {} step {} -> {}", char_id, quest_id, quest_step, new_step);
+    debug!(
+        "Player {} quest {} step {} -> {}",
+        char_id, quest_id, quest_step, new_step
+    );
     Ok(vec![])
 }
 
@@ -191,20 +214,23 @@ pub async fn handle_quest_npc_req(
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let quest_id = reader.read_u8()? as i16;
-    
+
     let character_id = session.read().await.character_id;
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
 
-    let cleared = db::is_quest_cleared(&server.db, char_id, quest_id).await.unwrap_or(false);
-    
+    let cleared = db::is_quest_cleared(&server.db, char_id, quest_id)
+        .await
+        .unwrap_or(false);
+
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::QuestNpcReq.id())
+    writer
+        .write_u16(MessageType::QuestNpcReq.id())
         .write_u8(quest_id as u8)
         .write_u8(if cleared { 1 } else { 0 });
-    
+
     debug!("Quest NPC req: quest {} cleared={}", quest_id, cleared);
     Ok(vec![writer.into_bytes()])
 }
@@ -215,7 +241,7 @@ pub async fn handle_quest_npc_req(
 
 /// Handle MSG_QUEST_REWARD (92)
 /// Client claims quest reward. We validate and give reward.
-/// 
+///
 /// From original server (case_msg_quest_reward.gml):
 /// - Quest 1 "Lazy Coolness": On step 2, exchange Bubbles (item 4) for Seed (item 9)
 pub async fn handle_quest_reward(
@@ -226,7 +252,7 @@ pub async fn handle_quest_reward(
     let mut reader = MessageReader::new(payload);
     let quest_id = reader.read_u8()? as i16;
     let quest_step = reader.read_u8()? as i16;
-    
+
     let character_id = session.read().await.character_id;
     let char_id = match character_id {
         Some(id) => id,
@@ -234,25 +260,34 @@ pub async fn handle_quest_reward(
     };
 
     // Get current quest state from DB
-    let (current_quest_id, current_step, _) = db::get_quest_state(&server.db, char_id).await.unwrap_or((0, 0, 0));
-    
+    let (current_quest_id, current_step, _) = db::get_quest_state(&server.db, char_id)
+        .await
+        .unwrap_or((0, 0, 0));
+
     // Validate: must have active quest
     if current_quest_id == 0 || current_step == 0 {
-        warn!("HACK: Player {} requested quest reward but has no active quest", char_id);
+        warn!(
+            "HACK: Player {} requested quest reward but has no active quest",
+            char_id
+        );
         return Ok(vec![]);
     }
-    
+
     // Validate: quest_id must match
     if quest_id != current_quest_id {
-        warn!("HACK: Player {} requested reward for quest {} but active quest is {}", 
-              char_id, quest_id, current_quest_id);
+        warn!(
+            "HACK: Player {} requested reward for quest {} but active quest is {}",
+            char_id, quest_id, current_quest_id
+        );
         return Ok(vec![]);
     }
-    
+
     // Validate: quest_step must match
     if quest_step != current_step {
-        warn!("HACK: Player {} quest step mismatch: client={} server={}", 
-              char_id, quest_step, current_step);
+        warn!(
+            "HACK: Player {} quest step mismatch: client={} server={}",
+            char_id, quest_step, current_step
+        );
         return Ok(vec![]);
     }
 
@@ -274,7 +309,10 @@ async fn handle_quest_1_reward(
     quest_step: i16,
 ) -> Result<Vec<Vec<u8>>> {
     if quest_step != 2 {
-        warn!("HACK: Quest 1 reward not given on step 2, got step {}", quest_step);
+        warn!(
+            "HACK: Quest 1 reward not given on step 2, got step {}",
+            quest_step
+        );
         return Ok(vec![]);
     }
 
@@ -294,11 +332,14 @@ async fn handle_quest_1_reward(
     // Find slot with Bubbles (item 4)
     let items = inventory.items();
     let bubble_slot = items.iter().position(|&id| id == 4);
-    
+
     let slot = match bubble_slot {
         Some(idx) => (idx + 1) as u8, // Convert 0-indexed to 1-indexed
         None => {
-            warn!("HACK: Player {} doesn't have Bubbles for quest 1 reward", char_id);
+            warn!(
+                "HACK: Player {} doesn't have Bubbles for quest 1 reward",
+                char_id
+            );
             return Ok(vec![]);
         }
     };
@@ -312,12 +353,16 @@ async fn handle_quest_1_reward(
     // Send MSG_GET_SOMETHING to update client inventory
     // Format: category (byte), slot (byte), new_item_id (u16)
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::GetSomething.id())
-        .write_u8(2)        // Category 2 = Items
-        .write_u8(slot)     // Slot number
-        .write_u16(9);      // New item: Seed
+    writer
+        .write_u16(MessageType::GetSomething.id())
+        .write_u8(2) // Category 2 = Items
+        .write_u8(slot) // Slot number
+        .write_u16(9); // New item: Seed
 
-    debug!("Quest 1 reward: gave Seed to player {} in slot {}", char_id, slot);
+    debug!(
+        "Quest 1 reward: gave Seed to player {} in slot {}",
+        char_id, slot
+    );
     Ok(vec![writer.into_bytes()])
 }
 

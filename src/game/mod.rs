@@ -88,18 +88,18 @@ impl Room {
 
     /// Initialize collectibles with database state for persistence across restarts
     pub async fn init_collectibles_with_state(
-        &self, 
+        &self,
         spawns: Vec<CollectibleSpawn>,
         db_states: HashMap<u8, crate::db::CollectibleState>,
     ) {
         use chrono::{DateTime, Utc};
-        
+
         let mut collectibles = self.collectibles.write().await;
         let now = Instant::now();
-        
+
         for spawn in spawns {
             let col_id = spawn.col_id;
-            
+
             // Check if we have DB state for this spawn
             let taken_at = if let Some(db_state) = db_states.get(&col_id) {
                 if db_state.available == 0 {
@@ -110,7 +110,8 @@ impl Room {
                             if respawn_utc > Utc::now() {
                                 // Still waiting for respawn - mark as taken
                                 // We approximate the taken_at time based on remaining wait
-                                let remaining_secs = (respawn_utc - Utc::now()).num_seconds().max(0) as u64;
+                                let remaining_secs =
+                                    (respawn_utc - Utc::now()).num_seconds().max(0) as u64;
                                 let total_respawn = spawn.respawn_secs.unwrap_or(3600) as u64;
                                 let elapsed = total_respawn.saturating_sub(remaining_secs);
                                 Some(now - std::time::Duration::from_secs(elapsed))
@@ -130,14 +131,8 @@ impl Room {
             } else {
                 None // No DB state, treat as available
             };
-            
-            collectibles.insert(
-                col_id,
-                ActiveCollectible {
-                    spawn,
-                    taken_at,
-                },
-            );
+
+            collectibles.insert(col_id, ActiveCollectible { spawn, taken_at });
         }
     }
 
@@ -370,8 +365,8 @@ impl GameState {
 
     /// Initialize collectibles for a room with database state for persistence
     pub async fn init_room_collectibles_with_state(
-        &self, 
-        room_id: u16, 
+        &self,
+        room_id: u16,
         spawns: Vec<CollectibleSpawn>,
         db_states: std::collections::HashMap<u8, crate::db::CollectibleState>,
     ) {

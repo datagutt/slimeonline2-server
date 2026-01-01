@@ -10,10 +10,10 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::Server;
 
-use super::{shop, collectibles, items, upgrader};
+use super::{collectibles, items, shop, upgrader};
 
 /// Handle warp/room change
-/// 
+///
 /// Client sends: MSG_WARP (14) + room_id (2) + x (2) + y (2)
 /// Server should:
 /// 1. Update player's room/position in session
@@ -37,7 +37,7 @@ pub async fn handle_warp(
 
     let (player_id, old_room_id, character_id, _body_id, _acs1_id, _acs2_id, _username) = {
         let mut session_guard = session.write().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -48,7 +48,7 @@ pub async fn handle_warp(
         };
 
         let old_room_id = session_guard.room_id;
-        
+
         // Update session with new position
         session_guard.room_id = new_room_id;
         session_guard.x = new_x;
@@ -79,7 +79,9 @@ pub async fn handle_warp(
                 new_x as i16,
                 new_y as i16,
                 new_room_id as i16,
-            ).await {
+            )
+            .await
+            {
                 error!("Failed to save position for character {}: {}", char_id, e);
             }
         }
@@ -87,10 +89,16 @@ pub async fn handle_warp(
 
     // Update room tracking
     let session_id = session.read().await.session_id;
-    
+
     // Remove from old room, add to new room
-    server.game_state.remove_player_from_room(player_id, old_room_id).await;
-    server.game_state.add_player_to_room(player_id, new_room_id, session_id).await;
+    server
+        .game_state
+        .remove_player_from_room(player_id, old_room_id)
+        .await;
+    server
+        .game_state
+        .add_player_to_room(player_id, new_room_id, session_id)
+        .await;
 
     // Broadcast to OLD room: player left (case 2)
     if old_room_id != new_room_id {
@@ -104,10 +112,14 @@ pub async fn handle_warp(
                 if let Some(other_session) = server.sessions.get(&other_session_id) {
                     let mut writer = MessageWriter::new();
                     // MSG_WARP + player_id + case(2 = left)
-                    writer.write_u16(MessageType::Warp.id())
+                    writer
+                        .write_u16(MessageType::Warp.id())
                         .write_u16(player_id)
                         .write_u8(2); // Case 2 = player leaves room
-                    other_session.write().await.queue_message(writer.into_bytes());
+                    other_session
+                        .write()
+                        .await
+                        .queue_message(writer.into_bytes());
                 }
             }
         }
@@ -116,7 +128,7 @@ pub async fn handle_warp(
     // Broadcast to NEW room: player entered (case 1)
     let new_room_players = server.game_state.get_room_players(new_room_id).await;
     let mut responses = Vec::new();
-    
+
     for other_player_id in &new_room_players {
         if *other_player_id == player_id {
             continue;
@@ -127,19 +139,24 @@ pub async fn handle_warp(
                 // Tell existing players that this player entered
                 let mut writer = MessageWriter::new();
                 // MSG_WARP + player_id + case(1 = entered) + x + y
-                writer.write_u16(MessageType::Warp.id())
+                writer
+                    .write_u16(MessageType::Warp.id())
                     .write_u16(player_id)
-                    .write_u8(1)  // Case 1 = player enters room
+                    .write_u8(1) // Case 1 = player enters room
                     .write_u16(new_x)
                     .write_u16(new_y);
-                other_session_ref.write().await.queue_message(writer.into_bytes());
+                other_session_ref
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
 
                 // Also send the existing player's info to the warping player
                 let other_session = other_session_ref.read().await;
                 if other_session.is_authenticated {
                     if let Some(other_username) = &other_session.username {
                         let mut new_player_writer = MessageWriter::new();
-                        new_player_writer.write_u16(MessageType::NewPlayer.id())
+                        new_player_writer
+                            .write_u16(MessageType::NewPlayer.id())
                             .write_u16(*other_player_id)
                             .write_string(other_username)
                             .write_u16(other_session.x)
@@ -197,7 +214,8 @@ async fn build_top_points_message(server: &Arc<Server>) -> Option<Vec<u8>> {
     match crate::db::get_top_points(&server.db).await {
         Ok(Some(top)) => {
             let mut writer = MessageWriter::new();
-            writer.write_u16(MessageType::GetTopPoints.id())
+            writer
+                .write_u16(MessageType::GetTopPoints.id())
                 .write_string(&top.username)
                 .write_u32(top.total_points as u32);
             Some(writer.into_bytes())

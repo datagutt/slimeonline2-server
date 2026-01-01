@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 use tracing::debug;
 
 use crate::game::PlayerSession;
-use crate::protocol::{MessageWriter, MessageType};
+use crate::protocol::{MessageType, MessageWriter};
 use crate::Server;
 
 /// Handle outfit change (MSG_CHANGE_OUT)
@@ -30,7 +30,7 @@ pub async fn handle_change_outfit(
 
     let (player_id, room_id, character_id, _new_body_id) = {
         let session_guard = session.read().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -70,11 +70,14 @@ pub async fn handle_change_outfit(
     // Save to database
     crate::db::update_body_id(&server.db, character_id, new_body_id as i16).await?;
 
-    debug!("Player {} changed outfit to {} (slot {})", player_id, new_body_id, slot);
+    debug!(
+        "Player {} changed outfit to {} (slot {})",
+        player_id, new_body_id, slot
+    );
 
     // Broadcast outfit change to all players in room
     let room_players = server.game_state.get_room_players(room_id).await;
-    
+
     for other_player_id in room_players {
         if other_player_id == player_id {
             continue;
@@ -83,8 +86,14 @@ pub async fn handle_change_outfit(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MessageType::ChangeOutfit.id()).write_u16(player_id).write_u16(new_body_id);
-                other_session.write().await.queue_message(writer.into_bytes());
+                writer
+                    .write_u16(MessageType::ChangeOutfit.id())
+                    .write_u16(player_id)
+                    .write_u16(new_body_id);
+                other_session
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
             }
         }
     }
@@ -112,7 +121,7 @@ pub async fn handle_change_accessory1(
 
     let (player_id, room_id, character_id) = {
         let session_guard = session.read().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -152,11 +161,14 @@ pub async fn handle_change_accessory1(
     // Save to database
     crate::db::update_accessory1_id(&server.db, character_id, new_acs_id as i16).await?;
 
-    debug!("Player {} changed accessory1 to {} (slot {})", player_id, new_acs_id, slot);
+    debug!(
+        "Player {} changed accessory1 to {} (slot {})",
+        player_id, new_acs_id, slot
+    );
 
     // Broadcast accessory change to all players in room
     let room_players = server.game_state.get_room_players(room_id).await;
-    
+
     for other_player_id in room_players {
         if other_player_id == player_id {
             continue;
@@ -165,8 +177,14 @@ pub async fn handle_change_accessory1(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MessageType::ChangeAccessory1.id()).write_u16(player_id).write_u16(new_acs_id);
-                other_session.write().await.queue_message(writer.into_bytes());
+                writer
+                    .write_u16(MessageType::ChangeAccessory1.id())
+                    .write_u16(player_id)
+                    .write_u16(new_acs_id);
+                other_session
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
             }
         }
     }
@@ -194,7 +212,7 @@ pub async fn handle_change_accessory2(
 
     let (player_id, room_id, character_id) = {
         let session_guard = session.read().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -234,11 +252,14 @@ pub async fn handle_change_accessory2(
     // Save to database
     crate::db::update_accessory2_id(&server.db, character_id, new_acs_id as i16).await?;
 
-    debug!("Player {} changed accessory2 to {} (slot {})", player_id, new_acs_id, slot);
+    debug!(
+        "Player {} changed accessory2 to {} (slot {})",
+        player_id, new_acs_id, slot
+    );
 
     // Broadcast accessory change to all players in room
     let room_players = server.game_state.get_room_players(room_id).await;
-    
+
     for other_player_id in room_players {
         if other_player_id == player_id {
             continue;
@@ -247,8 +268,14 @@ pub async fn handle_change_accessory2(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MessageType::ChangeAccessory2.id()).write_u16(player_id).write_u16(new_acs_id);
-                other_session.write().await.queue_message(writer.into_bytes());
+                writer
+                    .write_u16(MessageType::ChangeAccessory2.id())
+                    .write_u16(player_id)
+                    .write_u16(new_acs_id);
+                other_session
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
             }
         }
     }

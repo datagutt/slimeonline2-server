@@ -12,8 +12,8 @@ use tracing::{debug, info, warn};
 
 use crate::constants::{
     CHEAT_FLAGS_TO_BAN, CHEAT_FLAGS_TO_KICK, CHEAT_VIOLATION_THRESHOLD,
-    CHEAT_VIOLATION_WINDOW_SECS, MAX_MOVEMENT_DISTANCE_PER_UPDATE, MAX_PLAYER_SPEED,
-    MAX_ROOM_X, MAX_ROOM_Y,
+    CHEAT_VIOLATION_WINDOW_SECS, MAX_MOVEMENT_DISTANCE_PER_UPDATE, MAX_PLAYER_SPEED, MAX_ROOM_X,
+    MAX_ROOM_Y,
 };
 
 /// Cheat detection result
@@ -88,7 +88,7 @@ impl PositionHistory {
         // Get last position
         if let Some(&(last_x, last_y, last_time)) = self.positions.last() {
             let elapsed = now.duration_since(last_time);
-            
+
             // Calculate distance moved
             let dx = (new_x as f64 - last_x as f64).abs();
             let dy = (new_y as f64 - last_y as f64).abs();
@@ -107,12 +107,15 @@ impl PositionHistory {
                         distance as u32, elapsed_secs, speed
                     );
                     self.add_violation(&reason);
-                    
+
                     // Check if we've hit the threshold
                     if self.violation_count() >= CHEAT_VIOLATION_THRESHOLD {
                         return CheatResult::Cheating { reason };
                     }
-                    return CheatResult::Suspicious { reason, severity: 3 };
+                    return CheatResult::Suspicious {
+                        reason,
+                        severity: 3,
+                    };
                 }
             }
 
@@ -120,18 +123,21 @@ impl PositionHistory {
             if elapsed.as_millis() > 100 {
                 let elapsed_secs = elapsed.as_secs_f64();
                 let speed = distance / elapsed_secs;
-                
+
                 if speed > MAX_PLAYER_SPEED * 2.0 {
                     let reason = format!(
                         "Speed hack suspected: {:.0} pixels/sec (max: {:.0})",
                         speed, MAX_PLAYER_SPEED
                     );
                     self.add_violation(&reason);
-                    
+
                     if self.violation_count() >= CHEAT_VIOLATION_THRESHOLD {
                         return CheatResult::Cheating { reason };
                     }
-                    return CheatResult::Suspicious { reason, severity: 2 };
+                    return CheatResult::Suspicious {
+                        reason,
+                        severity: 2,
+                    };
                 }
             }
         }
@@ -148,7 +154,7 @@ impl PositionHistory {
     fn add_violation(&mut self, reason: &str) {
         let now = Instant::now();
         self.violations.push((now, reason.to_string()));
-        
+
         // Clean old violations
         let cutoff = now - Duration::from_secs(CHEAT_VIOLATION_WINDOW_SECS);
         self.violations.retain(|(t, _)| *t > cutoff);
@@ -197,7 +203,7 @@ impl AntiCheat {
         room_id: u16,
     ) -> CheatResult {
         let mut players = self.players.write().await;
-        
+
         let history = match players.get_mut(&session_id) {
             Some(h) => h,
             None => {
@@ -252,19 +258,28 @@ impl AntiCheat {
         let mut flagged = self.flagged.write().await;
         let count = flagged.entry(session_id).or_insert(0);
         *count += 1;
-        info!("Session {} flagged for cheating (count: {})", session_id, *count);
+        info!(
+            "Session {} flagged for cheating (count: {})",
+            session_id, *count
+        );
     }
 
     /// Check if player should be kicked
     pub async fn should_kick(&self, session_id: u64) -> bool {
         let flagged = self.flagged.read().await;
-        flagged.get(&session_id).map(|&c| c >= CHEAT_FLAGS_TO_KICK).unwrap_or(false)
+        flagged
+            .get(&session_id)
+            .map(|&c| c >= CHEAT_FLAGS_TO_KICK)
+            .unwrap_or(false)
     }
 
     /// Check if player should be banned
     pub async fn should_ban(&self, session_id: u64) -> bool {
         let flagged = self.flagged.read().await;
-        flagged.get(&session_id).map(|&c| c >= CHEAT_FLAGS_TO_BAN).unwrap_or(false)
+        flagged
+            .get(&session_id)
+            .map(|&c| c >= CHEAT_FLAGS_TO_BAN)
+            .unwrap_or(false)
     }
 
     /// Get flag count for a player
@@ -373,10 +388,10 @@ mod tests {
     fn test_movement_validation() {
         // Normal movement
         assert!(validate_movement_delta(100, 100, 110, 100, 100));
-        
+
         // Too fast
         assert!(!validate_movement_delta(100, 100, 1000, 100, 10));
-        
+
         // Long time = more distance allowed
         assert!(validate_movement_delta(100, 100, 600, 100, 2000));
     }

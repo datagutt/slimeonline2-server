@@ -1,7 +1,7 @@
 //! BBS (Bulletin Board System) database operations
 
-use sqlx::FromRow;
 use super::DbPool;
+use sqlx::FromRow;
 
 /// BBS post record from database
 #[derive(Debug, Clone, FromRow)]
@@ -68,7 +68,7 @@ pub async fn get_bbs_posts(
 ) -> Result<Vec<BbsPostSummary>, sqlx::Error> {
     // Page is 1-based from client
     let offset = (page - 1) * 4;
-    
+
     sqlx::query_as::<_, BbsPostSummary>(
         r#"
         SELECT id, title, created_at
@@ -86,10 +86,7 @@ pub async fn get_bbs_posts(
 
 /// Get total page count for a category
 /// 4 posts per page
-pub async fn get_bbs_page_count(
-    pool: &DbPool,
-    category_id: i64,
-) -> Result<i64, sqlx::Error> {
+pub async fn get_bbs_page_count(pool: &DbPool, category_id: i64) -> Result<i64, sqlx::Error> {
     let result: (i64,) = sqlx::query_as(
         r#"
         SELECT COUNT(*) FROM bbs_posts WHERE category_id = ? AND is_reported = 0
@@ -106,10 +103,7 @@ pub async fn get_bbs_page_count(
 }
 
 /// Get a specific BBS post with full content
-pub async fn get_bbs_post(
-    pool: &DbPool,
-    post_id: i64,
-) -> Result<Option<BbsPost>, sqlx::Error> {
+pub async fn get_bbs_post(pool: &DbPool, post_id: i64) -> Result<Option<BbsPost>, sqlx::Error> {
     sqlx::query_as::<_, BbsPost>(
         r#"
         SELECT id, character_id, category_id, title, content, is_reported, created_at
@@ -143,10 +137,7 @@ pub async fn get_bbs_post_poster_name(
 }
 
 /// Report a BBS post (flag for moderation)
-pub async fn report_bbs_post(
-    pool: &DbPool,
-    post_id: i64,
-) -> Result<bool, sqlx::Error> {
+pub async fn report_bbs_post(pool: &DbPool, post_id: i64) -> Result<bool, sqlx::Error> {
     let result = sqlx::query(
         r#"
         UPDATE bbs_posts SET is_reported = 1 WHERE id = ?

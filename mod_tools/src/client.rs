@@ -21,9 +21,12 @@ pub struct ApiResponse<T> {
 impl<T> ApiResponse<T> {
     pub fn into_result(self) -> Result<T> {
         if self.success {
-            self.data.ok_or_else(|| anyhow::anyhow!("No data in response"))
+            self.data
+                .ok_or_else(|| anyhow::anyhow!("No data in response"))
         } else {
-            Err(anyhow::anyhow!(self.error.unwrap_or_else(|| "Unknown error".to_string())))
+            Err(anyhow::anyhow!(self
+                .error
+                .unwrap_or_else(|| "Unknown error".to_string())))
         }
     }
 }
@@ -228,7 +231,8 @@ impl AdminClient {
 
     async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
         let url = format!("{}{}", self.base_url, path);
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("X-API-Key", &self.api_key)
             .send()
@@ -241,19 +245,22 @@ impl AdminClient {
         if !status.is_success() {
             // Try to parse as API error
             if let Ok(api_resp) = serde_json::from_str::<ApiResponse<()>>(&body) {
-                return Err(anyhow::anyhow!(api_resp.error.unwrap_or_else(|| format!("HTTP {}", status))));
+                return Err(anyhow::anyhow!(api_resp
+                    .error
+                    .unwrap_or_else(|| format!("HTTP {}", status))));
             }
             return Err(anyhow::anyhow!("HTTP {}: {}", status, body));
         }
 
-        let api_response: ApiResponse<T> = serde_json::from_str(&body)
-            .context("Failed to parse response")?;
+        let api_response: ApiResponse<T> =
+            serde_json::from_str(&body).context("Failed to parse response")?;
         api_response.into_result()
     }
 
     async fn post<T: DeserializeOwned, B: Serialize>(&self, path: &str, body: &B) -> Result<T> {
         let url = format!("{}{}", self.base_url, path);
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("X-API-Key", &self.api_key)
             .json(body)
@@ -266,19 +273,22 @@ impl AdminClient {
 
         if !status.is_success() {
             if let Ok(api_resp) = serde_json::from_str::<ApiResponse<()>>(&resp_body) {
-                return Err(anyhow::anyhow!(api_resp.error.unwrap_or_else(|| format!("HTTP {}", status))));
+                return Err(anyhow::anyhow!(api_resp
+                    .error
+                    .unwrap_or_else(|| format!("HTTP {}", status))));
             }
             return Err(anyhow::anyhow!("HTTP {}: {}", status, resp_body));
         }
 
-        let api_response: ApiResponse<T> = serde_json::from_str(&resp_body)
-            .context("Failed to parse response")?;
+        let api_response: ApiResponse<T> =
+            serde_json::from_str(&resp_body).context("Failed to parse response")?;
         api_response.into_result()
     }
 
     async fn delete<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
         let url = format!("{}{}", self.base_url, path);
-        let response = self.client
+        let response = self
+            .client
             .delete(&url)
             .header("X-API-Key", &self.api_key)
             .send()
@@ -290,13 +300,15 @@ impl AdminClient {
 
         if !status.is_success() {
             if let Ok(api_resp) = serde_json::from_str::<ApiResponse<()>>(&body) {
-                return Err(anyhow::anyhow!(api_resp.error.unwrap_or_else(|| format!("HTTP {}", status))));
+                return Err(anyhow::anyhow!(api_resp
+                    .error
+                    .unwrap_or_else(|| format!("HTTP {}", status))));
             }
             return Err(anyhow::anyhow!("HTTP {}: {}", status, body));
         }
 
-        let api_response: ApiResponse<T> = serde_json::from_str(&body)
-            .context("Failed to parse response")?;
+        let api_response: ApiResponse<T> =
+            serde_json::from_str(&body).context("Failed to parse response")?;
         api_response.into_result()
     }
 
@@ -319,7 +331,11 @@ impl AdminClient {
         struct KickReq<'a> {
             reason: Option<&'a str>,
         }
-        self.post(&format!("/api/players/{}/kick", username), &KickReq { reason }).await
+        self.post(
+            &format!("/api/players/{}/kick", username),
+            &KickReq { reason },
+        )
+        .await
     }
 
     pub async fn ban_player(
@@ -339,58 +355,118 @@ impl AdminClient {
         }
         self.post(
             &format!("/api/players/{}/ban", username),
-            &BanReq { ban_type, reason, duration_hours, kick },
-        ).await
+            &BanReq {
+                ban_type,
+                reason,
+                duration_hours,
+                kick,
+            },
+        )
+        .await
     }
 
-    pub async fn teleport_player(&self, username: &str, room_id: u16, x: u16, y: u16) -> Result<TeleportResponse> {
+    pub async fn teleport_player(
+        &self,
+        username: &str,
+        room_id: u16,
+        x: u16,
+        y: u16,
+    ) -> Result<TeleportResponse> {
         #[derive(Serialize)]
         struct TeleportReq {
             room_id: u16,
             x: u16,
             y: u16,
         }
-        self.post(&format!("/api/players/{}/teleport", username), &TeleportReq { room_id, x, y }).await
+        self.post(
+            &format!("/api/players/{}/teleport", username),
+            &TeleportReq { room_id, x, y },
+        )
+        .await
     }
 
-    pub async fn set_points(&self, username: &str, points: i64, mode: &str) -> Result<QueuedResponse> {
+    pub async fn set_points(
+        &self,
+        username: &str,
+        points: i64,
+        mode: &str,
+    ) -> Result<QueuedResponse> {
         #[derive(Serialize)]
         struct PointsReq<'a> {
             points: i64,
             mode: &'a str,
         }
-        self.post(&format!("/api/players/{}/points", username), &PointsReq { points, mode }).await
+        self.post(
+            &format!("/api/players/{}/points", username),
+            &PointsReq { points, mode },
+        )
+        .await
     }
 
-    pub async fn set_bank(&self, username: &str, balance: i64, mode: &str) -> Result<QueuedResponse> {
+    pub async fn set_bank(
+        &self,
+        username: &str,
+        balance: i64,
+        mode: &str,
+    ) -> Result<QueuedResponse> {
         #[derive(Serialize)]
         struct BankReq<'a> {
             balance: i64,
             mode: &'a str,
         }
-        self.post(&format!("/api/players/{}/bank", username), &BankReq { balance, mode }).await
+        self.post(
+            &format!("/api/players/{}/bank", username),
+            &BankReq { balance, mode },
+        )
+        .await
     }
 
-    pub async fn set_inventory(&self, username: &str, category: &str, slot: u8, item_id: u16) -> Result<QueuedResponse> {
+    pub async fn set_inventory(
+        &self,
+        username: &str,
+        category: &str,
+        slot: u8,
+        item_id: u16,
+    ) -> Result<QueuedResponse> {
         #[derive(Serialize)]
         struct InvReq<'a> {
             category: &'a str,
             slot: u8,
             item_id: u16,
         }
-        self.post(&format!("/api/players/{}/inventory", username), &InvReq { category, slot, item_id }).await
+        self.post(
+            &format!("/api/players/{}/inventory", username),
+            &InvReq {
+                category,
+                slot,
+                item_id,
+            },
+        )
+        .await
     }
 
-    pub async fn set_moderator(&self, username: &str, is_moderator: bool) -> Result<ModeratorResponse> {
+    pub async fn set_moderator(
+        &self,
+        username: &str,
+        is_moderator: bool,
+    ) -> Result<ModeratorResponse> {
         #[derive(Serialize)]
         struct ModReq {
             is_moderator: bool,
         }
-        self.post(&format!("/api/players/{}/moderator", username), &ModReq { is_moderator }).await
+        self.post(
+            &format!("/api/players/{}/moderator", username),
+            &ModReq { is_moderator },
+        )
+        .await
     }
 
     // Ban endpoints
-    pub async fn list_bans(&self, ban_type: Option<&str>, include_expired: bool) -> Result<Vec<BanRecord>> {
+    pub async fn list_bans(
+        &self,
+        ban_type: Option<&str>,
+        include_expired: bool,
+    ) -> Result<Vec<BanRecord>> {
         let mut path = "/api/bans".to_string();
         let mut params = vec![];
         if let Some(bt) = ban_type {
@@ -405,7 +481,13 @@ impl AdminClient {
         self.get(&path).await
     }
 
-    pub async fn create_ban(&self, ban_type: &str, value: &str, reason: &str, duration_hours: Option<u32>) -> Result<CreateBanResponse> {
+    pub async fn create_ban(
+        &self,
+        ban_type: &str,
+        value: &str,
+        reason: &str,
+        duration_hours: Option<u32>,
+    ) -> Result<CreateBanResponse> {
         #[derive(Serialize)]
         struct CreateBanReq<'a> {
             ban_type: &'a str,
@@ -413,7 +495,16 @@ impl AdminClient {
             reason: &'a str,
             duration_hours: Option<u32>,
         }
-        self.post("/api/bans", &CreateBanReq { ban_type, value, reason, duration_hours }).await
+        self.post(
+            "/api/bans",
+            &CreateBanReq {
+                ban_type,
+                value,
+                reason,
+                duration_hours,
+            },
+        )
+        .await
     }
 
     pub async fn delete_ban(&self, id: i64) -> Result<DeleteBanResponse> {
@@ -439,11 +530,23 @@ impl AdminClient {
             item_id: u16,
             item_category: u8,
         }
-        self.post("/api/mail/send", &MailReq { to, message, sender, points, item_id, item_category }).await
+        self.post(
+            "/api/mail/send",
+            &MailReq {
+                to,
+                message,
+                sender,
+                points,
+                item_id,
+                item_category,
+            },
+        )
+        .await
     }
 
     pub async fn get_mailbox(&self, username: &str, page: i64) -> Result<MailboxResponse> {
-        self.get(&format!("/api/mail/{}?page={}", username, page)).await
+        self.get(&format!("/api/mail/{}?page={}", username, page))
+            .await
     }
 
     // Clan endpoints
@@ -464,11 +567,19 @@ impl AdminClient {
         struct PointsReq {
             points: i64,
         }
-        self.post(&format!("/api/clans/{}/points", name), &PointsReq { points }).await
+        self.post(
+            &format!("/api/clans/{}/points", name),
+            &PointsReq { points },
+        )
+        .await
     }
 
     // Account endpoints
-    pub async fn list_accounts(&self, search: Option<&str>, limit: i64) -> Result<Vec<AccountSummary>> {
+    pub async fn list_accounts(
+        &self,
+        search: Option<&str>,
+        limit: i64,
+    ) -> Result<Vec<AccountSummary>> {
         let mut path = format!("/api/accounts?limit={}", limit);
         if let Some(s) = search {
             path = format!("{}&search={}", path, s);

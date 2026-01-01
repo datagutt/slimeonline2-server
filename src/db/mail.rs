@@ -1,7 +1,7 @@
 //! Mail database operations
 
-use sqlx::FromRow;
 use super::DbPool;
+use sqlx::FromRow;
 
 /// Mail record from database
 #[derive(Debug, Clone, FromRow)]
@@ -63,7 +63,7 @@ pub async fn get_mailbox(
     page: i64,
 ) -> Result<Vec<Mail>, sqlx::Error> {
     let offset = page * 5;
-    
+
     sqlx::query_as::<_, Mail>(
         r#"
         SELECT id, from_character_id, to_character_id, sender_name, message, 
@@ -81,10 +81,7 @@ pub async fn get_mailbox(
 }
 
 /// Get total mail count for a character
-pub async fn get_mail_count(
-    pool: &DbPool,
-    character_id: i64,
-) -> Result<i64, sqlx::Error> {
+pub async fn get_mail_count(pool: &DbPool, character_id: i64) -> Result<i64, sqlx::Error> {
     let result: (i64,) = sqlx::query_as(
         r#"
         SELECT COUNT(*) FROM mail WHERE to_character_id = ?
@@ -98,10 +95,7 @@ pub async fn get_mail_count(
 }
 
 /// Get unread mail count for a character
-pub async fn get_unread_mail_count(
-    pool: &DbPool,
-    character_id: i64,
-) -> Result<i64, sqlx::Error> {
+pub async fn get_unread_mail_count(pool: &DbPool, character_id: i64) -> Result<i64, sqlx::Error> {
     let result: (i64,) = sqlx::query_as(
         r#"
         SELECT COUNT(*) FROM mail WHERE to_character_id = ? AND is_read = 0

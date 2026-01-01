@@ -131,7 +131,8 @@ pub struct AdminState {
     /// Channel to send actions to the main game loop
     pub action_tx: mpsc::Sender<AdminAction>,
     /// Reference to server sessions for real-time queries
-    pub sessions: Arc<dashmap::DashMap<uuid::Uuid, Arc<tokio::sync::RwLock<crate::game::PlayerSession>>>>,
+    pub sessions:
+        Arc<dashmap::DashMap<uuid::Uuid, Arc<tokio::sync::RwLock<crate::game::PlayerSession>>>>,
     /// Reference to game state for room info
     pub game_state: Arc<crate::game::GameState>,
 }
@@ -165,7 +166,10 @@ impl<T: Serialize> ApiResponse<T> {
 }
 
 /// Verify the API key from request headers
-fn verify_api_key(headers: &HeaderMap, expected_key: &str) -> Result<(), (StatusCode, Json<ApiResponse<()>>)> {
+fn verify_api_key(
+    headers: &HeaderMap,
+    expected_key: &str,
+) -> Result<(), (StatusCode, Json<ApiResponse<()>>)> {
     let provided_key = headers
         .get("X-API-Key")
         .and_then(|v| v.to_str().ok())
@@ -184,7 +188,9 @@ fn verify_api_key(headers: &HeaderMap, expected_key: &str) -> Result<(), (Status
         )),
         None => Err((
             StatusCode::UNAUTHORIZED,
-            Json(ApiResponse::<()>::error("Missing API key. Use X-API-Key header or Authorization: Bearer <key>")),
+            Json(ApiResponse::<()>::error(
+                "Missing API key. Use X-API-Key header or Authorization: Bearer <key>",
+            )),
         )),
     }
 }
@@ -199,11 +205,26 @@ pub fn create_router(state: Arc<AdminState>) -> Router {
         .route("/api/players/:username", get(handlers::players::get_info))
         .route("/api/players/:username/kick", post(handlers::players::kick))
         .route("/api/players/:username/ban", post(handlers::players::ban))
-        .route("/api/players/:username/teleport", post(handlers::players::teleport))
-        .route("/api/players/:username/points", post(handlers::players::set_points))
-        .route("/api/players/:username/bank", post(handlers::players::set_bank))
-        .route("/api/players/:username/inventory", post(handlers::players::set_inventory_slot))
-        .route("/api/players/:username/moderator", post(handlers::players::set_moderator))
+        .route(
+            "/api/players/:username/teleport",
+            post(handlers::players::teleport),
+        )
+        .route(
+            "/api/players/:username/points",
+            post(handlers::players::set_points),
+        )
+        .route(
+            "/api/players/:username/bank",
+            post(handlers::players::set_bank),
+        )
+        .route(
+            "/api/players/:username/inventory",
+            post(handlers::players::set_inventory_slot),
+        )
+        .route(
+            "/api/players/:username/moderator",
+            post(handlers::players::set_moderator),
+        )
         // Ban management
         .route("/api/bans", get(handlers::bans::list_bans))
         .route("/api/bans", post(handlers::bans::create_ban))
@@ -218,7 +239,10 @@ pub fn create_router(state: Arc<AdminState>) -> Router {
         .route("/api/clans/:name/points", post(handlers::clans::add_points))
         // Account endpoints
         .route("/api/accounts", get(handlers::accounts::list_accounts))
-        .route("/api/accounts/:username", get(handlers::accounts::get_account))
+        .route(
+            "/api/accounts/:username",
+            get(handlers::accounts::get_account),
+        )
         .with_state(state)
 }
 

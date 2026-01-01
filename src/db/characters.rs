@@ -1,7 +1,7 @@
 //! Character database operations
 
-use sqlx::FromRow;
 use super::DbPool;
+use sqlx::FromRow;
 
 /// Character record from database
 #[derive(Debug, Clone, FromRow)]
@@ -31,15 +31,47 @@ pub struct Character {
 #[derive(Debug, Clone, FromRow)]
 pub struct Inventory {
     pub character_id: i64,
-    pub emote_1: i16, pub emote_2: i16, pub emote_3: i16, pub emote_4: i16, pub emote_5: i16,
-    pub outfit_1: i16, pub outfit_2: i16, pub outfit_3: i16, pub outfit_4: i16, pub outfit_5: i16,
-    pub outfit_6: i16, pub outfit_7: i16, pub outfit_8: i16, pub outfit_9: i16,
-    pub accessory_1: i16, pub accessory_2: i16, pub accessory_3: i16, pub accessory_4: i16, pub accessory_5: i16,
-    pub accessory_6: i16, pub accessory_7: i16, pub accessory_8: i16, pub accessory_9: i16,
-    pub item_1: i16, pub item_2: i16, pub item_3: i16, pub item_4: i16, pub item_5: i16,
-    pub item_6: i16, pub item_7: i16, pub item_8: i16, pub item_9: i16,
-    pub tool_1: i16, pub tool_2: i16, pub tool_3: i16, pub tool_4: i16, pub tool_5: i16,
-    pub tool_6: i16, pub tool_7: i16, pub tool_8: i16, pub tool_9: i16,
+    pub emote_1: i16,
+    pub emote_2: i16,
+    pub emote_3: i16,
+    pub emote_4: i16,
+    pub emote_5: i16,
+    pub outfit_1: i16,
+    pub outfit_2: i16,
+    pub outfit_3: i16,
+    pub outfit_4: i16,
+    pub outfit_5: i16,
+    pub outfit_6: i16,
+    pub outfit_7: i16,
+    pub outfit_8: i16,
+    pub outfit_9: i16,
+    pub accessory_1: i16,
+    pub accessory_2: i16,
+    pub accessory_3: i16,
+    pub accessory_4: i16,
+    pub accessory_5: i16,
+    pub accessory_6: i16,
+    pub accessory_7: i16,
+    pub accessory_8: i16,
+    pub accessory_9: i16,
+    pub item_1: i16,
+    pub item_2: i16,
+    pub item_3: i16,
+    pub item_4: i16,
+    pub item_5: i16,
+    pub item_6: i16,
+    pub item_7: i16,
+    pub item_8: i16,
+    pub item_9: i16,
+    pub tool_1: i16,
+    pub tool_2: i16,
+    pub tool_3: i16,
+    pub tool_4: i16,
+    pub tool_5: i16,
+    pub tool_6: i16,
+    pub tool_7: i16,
+    pub tool_8: i16,
+    pub tool_9: i16,
     pub equipped_tool: i16,
 }
 
@@ -47,44 +79,71 @@ impl Inventory {
     /// Get emotes as array
     pub fn emotes(&self) -> [u8; 5] {
         [
-            self.emote_1 as u8, self.emote_2 as u8, self.emote_3 as u8,
-            self.emote_4 as u8, self.emote_5 as u8,
+            self.emote_1 as u8,
+            self.emote_2 as u8,
+            self.emote_3 as u8,
+            self.emote_4 as u8,
+            self.emote_5 as u8,
         ]
     }
 
     /// Get outfits as array
     pub fn outfits(&self) -> [u16; 9] {
         [
-            self.outfit_1 as u16, self.outfit_2 as u16, self.outfit_3 as u16,
-            self.outfit_4 as u16, self.outfit_5 as u16, self.outfit_6 as u16,
-            self.outfit_7 as u16, self.outfit_8 as u16, self.outfit_9 as u16,
+            self.outfit_1 as u16,
+            self.outfit_2 as u16,
+            self.outfit_3 as u16,
+            self.outfit_4 as u16,
+            self.outfit_5 as u16,
+            self.outfit_6 as u16,
+            self.outfit_7 as u16,
+            self.outfit_8 as u16,
+            self.outfit_9 as u16,
         ]
     }
 
     /// Get accessories as array
     pub fn accessories(&self) -> [u16; 9] {
         [
-            self.accessory_1 as u16, self.accessory_2 as u16, self.accessory_3 as u16,
-            self.accessory_4 as u16, self.accessory_5 as u16, self.accessory_6 as u16,
-            self.accessory_7 as u16, self.accessory_8 as u16, self.accessory_9 as u16,
+            self.accessory_1 as u16,
+            self.accessory_2 as u16,
+            self.accessory_3 as u16,
+            self.accessory_4 as u16,
+            self.accessory_5 as u16,
+            self.accessory_6 as u16,
+            self.accessory_7 as u16,
+            self.accessory_8 as u16,
+            self.accessory_9 as u16,
         ]
     }
 
     /// Get items as array
     pub fn items(&self) -> [u16; 9] {
         [
-            self.item_1 as u16, self.item_2 as u16, self.item_3 as u16,
-            self.item_4 as u16, self.item_5 as u16, self.item_6 as u16,
-            self.item_7 as u16, self.item_8 as u16, self.item_9 as u16,
+            self.item_1 as u16,
+            self.item_2 as u16,
+            self.item_3 as u16,
+            self.item_4 as u16,
+            self.item_5 as u16,
+            self.item_6 as u16,
+            self.item_7 as u16,
+            self.item_8 as u16,
+            self.item_9 as u16,
         ]
     }
 
     /// Get tools as array
     pub fn tools(&self) -> [u8; 9] {
         [
-            self.tool_1 as u8, self.tool_2 as u8, self.tool_3 as u8,
-            self.tool_4 as u8, self.tool_5 as u8, self.tool_6 as u8,
-            self.tool_7 as u8, self.tool_8 as u8, self.tool_9 as u8,
+            self.tool_1 as u8,
+            self.tool_2 as u8,
+            self.tool_3 as u8,
+            self.tool_4 as u8,
+            self.tool_5 as u8,
+            self.tool_6 as u8,
+            self.tool_7 as u8,
+            self.tool_8 as u8,
+            self.tool_9 as u8,
         ]
     }
 }
@@ -424,10 +483,7 @@ pub async fn update_accessory2_id(
 }
 
 /// Get character's bank balance
-pub async fn get_bank_balance(
-    pool: &DbPool,
-    character_id: i64,
-) -> Result<i64, sqlx::Error> {
+pub async fn get_bank_balance(pool: &DbPool, character_id: i64) -> Result<i64, sqlx::Error> {
     let result: (i64,) = sqlx::query_as(
         r#"
         SELECT bank_balance FROM characters WHERE id = ?
@@ -576,13 +632,12 @@ pub async fn get_quest_state(
     pool: &DbPool,
     character_id: i64,
 ) -> Result<(i16, i16, i16), sqlx::Error> {
-    let result: (i16, i16, i16) = sqlx::query_as(
-        "SELECT quest_id, quest_step, quest_var FROM characters WHERE id = ?"
-    )
-    .bind(character_id)
-    .fetch_one(pool)
-    .await?;
-    
+    let result: (i16, i16, i16) =
+        sqlx::query_as("SELECT quest_id, quest_step, quest_var FROM characters WHERE id = ?")
+            .bind(character_id)
+            .fetch_one(pool)
+            .await?;
+
     Ok(result)
 }
 
@@ -607,7 +662,7 @@ pub async fn set_quest_state(
     .bind(character_id)
     .execute(pool)
     .await?;
-    
+
     Ok(())
 }
 
@@ -618,13 +673,13 @@ pub async fn is_quest_cleared(
     quest_id: i16,
 ) -> Result<bool, sqlx::Error> {
     let result: Option<(i64,)> = sqlx::query_as(
-        "SELECT 1 FROM quest_progress WHERE character_id = ? AND quest_id = ? AND cleared = 1"
+        "SELECT 1 FROM quest_progress WHERE character_id = ? AND quest_id = ? AND cleared = 1",
     )
     .bind(character_id)
     .bind(quest_id as i64)
     .fetch_optional(pool)
     .await?;
-    
+
     Ok(result.is_some())
 }
 
@@ -647,7 +702,7 @@ pub async fn mark_quest_cleared(
     .bind(quest_id as i64)
     .execute(pool)
     .await?;
-    
+
     Ok(())
 }
 
@@ -675,6 +730,9 @@ pub async fn get_top_points(pool: &DbPool) -> Result<Option<TopPoints>, sqlx::Er
     )
     .fetch_optional(pool)
     .await?;
-    
-    Ok(result.map(|(username, total_points)| TopPoints { username, total_points }))
+
+    Ok(result.map(|(username, total_points)| TopPoints {
+        username,
+        total_points,
+    }))
 }

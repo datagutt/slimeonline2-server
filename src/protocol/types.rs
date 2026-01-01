@@ -3,15 +3,15 @@
 //! This module provides a generic, reusable system for defining and parsing
 //! binary message types with self-documenting field definitions.
 
-use std::fmt;
 use crate::protocol::MessageReader;
+use std::fmt;
 
 // =============================================================================
 // MESSAGE TYPE ENUM
 // =============================================================================
 
 /// All message types in the Slime Online 2 protocol.
-/// 
+///
 /// Each variant includes the message ID and can be converted to/from u16.
 /// The Display trait provides human-readable names for logging.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -20,7 +20,7 @@ pub enum MessageType {
     // Authentication
     Register = 7,
     Login = 10,
-    
+
     // Player Management
     NewPlayer = 1,
     MovePlayer = 2,
@@ -30,7 +30,7 @@ pub enum MessageType {
     Logout = 6,
     SendStatus = 8,
     PlayerLeave = 11,
-    
+
     // Actions & Appearance
     Action = 12,
     ChangeOutfit = 13,
@@ -39,16 +39,16 @@ pub enum MessageType {
     Create = 16,
     ChangeAccessory1 = 25,
     ChangeAccessory2 = 26,
-    
+
     // Communication
     Chat = 17,
     Emote = 23,
     EmoteDice = 93,
     PlayerTyping = 133,
-    
+
     // Points & Collection
     Point = 18,
-    
+
     // Server Utility
     Ping = 9,
     Save = 19,
@@ -62,7 +62,7 @@ pub enum MessageType {
     PingReq = 117,
     ServerTime = 118,
     ServerTimeReset = 119,
-    
+
     // Items & Inventory
     RoomShopInfo = 27,
     ShopBuy = 28,
@@ -70,8 +70,8 @@ pub enum MessageType {
     ShopStock = 30,
     UseItem = 31,
     CollectibleInfo = 32,
-    CollectibleTaken = 33,      // Server → Other clients: collectible was taken
-    CollectibleTakeSelf = 34,   // Client → Server: player trying to take collectible
+    CollectibleTaken = 33,    // Server → Other clients: collectible was taken
+    CollectibleTakeSelf = 34, // Client → Server: player trying to take collectible
     OneTimeInfo = 35,
     OneTimeDisappear = 36,
     OneTimeGet = 37,
@@ -92,7 +92,7 @@ pub enum MessageType {
     StorageReq = 56,
     StoragePages = 57,
     StorageMove = 58,
-    
+
     // Planting
     PlantSpotFree = 63,
     PlantSpotUsed = 64,
@@ -102,7 +102,7 @@ pub enum MessageType {
     PlantAddFairy = 68,
     PlantGetFruit = 69,
     PlantHasFruit = 70,
-    
+
     // Misc
     GetTopPoints = 73,
     GetSomething = 75,
@@ -113,7 +113,7 @@ pub enum MessageType {
     MailReceiverCheck = 80,
     ToolEquip = 81,
     ToolUnequip = 82,
-    
+
     // Quests
     QuestBegin = 83,
     QuestClear = 84,
@@ -126,24 +126,24 @@ pub enum MessageType {
     QuestStatusReq = 91,
     QuestReward = 92,
     TreePlantedInc = 94,
-    
+
     // Music & Misc
     MusicChangerList = 95,
     MusicChangerSet = 96,
     PlayerThrow = 97,
-    
+
     // Cannon
     CannonEnter = 98,
     CannonMove = 99,
     CannonSetPower = 100,
     CannonShoot = 101,
-    
+
     // Building
     BuildSpotFree = 103,
     BuildSpotUsed = 104,
     BuildSpotBecomeFree = 105,
     ObjectsBuiltInc = 106,
-    
+
     // Upgrader
     UpgraderGet = 108,
     UpgraderPoints = 109,
@@ -153,7 +153,7 @@ pub enum MessageType {
     BuyGum = 113,
     BuySoda = 114,
     SwitchSet = 116,
-    
+
     // Racing
     RaceInfo = 120,
     RaceStart = 121,
@@ -161,7 +161,7 @@ pub enum MessageType {
     RaceEnd = 123,
     MoveGetOn = 124,
     MoveGetOff = 125,
-    
+
     // Clan
     ClanCreate = 126,
     ClanDissolve = 127,
@@ -170,7 +170,7 @@ pub enum MessageType {
     ClanInfo = 130,
     ClanAdmin = 131,
     CollectibleEvolve = 132,
-    
+
     // BBS (Bulletin Board System)
     BbsRequestMessages = 134,
     BbsReportMessage = 135,
@@ -180,7 +180,7 @@ pub enum MessageType {
     BbsRequestGui = 139,
     BbsRequestMaxPages = 140,
     BbsRequestMessageContent = 141,
-    
+
     /// Unknown message type
     Unknown(u16),
 }
@@ -322,7 +322,7 @@ impl MessageType {
             other => Self::Unknown(other),
         }
     }
-    
+
     /// Get the numeric ID for this message type
     pub fn id(&self) -> u16 {
         match self {
@@ -459,56 +459,126 @@ impl MessageType {
             Self::BbsRequestMessageContent => 141,
         }
     }
-    
+
     /// Get a short category name for this message type
     pub fn category(&self) -> &'static str {
         match self {
             Self::Register | Self::Login => "Auth",
-            Self::NewPlayer | Self::MovePlayer | Self::PlayerExist | Self::SendId |
-            Self::ChangeRoom | Self::Logout | Self::SendStatus | Self::PlayerLeave |
-            Self::PlayerSetStatus => "Player",
-            Self::Action | Self::ChangeOutfit | Self::ChangeAccessory1 | Self::ChangeAccessory2 => "Appearance",
+            Self::NewPlayer
+            | Self::MovePlayer
+            | Self::PlayerExist
+            | Self::SendId
+            | Self::ChangeRoom
+            | Self::Logout
+            | Self::SendStatus
+            | Self::PlayerLeave
+            | Self::PlayerSetStatus => "Player",
+            Self::Action | Self::ChangeOutfit | Self::ChangeAccessory1 | Self::ChangeAccessory2 => {
+                "Appearance"
+            }
             Self::Warp | Self::Position | Self::Create => "Warp",
             Self::Chat | Self::Emote | Self::EmoteDice | Self::PlayerTyping => "Chat",
             Self::Point | Self::PointsDec | Self::GetTopPoints => "Points",
-            Self::Ping | Self::PingReq | Self::Save | Self::Time | Self::TimeUpdate |
-            Self::ServerTime | Self::ServerTimeReset | Self::MusicChange |
-            Self::ServerClose | Self::CanMoveTrue | Self::PlayerStop | Self::RequestStatus => "Server",
-            Self::RoomShopInfo | Self::ShopBuy | Self::ShopBuyFail | Self::ShopStock |
-            Self::SellReqPrices | Self::Sell => "Shop",
-            Self::UseItem | Self::GetItem | Self::DiscardItem | Self::DiscardedItemTake |
-            Self::ReturnItem | Self::ItemMapSet | Self::ItemMapSetDestroy => "Item",
-            Self::CollectibleInfo | Self::CollectibleTakeSelf | Self::CollectibleTaken |
-            Self::CollectibleEvolve => "Collectible",
+            Self::Ping
+            | Self::PingReq
+            | Self::Save
+            | Self::Time
+            | Self::TimeUpdate
+            | Self::ServerTime
+            | Self::ServerTimeReset
+            | Self::MusicChange
+            | Self::ServerClose
+            | Self::CanMoveTrue
+            | Self::PlayerStop
+            | Self::RequestStatus => "Server",
+            Self::RoomShopInfo
+            | Self::ShopBuy
+            | Self::ShopBuyFail
+            | Self::ShopStock
+            | Self::SellReqPrices
+            | Self::Sell => "Shop",
+            Self::UseItem
+            | Self::GetItem
+            | Self::DiscardItem
+            | Self::DiscardedItemTake
+            | Self::ReturnItem
+            | Self::ItemMapSet
+            | Self::ItemMapSetDestroy => "Item",
+            Self::CollectibleInfo
+            | Self::CollectibleTakeSelf
+            | Self::CollectibleTaken
+            | Self::CollectibleEvolve => "Collectible",
             Self::OneTimeInfo | Self::OneTimeDisappear | Self::OneTimeGet => "OneTime",
             Self::BankProcess | Self::StorageReq | Self::StoragePages | Self::StorageMove => "Bank",
             Self::Mailbox | Self::MailSend | Self::MailpaperReq | Self::MailReceiverCheck => "Mail",
-            Self::QuestBegin | Self::QuestClear | Self::QuestStepInc | Self::QuestCancel |
-            Self::QuestNpcReq | Self::QuestVarCheck | Self::QuestVarInc | Self::QuestVarSet |
-            Self::QuestStatusReq | Self::QuestReward => "Quest",
-            Self::PlantSpotFree | Self::PlantSpotUsed | Self::PlantDie | Self::PlantGrow |
-            Self::PlantAddPinwheel | Self::PlantAddFairy | Self::PlantGetFruit |
-            Self::PlantHasFruit | Self::TreePlantedInc => "Plant",
-            Self::BuildSpotFree | Self::BuildSpotUsed | Self::BuildSpotBecomeFree |
-            Self::ObjectsBuiltInc => "Build",
-            Self::CannonEnter | Self::CannonMove | Self::CannonSetPower | Self::CannonShoot => "Cannon",
-            Self::RaceInfo | Self::RaceStart | Self::RaceCheckpoint | Self::RaceEnd |
-            Self::MoveGetOn | Self::MoveGetOff => "Race",
-            Self::ClanCreate | Self::ClanDissolve | Self::ClanInvite | Self::ClanLeave |
-            Self::ClanInfo | Self::ClanAdmin => "Clan",
-            Self::BbsRequestCategories | Self::BbsRequestGui | Self::BbsRequestMaxPages |
-            Self::BbsRequestMessages | Self::BbsRequestMessageContent | Self::BbsReportMessage |
-            Self::BbsRequestPost | Self::BbsPost => "BBS",
-            Self::UpgraderGet | Self::UpgraderPoints | Self::UpgraderInvest |
-            Self::UpgraderAppear | Self::UnlockableExists => "Upgrader",
-            Self::MusicChangerList | Self::MusicChangerSet | Self::PlayerThrow |
-            Self::SignTxtRequest | Self::BuyGum | Self::BuySoda | Self::SwitchSet |
-            Self::ModAction | Self::ToolEquip | Self::ToolUnequip | Self::GetSomething |
-            Self::GetWarpInfo | Self::WarpCenterUseSlot => "Misc",
+            Self::QuestBegin
+            | Self::QuestClear
+            | Self::QuestStepInc
+            | Self::QuestCancel
+            | Self::QuestNpcReq
+            | Self::QuestVarCheck
+            | Self::QuestVarInc
+            | Self::QuestVarSet
+            | Self::QuestStatusReq
+            | Self::QuestReward => "Quest",
+            Self::PlantSpotFree
+            | Self::PlantSpotUsed
+            | Self::PlantDie
+            | Self::PlantGrow
+            | Self::PlantAddPinwheel
+            | Self::PlantAddFairy
+            | Self::PlantGetFruit
+            | Self::PlantHasFruit
+            | Self::TreePlantedInc => "Plant",
+            Self::BuildSpotFree
+            | Self::BuildSpotUsed
+            | Self::BuildSpotBecomeFree
+            | Self::ObjectsBuiltInc => "Build",
+            Self::CannonEnter | Self::CannonMove | Self::CannonSetPower | Self::CannonShoot => {
+                "Cannon"
+            }
+            Self::RaceInfo
+            | Self::RaceStart
+            | Self::RaceCheckpoint
+            | Self::RaceEnd
+            | Self::MoveGetOn
+            | Self::MoveGetOff => "Race",
+            Self::ClanCreate
+            | Self::ClanDissolve
+            | Self::ClanInvite
+            | Self::ClanLeave
+            | Self::ClanInfo
+            | Self::ClanAdmin => "Clan",
+            Self::BbsRequestCategories
+            | Self::BbsRequestGui
+            | Self::BbsRequestMaxPages
+            | Self::BbsRequestMessages
+            | Self::BbsRequestMessageContent
+            | Self::BbsReportMessage
+            | Self::BbsRequestPost
+            | Self::BbsPost => "BBS",
+            Self::UpgraderGet
+            | Self::UpgraderPoints
+            | Self::UpgraderInvest
+            | Self::UpgraderAppear
+            | Self::UnlockableExists => "Upgrader",
+            Self::MusicChangerList
+            | Self::MusicChangerSet
+            | Self::PlayerThrow
+            | Self::SignTxtRequest
+            | Self::BuyGum
+            | Self::BuySoda
+            | Self::SwitchSet
+            | Self::ModAction
+            | Self::ToolEquip
+            | Self::ToolUnequip
+            | Self::GetSomething
+            | Self::GetWarpInfo
+            | Self::WarpCenterUseSlot => "Misc",
             Self::Unknown(_) => "Unknown",
         }
     }
-    
+
     /// Check if this is a high-frequency message that should not be logged
     pub fn is_high_frequency(&self) -> bool {
         matches!(self, Self::Ping | Self::MovePlayer)
@@ -692,19 +762,34 @@ impl fmt::Display for FieldValue {
 
 impl FieldValue {
     pub fn as_u8(&self) -> Option<u8> {
-        match self { Self::U8(v) => Some(*v), _ => None }
+        match self {
+            Self::U8(v) => Some(*v),
+            _ => None,
+        }
     }
     pub fn as_u16(&self) -> Option<u16> {
-        match self { Self::U16(v) => Some(*v), _ => None }
+        match self {
+            Self::U16(v) => Some(*v),
+            _ => None,
+        }
     }
     pub fn as_u32(&self) -> Option<u32> {
-        match self { Self::U32(v) => Some(*v), _ => None }
+        match self {
+            Self::U32(v) => Some(*v),
+            _ => None,
+        }
     }
     pub fn as_i16(&self) -> Option<i16> {
-        match self { Self::I16(v) => Some(*v), _ => None }
+        match self {
+            Self::I16(v) => Some(*v),
+            _ => None,
+        }
     }
     pub fn as_string(&self) -> Option<&str> {
-        match self { Self::String(v) => Some(v.as_str()), _ => None }
+        match self {
+            Self::String(v) => Some(v.as_str()),
+            _ => None,
+        }
     }
 }
 
@@ -742,7 +827,7 @@ impl FieldDef {
     pub const fn new(name: &'static str, field_type: FieldType) -> Self {
         Self { name, field_type }
     }
-    
+
     /// Read this field from a MessageReader
     pub fn read(&self, reader: &mut MessageReader) -> Option<FieldValue> {
         match self.field_type {
@@ -752,7 +837,10 @@ impl FieldDef {
             FieldType::I8 => reader.read_u8().ok().map(|v| FieldValue::I8(v as i8)),
             FieldType::I16 => reader.read_u16().ok().map(|v| FieldValue::I16(v as i16)),
             FieldType::I32 => reader.read_u32().ok().map(|v| FieldValue::I32(v as i32)),
-            FieldType::F32 => reader.read_u32().ok().map(|v| FieldValue::F32(f32::from_bits(v))),
+            FieldType::F32 => reader
+                .read_u32()
+                .ok()
+                .map(|v| FieldValue::F32(f32::from_bits(v))),
             FieldType::Bool => reader.read_u8().ok().map(|v| FieldValue::Bool(v != 0)),
             FieldType::String => reader.read_string().ok().map(FieldValue::String),
             FieldType::Bytes(len) => {
@@ -784,32 +872,32 @@ impl ParsedMessage {
             fields: Vec::new(),
         }
     }
-    
+
     pub fn with_field(mut self, name: &'static str, value: FieldValue) -> Self {
         self.fields.push((name, value));
         self
     }
-    
+
     pub fn get(&self, name: &str) -> Option<&FieldValue> {
         self.fields.iter().find(|(n, _)| *n == name).map(|(_, v)| v)
     }
-    
+
     pub fn get_u8(&self, name: &str) -> Option<u8> {
         self.get(name).and_then(|v| v.as_u8())
     }
-    
+
     pub fn get_u16(&self, name: &str) -> Option<u16> {
         self.get(name).and_then(|v| v.as_u16())
     }
-    
+
     pub fn get_u32(&self, name: &str) -> Option<u32> {
         self.get(name).and_then(|v| v.as_u32())
     }
-    
+
     pub fn get_i16(&self, name: &str) -> Option<i16> {
         self.get(name).and_then(|v| v.as_i16())
     }
-    
+
     pub fn get_string(&self, name: &str) -> Option<&str> {
         self.get(name).and_then(|v| v.as_string())
     }
@@ -846,12 +934,12 @@ impl MessageSchema {
     pub const fn new(msg_type: MessageType, fields: &'static [FieldDef]) -> Self {
         Self { msg_type, fields }
     }
-    
+
     /// Parse a message payload using this schema
     pub fn parse(&self, payload: &[u8]) -> ParsedMessage {
         let mut reader = MessageReader::new(payload);
         let mut msg = ParsedMessage::new(self.msg_type);
-        
+
         for field_def in self.fields {
             if let Some(value) = field_def.read(&mut reader) {
                 msg.fields.push((field_def.name, value));
@@ -859,7 +947,7 @@ impl MessageSchema {
                 break; // Stop on first read failure
             }
         }
-        
+
         msg
     }
 }
@@ -902,9 +990,7 @@ pub static MOVE_PLAYER_SCHEMA: MessageSchema = MessageSchema::new(
 /// Schema for MSG_CHAT (17) - Client → Server
 pub static CHAT_SCHEMA: MessageSchema = MessageSchema::new(
     MessageType::Chat,
-    &[
-        FieldDef::new("message", FieldType::String),
-    ],
+    &[FieldDef::new("message", FieldType::String)],
 );
 
 /// Schema for MSG_WARP (14) - Client → Server
@@ -920,49 +1006,37 @@ pub static WARP_SCHEMA: MessageSchema = MessageSchema::new(
 /// Schema for MSG_EMOTE (23) - Client → Server
 pub static EMOTE_SCHEMA: MessageSchema = MessageSchema::new(
     MessageType::Emote,
-    &[
-        FieldDef::new("emote_id", FieldType::U8),
-    ],
+    &[FieldDef::new("emote_id", FieldType::U8)],
 );
 
 /// Schema for MSG_ACTION (12) - Client → Server
 pub static ACTION_SCHEMA: MessageSchema = MessageSchema::new(
     MessageType::Action,
-    &[
-        FieldDef::new("action_id", FieldType::U8),
-    ],
+    &[FieldDef::new("action_id", FieldType::U8)],
 );
 
 /// Schema for MSG_CHANGE_OUTFIT (13) - Client → Server
 pub static CHANGE_OUTFIT_SCHEMA: MessageSchema = MessageSchema::new(
     MessageType::ChangeOutfit,
-    &[
-        FieldDef::new("slot", FieldType::U8),
-    ],
+    &[FieldDef::new("slot", FieldType::U8)],
 );
 
 /// Schema for MSG_CHANGE_ACCESSORY1 (25) - Client → Server
 pub static CHANGE_ACCESSORY1_SCHEMA: MessageSchema = MessageSchema::new(
     MessageType::ChangeAccessory1,
-    &[
-        FieldDef::new("slot", FieldType::U8),
-    ],
+    &[FieldDef::new("slot", FieldType::U8)],
 );
 
 /// Schema for MSG_CHANGE_ACCESSORY2 (26) - Client → Server
 pub static CHANGE_ACCESSORY2_SCHEMA: MessageSchema = MessageSchema::new(
     MessageType::ChangeAccessory2,
-    &[
-        FieldDef::new("slot", FieldType::U8),
-    ],
+    &[FieldDef::new("slot", FieldType::U8)],
 );
 
 /// Schema for MSG_POINT (18) - Client → Server
 pub static POINT_SCHEMA: MessageSchema = MessageSchema::new(
     MessageType::Point,
-    &[
-        FieldDef::new("point_index", FieldType::U8),
-    ],
+    &[FieldDef::new("point_index", FieldType::U8)],
 );
 
 /// Schema for MSG_NEW_PLAYER response (1) - Client → Server
@@ -1009,11 +1083,16 @@ pub fn get_schema(msg_type: MessageType) -> Option<&'static MessageSchema> {
 /// Parse a message with its schema (if available), returning a formatted description
 pub fn describe_message(msg_type_id: u16, payload: &[u8]) -> String {
     let msg_type = MessageType::from_id(msg_type_id);
-    
+
     if let Some(schema) = get_schema(msg_type) {
         let parsed = schema.parse(payload);
         format!("{}", parsed)
     } else {
-        format!("[{}] {} (payload: {} bytes)", msg_type.category(), msg_type, payload.len())
+        format!(
+            "[{}] {} (payload: {} bytes)",
+            msg_type.category(),
+            msg_type,
+            payload.len()
+        )
     }
 }

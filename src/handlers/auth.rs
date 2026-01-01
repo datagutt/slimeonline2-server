@@ -16,7 +16,7 @@ use crate::protocol::{
 };
 use crate::Server;
 
-use super::{shop, collectibles};
+use super::{collectibles, shop};
 
 /// Handle login request
 pub async fn handle_login(
@@ -314,7 +314,9 @@ pub async fn handle_login(
     }
 
     // Send collectible info for the spawn room (if any collectibles exist)
-    if let Some(collectible_msg) = collectibles::write_collectible_info(server, character.room_id as u16).await {
+    if let Some(collectible_msg) =
+        collectibles::write_collectible_info(server, character.room_id as u16).await
+    {
         responses.push(collectible_msg);
     }
 

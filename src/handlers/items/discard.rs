@@ -105,7 +105,8 @@ pub async fn handle_discard_item(
         drop_y,
         Some(character_id),
         Some(180), // 3 minutes expiration
-    ).await?;
+    )
+    .await?;
 
     // Use DB id as instance_id (cast to u16, will wrap for very large values but that's fine)
     let instance_id = db_id as u16;
@@ -135,10 +136,10 @@ pub async fn handle_discard_item(
 
 /// Build messages for all dropped items in a room.
 /// Called when a player enters a room to show them existing dropped items.
-/// 
+///
 /// From original server (room_check_discarded_item.gml):
 /// For each obj_discarded_item in the room, send MSG_DISCARD_ITEM with x, y, item_id, _id
-/// 
+///
 /// Items are loaded from the database for persistence across server restarts.
 /// The instance_id sent to client is the DB row id (cast to u16).
 pub async fn write_room_dropped_items(server: &Arc<Server>, room_id: u16) -> Vec<Vec<u8>> {
@@ -150,19 +151,20 @@ pub async fn write_room_dropped_items(server: &Arc<Server>, room_id: u16) -> Vec
             return Vec::new();
         }
     };
-    
+
     let mut messages = Vec::new();
     for item in dropped_items {
         let mut writer = MessageWriter::new();
         // Use DB id as instance_id (cast to u16)
         let instance_id = item.id as u16;
-        writer.write_u16(MessageType::DiscardItem.id())
+        writer
+            .write_u16(MessageType::DiscardItem.id())
             .write_u16(item.x as u16)
             .write_u16(item.y as u16)
             .write_u16(item.item_id as u16)
             .write_u16(instance_id);
         messages.push(writer.into_bytes());
     }
-    
+
     messages
 }

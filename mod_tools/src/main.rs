@@ -18,7 +18,12 @@ use client::AdminClient;
 #[command(about = "CLI moderation tools for Slime Online 2 server", long_about = None)]
 struct Cli {
     /// Server URL (e.g., http://localhost:8080)
-    #[arg(short, long, env = "SO2_ADMIN_URL", default_value = "http://localhost:8080")]
+    #[arg(
+        short,
+        long,
+        env = "SO2_ADMIN_URL",
+        default_value = "http://localhost:8080"
+    )]
     server: String,
 
     /// API key for authentication
@@ -276,7 +281,10 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let api_key = cli.api_key.unwrap_or_else(|| {
-        eprintln!("{}", "Warning: No API key provided. Use --api-key or SO2_ADMIN_KEY env var.".yellow());
+        eprintln!(
+            "{}",
+            "Warning: No API key provided. Use --api-key or SO2_ADMIN_KEY env var.".yellow()
+        );
         String::new()
     });
 
@@ -291,17 +299,28 @@ async fn main() -> Result<()> {
                     println!("{}", serde_json::to_string_pretty(&stats)?);
                 } else {
                     println!("{}", "Server Statistics".bold().underline());
-                    println!("  Online Players:    {}", stats.online_players.to_string().green());
+                    println!(
+                        "  Online Players:    {}",
+                        stats.online_players.to_string().green()
+                    );
                     println!("  Total Connections: {}", stats.total_connections);
                     println!("  Active Rooms:      {}", stats.rooms_active);
                 }
             }
         },
-        Some(Commands::Player { action }) => handle_player_command(&client, action, json_output).await?,
+        Some(Commands::Player { action }) => {
+            handle_player_command(&client, action, json_output).await?
+        }
         Some(Commands::Ban { action }) => handle_ban_command(&client, action, json_output).await?,
-        Some(Commands::Mail { action }) => handle_mail_command(&client, action, json_output).await?,
-        Some(Commands::Clan { action }) => handle_clan_command(&client, action, json_output).await?,
-        Some(Commands::Account { action }) => handle_account_command(&client, action, json_output).await?,
+        Some(Commands::Mail { action }) => {
+            handle_mail_command(&client, action, json_output).await?
+        }
+        Some(Commands::Clan { action }) => {
+            handle_clan_command(&client, action, json_output).await?
+        }
+        Some(Commands::Account { action }) => {
+            handle_account_command(&client, action, json_output).await?
+        }
         Some(Commands::Interactive) => {
             run_interactive_mode(&client).await?;
         }
@@ -313,7 +332,11 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn handle_player_command(client: &AdminClient, action: PlayerCommands, json: bool) -> Result<()> {
+async fn handle_player_command(
+    client: &AdminClient,
+    action: PlayerCommands,
+    json: bool,
+) -> Result<()> {
     match action {
         PlayerCommands::List => {
             let players = client.list_players().await?;
@@ -324,9 +347,20 @@ async fn handle_player_command(client: &AdminClient, action: PlayerCommands, jso
             } else {
                 println!("{} player(s) online:\n", players.len().to_string().green());
                 for p in players {
-                    let mod_badge = if p.is_moderator { " [MOD]".blue().to_string() } else { String::new() };
-                    println!("  {} - Room {} ({}, {}) - {} pts{}", 
-                        p.username.bold(), p.room_id, p.x, p.y, p.points, mod_badge);
+                    let mod_badge = if p.is_moderator {
+                        " [MOD]".blue().to_string()
+                    } else {
+                        String::new()
+                    };
+                    println!(
+                        "  {} - Room {} ({}, {}) - {} pts{}",
+                        p.username.bold(),
+                        p.room_id,
+                        p.x,
+                        p.y,
+                        p.points,
+                        mod_badge
+                    );
                 }
             }
         }
@@ -335,15 +369,37 @@ async fn handle_player_command(client: &AdminClient, action: PlayerCommands, jso
             if json {
                 println!("{}", serde_json::to_string_pretty(&info)?);
             } else {
-                println!("{}", format!("Player: {}", info.username).bold().underline());
+                println!(
+                    "{}",
+                    format!("Player: {}", info.username).bold().underline()
+                );
                 println!("  Account ID:    {}", info.account_id);
                 println!("  Character ID:  {}", info.character_id);
-                println!("  Online:        {}", if info.is_online { "Yes".green() } else { "No".red() });
+                println!(
+                    "  Online:        {}",
+                    if info.is_online {
+                        "Yes".green()
+                    } else {
+                        "No".red()
+                    }
+                );
                 println!("  Moderator:     {}", info.is_moderator);
-                println!("  Banned:        {}", if info.is_banned { "Yes".red() } else { "No".green() });
-                println!("  Position:      Room {} ({}, {})", info.room_id, info.x, info.y);
+                println!(
+                    "  Banned:        {}",
+                    if info.is_banned {
+                        "Yes".red()
+                    } else {
+                        "No".green()
+                    }
+                );
+                println!(
+                    "  Position:      Room {} ({}, {})",
+                    info.room_id, info.x, info.y
+                );
                 if info.is_online {
-                    if let (Some(r), Some(x), Some(y)) = (info.current_room, info.current_x, info.current_y) {
+                    if let (Some(r), Some(x), Some(y)) =
+                        (info.current_room, info.current_x, info.current_y)
+                    {
                         println!("  Current:       Room {} ({}, {})", r, x, y);
                     }
                 }
@@ -359,57 +415,121 @@ async fn handle_player_command(client: &AdminClient, action: PlayerCommands, jso
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else if result.kicked {
-                println!("{} Player {} has been kicked.", "Success!".green(), username.bold());
+                println!(
+                    "{} Player {} has been kicked.",
+                    "Success!".green(),
+                    username.bold()
+                );
             } else {
                 println!("{} Player {} is not online.", "Note:".yellow(), username);
             }
         }
-        PlayerCommands::Ban { username, ban_type, reason, duration, no_kick } => {
-            let result = client.ban_player(&username, &ban_type, &reason, duration, !no_kick).await?;
+        PlayerCommands::Ban {
+            username,
+            ban_type,
+            reason,
+            duration,
+            no_kick,
+        } => {
+            let result = client
+                .ban_player(&username, &ban_type, &reason, duration, !no_kick)
+                .await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
-                println!("{} Player {} has been banned (ID: {}).", "Success!".green(), username.bold(), result.ban_id);
+                println!(
+                    "{} Player {} has been banned (ID: {}).",
+                    "Success!".green(),
+                    username.bold(),
+                    result.ban_id
+                );
                 if result.kicked {
                     println!("  Player was also kicked from the server.");
                 }
             }
         }
-        PlayerCommands::Teleport { username, room, x, y } => {
+        PlayerCommands::Teleport {
+            username,
+            room,
+            x,
+            y,
+        } => {
             let result = client.teleport_player(&username, room, x, y).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else if result.teleported {
-                let status = if result.was_online { "(online)" } else { "(offline - saved for next login)" };
-                println!("{} Teleported {} to Room {} ({}, {}) {}", 
-                    "Success!".green(), username.bold(), room, x, y, status);
+                let status = if result.was_online {
+                    "(online)"
+                } else {
+                    "(offline - saved for next login)"
+                };
+                println!(
+                    "{} Teleported {} to Room {} ({}, {}) {}",
+                    "Success!".green(),
+                    username.bold(),
+                    room,
+                    x,
+                    y,
+                    status
+                );
             }
         }
-        PlayerCommands::Points { username, amount, mode } => {
+        PlayerCommands::Points {
+            username,
+            amount,
+            mode,
+        } => {
             let result = client.set_points(&username, amount, &mode).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
-                println!("{} Points {} queued for {}: {} {} points", 
-                    "Success!".green(), mode, username.bold(), 
-                    if mode == "subtract" { "-" } else { "+" }, amount.abs());
+                println!(
+                    "{} Points {} queued for {}: {} {} points",
+                    "Success!".green(),
+                    mode,
+                    username.bold(),
+                    if mode == "subtract" { "-" } else { "+" },
+                    amount.abs()
+                );
             }
         }
-        PlayerCommands::Bank { username, amount, mode } => {
+        PlayerCommands::Bank {
+            username,
+            amount,
+            mode,
+        } => {
             let result = client.set_bank(&username, amount, &mode).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
-                println!("{} Bank {} queued for {}", "Success!".green(), mode, username.bold());
+                println!(
+                    "{} Bank {} queued for {}",
+                    "Success!".green(),
+                    mode,
+                    username.bold()
+                );
             }
         }
-        PlayerCommands::GiveItem { username, category, slot, item } => {
-            let result = client.set_inventory(&username, &category, slot, item).await?;
+        PlayerCommands::GiveItem {
+            username,
+            category,
+            slot,
+            item,
+        } => {
+            let result = client
+                .set_inventory(&username, &category, slot, item)
+                .await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
-                println!("{} Item {} added to {} slot {} for {}", 
-                    "Success!".green(), item, category, slot, username.bold());
+                println!(
+                    "{} Item {} added to {} slot {} for {}",
+                    "Success!".green(),
+                    item,
+                    category,
+                    slot,
+                    username.bold()
+                );
                 println!("  Note: Player may need to relog to see the item.");
             }
         }
@@ -418,8 +538,17 @@ async fn handle_player_command(client: &AdminClient, action: PlayerCommands, jso
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
-                let status = if enable { "granted".green() } else { "revoked".red() };
-                println!("{} Moderator status {} for {}", "Success!".green(), status, username.bold());
+                let status = if enable {
+                    "granted".green()
+                } else {
+                    "revoked".red()
+                };
+                println!(
+                    "{} Moderator status {} for {}",
+                    "Success!".green(),
+                    status,
+                    username.bold()
+                );
             }
         }
     }
@@ -428,8 +557,13 @@ async fn handle_player_command(client: &AdminClient, action: PlayerCommands, jso
 
 async fn handle_ban_command(client: &AdminClient, action: BanCommands, json: bool) -> Result<()> {
     match action {
-        BanCommands::List { ban_type, include_expired } => {
-            let bans = client.list_bans(ban_type.as_deref(), include_expired).await?;
+        BanCommands::List {
+            ban_type,
+            include_expired,
+        } => {
+            let bans = client
+                .list_bans(ban_type.as_deref(), include_expired)
+                .await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&bans)?);
             } else if bans.is_empty() {
@@ -437,15 +571,33 @@ async fn handle_ban_command(client: &AdminClient, action: BanCommands, json: boo
             } else {
                 println!("{} ban(s):\n", bans.len());
                 for b in bans {
-                    let expired = if b.is_expired { " [EXPIRED]".red().to_string() } else { String::new() };
+                    let expired = if b.is_expired {
+                        " [EXPIRED]".red().to_string()
+                    } else {
+                        String::new()
+                    };
                     let duration = b.expires_at.as_deref().unwrap_or("permanent");
-                    println!("  [{}] {} {} - {} (until: {}){}", 
-                        b.id, b.ban_type.bold(), b.value, b.reason, duration, expired);
+                    println!(
+                        "  [{}] {} {} - {} (until: {}){}",
+                        b.id,
+                        b.ban_type.bold(),
+                        b.value,
+                        b.reason,
+                        duration,
+                        expired
+                    );
                 }
             }
         }
-        BanCommands::Create { ban_type, value, reason, duration } => {
-            let result = client.create_ban(&ban_type, &value, &reason, duration).await?;
+        BanCommands::Create {
+            ban_type,
+            value,
+            reason,
+            duration,
+        } => {
+            let result = client
+                .create_ban(&ban_type, &value, &reason, duration)
+                .await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
@@ -468,8 +620,17 @@ async fn handle_ban_command(client: &AdminClient, action: BanCommands, json: boo
 
 async fn handle_mail_command(client: &AdminClient, action: MailCommands, json: bool) -> Result<()> {
     match action {
-        MailCommands::Send { to, message, sender, points, item, category } => {
-            let result = client.send_mail(&to, &message, &sender, points, item, category).await?;
+        MailCommands::Send {
+            to,
+            message,
+            sender,
+            points,
+            item,
+            category,
+        } => {
+            let result = client
+                .send_mail(&to, &message, &sender, points, item, category)
+                .await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
@@ -481,9 +642,12 @@ async fn handle_mail_command(client: &AdminClient, action: MailCommands, json: b
             if json {
                 println!("{}", serde_json::to_string_pretty(&mailbox)?);
             } else {
-                println!("{} - {} total, {} unread\n", 
+                println!(
+                    "{} - {} total, {} unread\n",
                     format!("Mailbox for {}", username).bold().underline(),
-                    mailbox.total, mailbox.unread);
+                    mailbox.total,
+                    mailbox.unread
+                );
                 if mailbox.mail.is_empty() {
                     println!("{}", "  No mail on this page.".yellow());
                 } else {
@@ -514,8 +678,13 @@ async fn handle_clan_command(client: &AdminClient, action: ClanCommands, json: b
             } else {
                 println!("{} clan(s):\n", clans.len());
                 for c in clans {
-                    println!("  {} - {}/{} members, {} pts", 
-                        c.name.bold(), c.member_count, c.max_members, c.points);
+                    println!(
+                        "  {} - {}/{} members, {} pts",
+                        c.name.bold(),
+                        c.member_count,
+                        c.max_members,
+                        c.points
+                    );
                 }
             }
         }
@@ -536,7 +705,11 @@ async fn handle_clan_command(client: &AdminClient, action: ClanCommands, json: b
                 println!("  Created:     {}", clan.created_at);
                 println!("\n  Members:");
                 for m in &clan.members {
-                    let leader = if m.is_leader { " [LEADER]".yellow().to_string() } else { String::new() };
+                    let leader = if m.is_leader {
+                        " [LEADER]".yellow().to_string()
+                    } else {
+                        String::new()
+                    };
                     println!("    - {}{}", m.username, leader);
                 }
             }
@@ -546,8 +719,12 @@ async fn handle_clan_command(client: &AdminClient, action: ClanCommands, json: b
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
-                println!("{} Clan {} dissolved. {} members removed.", 
-                    "Success!".green(), name.bold(), result.members_removed);
+                println!(
+                    "{} Clan {} dissolved. {} members removed.",
+                    "Success!".green(),
+                    name.bold(),
+                    result.members_removed
+                );
             }
         }
         ClanCommands::Points { name, amount } => {
@@ -555,15 +732,24 @@ async fn handle_clan_command(client: &AdminClient, action: ClanCommands, json: b
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
-                println!("{} Added {} points to clan {}. New total: {}", 
-                    "Success!".green(), amount, name.bold(), result.new_total);
+                println!(
+                    "{} Added {} points to clan {}. New total: {}",
+                    "Success!".green(),
+                    amount,
+                    name.bold(),
+                    result.new_total
+                );
             }
         }
     }
     Ok(())
 }
 
-async fn handle_account_command(client: &AdminClient, action: AccountCommands, json: bool) -> Result<()> {
+async fn handle_account_command(
+    client: &AdminClient,
+    action: AccountCommands,
+    json: bool,
+) -> Result<()> {
     match action {
         AccountCommands::List { search, limit } => {
             let accounts = client.list_accounts(search.as_deref(), limit).await?;
@@ -574,8 +760,17 @@ async fn handle_account_command(client: &AdminClient, action: AccountCommands, j
             } else {
                 println!("{} account(s):\n", accounts.len());
                 for a in accounts {
-                    let banned = if a.is_banned { " [BANNED]".red().to_string() } else { String::new() };
-                    println!("  {} - created {}{}", a.username.bold(), a.created_at, banned);
+                    let banned = if a.is_banned {
+                        " [BANNED]".red().to_string()
+                    } else {
+                        String::new()
+                    };
+                    println!(
+                        "  {} - created {}{}",
+                        a.username.bold(),
+                        a.created_at,
+                        banned
+                    );
                 }
             }
         }
@@ -584,15 +779,32 @@ async fn handle_account_command(client: &AdminClient, action: AccountCommands, j
             if json {
                 println!("{}", serde_json::to_string_pretty(&account)?);
             } else {
-                println!("{}", format!("Account: {}", account.username).bold().underline());
+                println!(
+                    "{}",
+                    format!("Account: {}", account.username).bold().underline()
+                );
                 println!("  ID:           {}", account.id);
                 println!("  MAC:          {}", account.mac_address);
-                println!("  Banned:       {}", if account.is_banned { "Yes".red() } else { "No".green() });
+                println!(
+                    "  Banned:       {}",
+                    if account.is_banned {
+                        "Yes".red()
+                    } else {
+                        "No".green()
+                    }
+                );
                 if let Some(reason) = &account.ban_reason {
                     println!("  Ban Reason:   {}", reason);
                 }
                 println!("  Has Character:{}", account.has_character);
-                println!("  Online:       {}", if account.is_online { "Yes".green() } else { "No".normal() });
+                println!(
+                    "  Online:       {}",
+                    if account.is_online {
+                        "Yes".green()
+                    } else {
+                        "No".normal()
+                    }
+                );
                 println!("  Created:      {}", account.created_at);
                 println!("  Last Login:   {:?}", account.last_login);
             }
@@ -629,50 +841,50 @@ async fn run_interactive_mode(client: &AdminClient) -> Result<()> {
                     ["help"] | ["?"] => {
                         print_interactive_help();
                     }
-                    ["stats"] => {
-                        match client.get_stats().await {
-                            Ok(stats) => {
-                                println!("Online: {}, Connections: {}, Rooms: {}", 
-                                    stats.online_players, stats.total_connections, stats.rooms_active);
-                            }
-                            Err(e) => println!("{} {}", "Error:".red(), e),
+                    ["stats"] => match client.get_stats().await {
+                        Ok(stats) => {
+                            println!(
+                                "Online: {}, Connections: {}, Rooms: {}",
+                                stats.online_players, stats.total_connections, stats.rooms_active
+                            );
                         }
-                    }
-                    ["players"] => {
-                        match client.list_players().await {
-                            Ok(players) => {
-                                if players.is_empty() {
-                                    println!("No players online.");
-                                } else {
-                                    for p in players {
-                                        println!("  {} - Room {} - {} pts", p.username, p.room_id, p.points);
-                                    }
+                        Err(e) => println!("{} {}", "Error:".red(), e),
+                    },
+                    ["players"] => match client.list_players().await {
+                        Ok(players) => {
+                            if players.is_empty() {
+                                println!("No players online.");
+                            } else {
+                                for p in players {
+                                    println!(
+                                        "  {} - Room {} - {} pts",
+                                        p.username, p.room_id, p.points
+                                    );
                                 }
                             }
-                            Err(e) => println!("{} {}", "Error:".red(), e),
                         }
-                    }
-                    ["player", username] => {
-                        match client.get_player_info(username).await {
-                            Ok(info) => {
-                                let online = if info.is_online { "online" } else { "offline" };
-                                println!("{} ({}) - {} pts, bank {}", info.username, online, info.points, info.bank_balance);
+                        Err(e) => println!("{} {}", "Error:".red(), e),
+                    },
+                    ["player", username] => match client.get_player_info(username).await {
+                        Ok(info) => {
+                            let online = if info.is_online { "online" } else { "offline" };
+                            println!(
+                                "{} ({}) - {} pts, bank {}",
+                                info.username, online, info.points, info.bank_balance
+                            );
+                        }
+                        Err(e) => println!("{} {}", "Error:".red(), e),
+                    },
+                    ["kick", username] => match client.kick_player(username, None).await {
+                        Ok(r) => {
+                            if r.kicked {
+                                println!("Kicked {}", username);
+                            } else {
+                                println!("{} is not online", username);
                             }
-                            Err(e) => println!("{} {}", "Error:".red(), e),
                         }
-                    }
-                    ["kick", username] => {
-                        match client.kick_player(username, None).await {
-                            Ok(r) => {
-                                if r.kicked {
-                                    println!("Kicked {}", username);
-                                } else {
-                                    println!("{} is not online", username);
-                                }
-                            }
-                            Err(e) => println!("{} {}", "Error:".red(), e),
-                        }
-                    }
+                        Err(e) => println!("{} {}", "Error:".red(), e),
+                    },
                     ["give", username, amount] => {
                         if let Ok(pts) = amount.parse::<i64>() {
                             match client.set_points(username, pts, "add").await {
@@ -686,7 +898,9 @@ async fn run_interactive_mode(client: &AdminClient) -> Result<()> {
                     ["tp", username, room] => {
                         if let Ok(r) = room.parse::<u16>() {
                             match client.teleport_player(username, r, 100, 100).await {
-                                Ok(_) => println!("Teleported {} to room {} (100, 100)", username, r),
+                                Ok(_) => {
+                                    println!("Teleported {} to room {} (100, 100)", username, r)
+                                }
                                 Err(e) => println!("{} {}", "Error:".red(), e),
                             }
                         } else {
@@ -697,31 +911,35 @@ async fn run_interactive_mode(client: &AdminClient) -> Result<()> {
                         let room_parsed = room.parse::<u16>();
                         let x_parsed = x.parse::<u16>();
                         let y_parsed = y.parse::<u16>();
-                        
+
                         match (room_parsed, x_parsed, y_parsed) {
                             (Ok(r), Ok(px), Ok(py)) => {
                                 match client.teleport_player(username, r, px, py).await {
-                                    Ok(_) => println!("Teleported {} to room {} ({}, {})", username, r, px, py),
+                                    Ok(_) => println!(
+                                        "Teleported {} to room {} ({}, {})",
+                                        username, r, px, py
+                                    ),
                                     Err(e) => println!("{} {}", "Error:".red(), e),
                                 }
                             }
                             _ => println!("Invalid arguments. Usage: tp <name> <room> <x> <y>"),
                         }
                     }
-                    ["bans"] => {
-                        match client.list_bans(None, false).await {
-                            Ok(bans) => {
-                                if bans.is_empty() {
-                                    println!("No active bans.");
-                                } else {
-                                    for b in bans {
-                                        println!("  [{}] {} {} - {}", b.id, b.ban_type, b.value, b.reason);
-                                    }
+                    ["bans"] => match client.list_bans(None, false).await {
+                        Ok(bans) => {
+                            if bans.is_empty() {
+                                println!("No active bans.");
+                            } else {
+                                for b in bans {
+                                    println!(
+                                        "  [{}] {} {} - {}",
+                                        b.id, b.ban_type, b.value, b.reason
+                                    );
                                 }
                             }
-                            Err(e) => println!("{} {}", "Error:".red(), e),
                         }
-                    }
+                        Err(e) => println!("{} {}", "Error:".red(), e),
+                    },
                     ["unban", id] => {
                         if let Ok(ban_id) = id.parse::<i64>() {
                             match client.delete_ban(ban_id).await {
@@ -738,20 +956,21 @@ async fn run_interactive_mode(client: &AdminClient) -> Result<()> {
                             println!("Invalid ban ID");
                         }
                     }
-                    ["clans"] => {
-                        match client.list_clans().await {
-                            Ok(clans) => {
-                                if clans.is_empty() {
-                                    println!("No clans.");
-                                } else {
-                                    for c in clans {
-                                        println!("  {} - {}/{} members", c.name, c.member_count, c.max_members);
-                                    }
+                    ["clans"] => match client.list_clans().await {
+                        Ok(clans) => {
+                            if clans.is_empty() {
+                                println!("No clans.");
+                            } else {
+                                for c in clans {
+                                    println!(
+                                        "  {} - {}/{} members",
+                                        c.name, c.member_count, c.max_members
+                                    );
                                 }
                             }
-                            Err(e) => println!("{} {}", "Error:".red(), e),
                         }
-                    }
+                        Err(e) => println!("{} {}", "Error:".red(), e),
+                    },
                     _ => {
                         println!("Unknown command. Type 'help' for available commands.");
                     }

@@ -53,19 +53,34 @@ pub async fn list_bans(
             "SELECT id, ban_type, value, reason, banned_by, banned_at, expires_at FROM bans WHERE ban_type = ? AND (expires_at IS NULL OR expires_at > datetime('now')) ORDER BY banned_at DESC"
         };
 
-        sqlx::query_as::<_, (i64, String, String, String, Option<String>, String, Option<String>)>(query_str)
-            .bind(ban_type)
-            .fetch_all(&state.db)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-                )
-            })?
-            .into_iter()
-            .map(|(id, ban_type, value, reason, banned_by, banned_at, expires_at)| {
-                let is_expired = expires_at.as_ref().map(|e| e < &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()).unwrap_or(false);
+        sqlx::query_as::<
+            _,
+            (
+                i64,
+                String,
+                String,
+                String,
+                Option<String>,
+                String,
+                Option<String>,
+            ),
+        >(query_str)
+        .bind(ban_type)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
+            )
+        })?
+        .into_iter()
+        .map(
+            |(id, ban_type, value, reason, banned_by, banned_at, expires_at)| {
+                let is_expired = expires_at
+                    .as_ref()
+                    .map(|e| e < &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string())
+                    .unwrap_or(false);
                 BanRecord {
                     id,
                     ban_type,
@@ -76,8 +91,9 @@ pub async fn list_bans(
                     expires_at,
                     is_expired,
                 }
-            })
-            .collect()
+            },
+        )
+        .collect()
     } else {
         let query_str = if include_expired {
             "SELECT id, ban_type, value, reason, banned_by, banned_at, expires_at FROM bans ORDER BY banned_at DESC"
@@ -85,18 +101,33 @@ pub async fn list_bans(
             "SELECT id, ban_type, value, reason, banned_by, banned_at, expires_at FROM bans WHERE expires_at IS NULL OR expires_at > datetime('now') ORDER BY banned_at DESC"
         };
 
-        sqlx::query_as::<_, (i64, String, String, String, Option<String>, String, Option<String>)>(query_str)
-            .fetch_all(&state.db)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-                )
-            })?
-            .into_iter()
-            .map(|(id, ban_type, value, reason, banned_by, banned_at, expires_at)| {
-                let is_expired = expires_at.as_ref().map(|e| e < &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()).unwrap_or(false);
+        sqlx::query_as::<
+            _,
+            (
+                i64,
+                String,
+                String,
+                String,
+                Option<String>,
+                String,
+                Option<String>,
+            ),
+        >(query_str)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
+            )
+        })?
+        .into_iter()
+        .map(
+            |(id, ban_type, value, reason, banned_by, banned_at, expires_at)| {
+                let is_expired = expires_at
+                    .as_ref()
+                    .map(|e| e < &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string())
+                    .unwrap_or(false);
                 BanRecord {
                     id,
                     ban_type,
@@ -107,8 +138,9 @@ pub async fn list_bans(
                     expires_at,
                     is_expired,
                 }
-            })
-            .collect()
+            },
+        )
+        .collect()
     };
 
     Ok(Json(ApiResponse::success(bans)))
@@ -116,8 +148,8 @@ pub async fn list_bans(
 
 #[derive(Deserialize)]
 pub struct CreateBanRequest {
-    pub ban_type: String,        // "ip", "mac", "account"
-    pub value: String,           // The IP, MAC, or username to ban
+    pub ban_type: String, // "ip", "mac", "account"
+    pub value: String,    // The IP, MAC, or username to ban
     pub reason: String,
     pub duration_hours: Option<u32>, // None = permanent
 }
@@ -138,7 +170,9 @@ pub async fn create_ban(
     if !["ip", "mac", "account"].contains(&req.ban_type.as_str()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::error("Invalid ban_type. Must be 'ip', 'mac', or 'account'")),
+            Json(ApiResponse::<()>::error(
+                "Invalid ban_type. Must be 'ip', 'mac', or 'account'",
+            )),
         ));
     }
 
@@ -182,7 +216,10 @@ pub async fn create_ban(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::error(format!("Failed to create ban: {}", e))),
+            Json(ApiResponse::<()>::error(format!(
+                "Failed to create ban: {}",
+                e
+            ))),
         )
     })?;
 
@@ -214,18 +251,17 @@ pub async fn delete_ban(
     verify_api_key(&headers, &state.api_key)?;
 
     // Get ban info first (to update account if needed)
-    let ban_info: Option<(String, String)> = sqlx::query_as(
-        "SELECT ban_type, value FROM bans WHERE id = ?"
-    )
-    .bind(id)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-        )
-    })?;
+    let ban_info: Option<(String, String)> =
+        sqlx::query_as("SELECT ban_type, value FROM bans WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
+                )
+            })?;
 
     let result = sqlx::query("DELETE FROM bans WHERE id = ?")
         .bind(id)
@@ -234,17 +270,22 @@ pub async fn delete_ban(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::<()>::error(format!("Failed to delete ban: {}", e))),
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to delete ban: {}",
+                    e
+                ))),
             )
         })?;
 
     // If it was an account ban, also clear the account's is_banned flag
     if let Some((ban_type, value)) = ban_info {
         if ban_type == "account" {
-            let _ = sqlx::query("UPDATE accounts SET is_banned = 0, ban_reason = NULL WHERE username = ?")
-                .bind(value.to_lowercase())
-                .execute(&state.db)
-                .await;
+            let _ = sqlx::query(
+                "UPDATE accounts SET is_banned = 0, ban_reason = NULL WHERE username = ?",
+            )
+            .bind(value.to_lowercase())
+            .execute(&state.db)
+            .await;
         }
     }
 

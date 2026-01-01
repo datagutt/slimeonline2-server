@@ -124,19 +124,43 @@ impl Default for AdminConfig {
     }
 }
 
-fn default_admin_port() -> u16 { 8080 }
-fn default_admin_host() -> String { "127.0.0.1".to_string() }
+fn default_admin_port() -> u16 {
+    8080
+}
+fn default_admin_host() -> String {
+    "127.0.0.1".to_string()
+}
 
-fn default_port() -> u16 { 5555 }
-fn default_database_path() -> String { "slime_online2.db".to_string() }
-fn default_max_connections() -> usize { 500 }
-fn default_version() -> String { "0.106".to_string() }
-fn default_motd() -> String { "Welcome to Slime Online 2 Private Server!".to_string() }
-fn default_host() -> String { "0.0.0.0".to_string() }
-fn default_log_level() -> String { "info".to_string() }
-fn default_max_message_size() -> usize { 8192 }
-fn default_connection_timeout() -> u64 { 300 }
-fn default_ping_interval() -> u64 { 30 }
+fn default_port() -> u16 {
+    5555
+}
+fn default_database_path() -> String {
+    "slime_online2.db".to_string()
+}
+fn default_max_connections() -> usize {
+    500
+}
+fn default_version() -> String {
+    "0.106".to_string()
+}
+fn default_motd() -> String {
+    "Welcome to Slime Online 2 Private Server!".to_string()
+}
+fn default_host() -> String {
+    "0.0.0.0".to_string()
+}
+fn default_log_level() -> String {
+    "info".to_string()
+}
+fn default_max_message_size() -> usize {
+    8192
+}
+fn default_connection_timeout() -> u64 {
+    300
+}
+fn default_ping_interval() -> u64 {
+    30
+}
 
 // =============================================================================
 // game.toml
@@ -248,19 +272,29 @@ pub struct ToolPriceEntry {
 impl From<PriceConfigRaw> for PriceConfig {
     fn from(raw: PriceConfigRaw) -> Self {
         Self {
-            items: raw.items.into_iter()
+            items: raw
+                .items
+                .into_iter()
                 .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
                 .collect(),
-            outfits: raw.outfits.into_iter()
+            outfits: raw
+                .outfits
+                .into_iter()
                 .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
                 .collect(),
-            accessories: raw.accessories.into_iter()
+            accessories: raw
+                .accessories
+                .into_iter()
                 .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
                 .collect(),
-            tools: raw.tools.into_iter()
+            tools: raw
+                .tools
+                .into_iter()
                 .filter_map(|(k, v)| k.parse::<u8>().ok().map(|id| (id, v)))
                 .collect(),
-            mail_paper: raw.mail_paper.into_iter()
+            mail_paper: raw
+                .mail_paper
+                .into_iter()
                 .filter_map(|(k, v)| k.parse::<u8>().ok().map(|id| (id, v)))
                 .collect(),
             discardable: raw.rules.discardable,
@@ -329,11 +363,11 @@ pub struct RoomShopConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ShopSlotConfig {
-    pub cat: u8,      // 1=outfit, 2=item, 3=accessory, 4=tool
-    pub item: u16,    // item/outfit/accessory/tool ID
-    pub stock: u16,   // 0 = unlimited
+    pub cat: u8,    // 1=outfit, 2=item, 3=accessory, 4=tool
+    pub item: u16,  // item/outfit/accessory/tool ID
+    pub stock: u16, // 0 = unlimited
     #[serde(default = "default_true")]
-    pub avail: bool,  // whether slot is visible/purchasable
+    pub avail: bool, // whether slot is visible/purchasable
 }
 
 fn default_true() -> bool {
@@ -343,7 +377,9 @@ fn default_true() -> bool {
 impl From<ShopsConfigRaw> for ShopsConfig {
     fn from(raw: ShopsConfigRaw) -> Self {
         Self {
-            rooms: raw.room.into_iter()
+            rooms: raw
+                .room
+                .into_iter()
                 .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
                 .collect(),
         }
@@ -396,11 +432,11 @@ pub struct CollectibleSpawnConfig {
     pub item: u16,
     pub x: u16,
     pub y: u16,
-    pub respawn: u32,    // base respawn time in minutes
+    pub respawn: u32, // base respawn time in minutes
     #[serde(default)]
-    pub variance: u32,   // random additional minutes (0 to variance)
+    pub variance: u32, // random additional minutes (0 to variance)
     #[serde(default)]
-    pub start_hour: Option<u8>,  // optional time restriction
+    pub start_hour: Option<u8>, // optional time restriction
     #[serde(default)]
     pub end_hour: Option<u8>,
 }
@@ -408,10 +444,14 @@ pub struct CollectibleSpawnConfig {
 impl From<CollectiblesConfigRaw> for CollectiblesConfig {
     fn from(raw: CollectiblesConfigRaw) -> Self {
         Self {
-            evolving: raw.evolving.into_iter()
+            evolving: raw
+                .evolving
+                .into_iter()
                 .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
                 .collect(),
-            rooms: raw.room.into_iter()
+            rooms: raw
+                .room
+                .into_iter()
                 .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
                 .collect(),
         }
@@ -450,9 +490,9 @@ pub struct PlantBonusesConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct SeedConfig {
     pub name: String,
-    pub stages: [u32; 6],   // minutes for each growth stage
-    pub fruits: [u16; 5],   // possible fruit item IDs
-    pub chance: u8,         // base % chance for fruit
+    pub stages: [u32; 6], // minutes for each growth stage
+    pub fruits: [u16; 5], // possible fruit item IDs
+    pub chance: u8,       // base % chance for fruit
 }
 
 impl PlantsConfig {
@@ -535,16 +575,25 @@ pub struct UnlockChainEntry {
 
 impl From<UpgraderConfigRaw> for UpgraderConfig {
     fn from(raw: UpgraderConfigRaw) -> Self {
-        let towns = raw.towns.into_iter().map(|town| {
-            let upgrades = town.upgrades.into_iter()
-                .map(|u| ((u.category.clone(), u.slot), u))
-                .collect();
-            (town.town_id, TownUpgraderConfig {
-                town_id: town.town_id,
-                warp_center_room: town.warp_center_room,
-                upgrades,
+        let towns = raw
+            .towns
+            .into_iter()
+            .map(|town| {
+                let upgrades = town
+                    .upgrades
+                    .into_iter()
+                    .map(|u| ((u.category.clone(), u.slot), u))
+                    .collect();
+                (
+                    town.town_id,
+                    TownUpgraderConfig {
+                        town_id: town.town_id,
+                        warp_center_room: town.warp_center_room,
+                        upgrades,
+                    },
+                )
             })
-        }).collect();
+            .collect();
         Self { towns }
     }
 }
@@ -556,16 +605,24 @@ impl UpgraderConfig {
     }
 
     /// Get a specific upgrade slot
-    pub fn get_upgrade(&self, town_id: u16, category: &str, slot: u8) -> Option<&UpgradeSlotConfig> {
-        self.towns.get(&town_id)
+    pub fn get_upgrade(
+        &self,
+        town_id: u16,
+        category: &str,
+        slot: u8,
+    ) -> Option<&UpgradeSlotConfig> {
+        self.towns
+            .get(&town_id)
             .and_then(|t| t.upgrades.get(&(category.to_string(), slot)))
     }
 
     /// Get all upgrades for a town and category
     pub fn get_category_upgrades(&self, town_id: u16, category: &str) -> Vec<&UpgradeSlotConfig> {
-        self.towns.get(&town_id)
+        self.towns
+            .get(&town_id)
             .map(|t| {
-                t.upgrades.iter()
+                t.upgrades
+                    .iter()
                     .filter(|((cat, _), _)| cat == category)
                     .map(|(_, u)| u)
                     .collect()
@@ -578,16 +635,19 @@ impl TownUpgraderConfig {
     /// Get upgrades for a specific page (4 per page, 1-based slots)
     pub fn get_page_upgrades(&self, category: &str, page: u8) -> Vec<Option<&UpgradeSlotConfig>> {
         let start_slot = (page * 4) + 1;
-        (0..4).map(|i| {
-            let slot = start_slot + i;
-            self.upgrades.get(&(category.to_string(), slot))
-        }).collect()
+        (0..4)
+            .map(|i| {
+                let slot = start_slot + i;
+                self.upgrades.get(&(category.to_string(), slot))
+            })
+            .collect()
     }
 
     /// Check if there are more slots after the given page
     pub fn has_more_slots(&self, category: &str, page: u8) -> bool {
         let next_slot = (page * 4) + 5;
-        self.upgrades.contains_key(&(category.to_string(), next_slot))
+        self.upgrades
+            .contains_key(&(category.to_string(), next_slot))
     }
 }
 
@@ -713,19 +773,22 @@ mod tests {
         assert!(config.is_ok(), "Failed to load config: {:?}", config.err());
 
         let config = config.unwrap();
-        
+
         // Test game config
         assert_eq!(config.game.defaults.spawn_room, 32);
         assert_eq!(config.game.defaults.spawn_x, 385);
         assert_eq!(config.game.defaults.spawn_y, 71);
-        
+
         // Test BBS categories count
         assert_eq!(config.game.bbs.categories.len(), 6);
-        
+
         // Test prices
         assert!(config.prices.get_item_price(1).is_some());
-        
+
         // Test collectibles
-        assert!(config.collectibles.get_room(100).is_some() || config.collectibles.get_room(33).is_some());
+        assert!(
+            config.collectibles.get_room(100).is_some()
+                || config.collectibles.get_room(33).is_some()
+        );
     }
 }

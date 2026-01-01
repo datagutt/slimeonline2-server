@@ -1,7 +1,7 @@
 //! Account database operations
 
-use sqlx::FromRow;
 use super::DbPool;
+use sqlx::FromRow;
 
 /// Account record from database
 #[derive(Debug, Clone, FromRow)]
@@ -57,12 +57,11 @@ pub async fn find_account_by_username(
 
 /// Check if a username already exists.
 pub async fn username_exists(pool: &DbPool, username: &str) -> Result<bool, sqlx::Error> {
-    let result = sqlx::query_scalar::<_, i64>(
-        r#"SELECT COUNT(*) FROM accounts WHERE username = ?"#,
-    )
-    .bind(username)
-    .fetch_one(pool)
-    .await?;
+    let result =
+        sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*) FROM accounts WHERE username = ?"#)
+            .bind(username)
+            .fetch_one(pool)
+            .await?;
 
     Ok(result > 0)
 }

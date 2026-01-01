@@ -8,7 +8,7 @@ use tracing::{info, warn};
 
 use crate::constants::MAX_CHAT_LENGTH;
 use crate::game::PlayerSession;
-use crate::protocol::{ChatMessage, MessageReader, MessageWriter, MessageType};
+use crate::protocol::{ChatMessage, MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
 use crate::validation::{sanitize_chat, validate_chat_message};
 use crate::Server;
@@ -25,7 +25,7 @@ pub async fn handle_chat(
     // Get session info for rate limiting
     let (player_id, room_id, session_id, username) = {
         let session_guard = session.read().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -44,10 +44,10 @@ pub async fn handle_chat(
     };
 
     // Rate limit chat messages
-    let rate_result = server.rate_limiter.check_player(
-        session_id.as_u128() as u64,
-        ActionType::Chat,
-    ).await;
+    let rate_result = server
+        .rate_limiter
+        .check_player(session_id.as_u128() as u64, ActionType::Chat)
+        .await;
 
     if !rate_result.is_allowed() {
         warn!("Chat rate limited for player {}", username);
@@ -76,13 +76,16 @@ pub async fn handle_chat(
 
     // Broadcast to all players in room (including sender)
     let room_players = server.game_state.get_room_players(room_id).await;
-    
+
     for other_player_id in room_players {
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
                 ChatMessage::write_broadcast(&mut writer, player_id, &message);
-                other_session.write().await.queue_message(writer.into_bytes());
+                other_session
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
             }
         }
     }
@@ -97,7 +100,7 @@ pub async fn handle_typing(
 ) -> Result<Vec<Vec<u8>>> {
     let (player_id, room_id) = {
         let session_guard = session.read().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -110,7 +113,7 @@ pub async fn handle_typing(
 
     // Broadcast typing indicator to other players in room
     let room_players = server.game_state.get_room_players(room_id).await;
-    
+
     for other_player_id in room_players {
         if other_player_id == player_id {
             continue;
@@ -119,8 +122,13 @@ pub async fn handle_typing(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MessageType::PlayerTyping.id()).write_u16(player_id);
-                other_session.write().await.queue_message(writer.into_bytes());
+                writer
+                    .write_u16(MessageType::PlayerTyping.id())
+                    .write_u16(player_id);
+                other_session
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
             }
         }
     }
@@ -138,7 +146,7 @@ pub async fn handle_emote(
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     use rand::Rng;
-    
+
     if payload.is_empty() {
         return Ok(vec![]);
     }
@@ -152,7 +160,7 @@ pub async fn handle_emote(
 
     let (player_id, room_id) = {
         let session_guard = session.read().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -175,7 +183,7 @@ pub async fn handle_emote(
 
     // Broadcast emote to all players in room (including sender for dice)
     let room_players = server.game_state.get_room_players(room_id).await;
-    
+
     for other_player_id in room_players {
         // For dice, we broadcast to everyone including the sender
         // so they see the server-generated result
@@ -186,8 +194,14 @@ pub async fn handle_emote(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MessageType::Emote.id()).write_u16(player_id).write_u8(emote_id);
-                other_session.write().await.queue_message(writer.into_bytes());
+                writer
+                    .write_u16(MessageType::Emote.id())
+                    .write_u16(player_id)
+                    .write_u8(emote_id);
+                other_session
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
             }
         }
     }
@@ -214,7 +228,7 @@ pub async fn handle_action(
 
     let (player_id, room_id) = {
         let session_guard = session.read().await;
-        
+
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
@@ -227,7 +241,7 @@ pub async fn handle_action(
 
     // Broadcast action to all players in room
     let room_players = server.game_state.get_room_players(room_id).await;
-    
+
     for other_player_id in room_players {
         if other_player_id == player_id {
             continue;
@@ -236,8 +250,14 @@ pub async fn handle_action(
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
-                writer.write_u16(MessageType::Action.id()).write_u16(player_id).write_u8(action_id);
-                other_session.write().await.queue_message(writer.into_bytes());
+                writer
+                    .write_u16(MessageType::Action.id())
+                    .write_u16(player_id)
+                    .write_u8(action_id);
+                other_session
+                    .write()
+                    .await
+                    .queue_message(writer.into_bytes());
             }
         }
     }

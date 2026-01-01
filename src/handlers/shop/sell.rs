@@ -52,29 +52,29 @@ pub async fn handle_sell_req_prices(
     if payload.is_empty() {
         return Ok(vec![]);
     }
-    
+
     let mut reader = MessageReader::new(payload);
     let category = reader.read_u8()?;
-    
+
     let character_id = session.read().await.character_id;
-    
+
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     // Get player's inventory
     let inventory = match crate::db::get_inventory(&server.db, char_id).await? {
         Some(inv) => inv,
         None => return Ok(vec![]),
     };
-    
+
     // Build response - only send prices for filled slots
     let mut writer = MessageWriter::new();
     writer.write_u16(MessageType::SellReqPrices.id());
-    
+
     let prices = &server.game_config.prices;
-    
+
     match category {
         1 => {
             // Outfits
@@ -121,7 +121,7 @@ pub async fn handle_sell_req_prices(
             return Ok(vec![]);
         }
     }
-    
+
     Ok(vec![writer.into_bytes()])
 }
 
@@ -135,11 +135,11 @@ pub async fn handle_sell(
     if payload.len() < 2 {
         return Ok(vec![]);
     }
-    
+
     let mut reader = MessageReader::new(payload);
     let category = reader.read_u8()?;
     let count = reader.read_u8()?;
-    
+
     // Read all slots to sell
     let mut slots_to_sell = Vec::with_capacity(count as usize);
     for _ in 0..count {
@@ -149,11 +149,11 @@ pub async fn handle_sell(
             }
         }
     }
-    
+
     if slots_to_sell.is_empty() {
         return Ok(vec![]);
     }
-    
+
     let (character_id, current_points) = {
         let session_guard = session.read().await;
         if !session_guard.is_authenticated {
@@ -161,21 +161,21 @@ pub async fn handle_sell(
         }
         (session_guard.character_id, session_guard.points)
     };
-    
+
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
-    
+
     // Get player's inventory
     let inventory = match crate::db::get_inventory(&server.db, char_id).await? {
         Some(inv) => inv,
         None => return Ok(vec![]),
     };
-    
+
     let prices = &server.game_config.prices;
     let mut total_earned: u64 = 0;
-    
+
     match category {
         1 => {
             // Sell outfits
@@ -187,7 +187,10 @@ pub async fn handle_sell(
                     if price > 0 {
                         total_earned += price as u64;
                         crate::db::update_outfit_slot(&server.db, char_id, slot, 0).await?;
-                        debug!("Sold outfit {} from slot {} for {} points", outfit_id, slot, price);
+                        debug!(
+                            "Sold outfit {} from slot {} for {} points",
+                            outfit_id, slot, price
+                        );
                     }
                 }
             }
@@ -202,7 +205,10 @@ pub async fn handle_sell(
                     if price > 0 {
                         total_earned += price as u64;
                         crate::db::update_item_slot(&server.db, char_id, slot, 0).await?;
-                        debug!("Sold item {} from slot {} for {} points", item_id, slot, price);
+                        debug!(
+                            "Sold item {} from slot {} for {} points",
+                            item_id, slot, price
+                        );
                     }
                 }
             }
@@ -217,7 +223,10 @@ pub async fn handle_sell(
                     if price > 0 {
                         total_earned += price as u64;
                         crate::db::update_accessory_slot(&server.db, char_id, slot, 0).await?;
-                        debug!("Sold accessory {} from slot {} for {} points", acs_id, slot, price);
+                        debug!(
+                            "Sold accessory {} from slot {} for {} points",
+                            acs_id, slot, price
+                        );
                     }
                 }
             }
@@ -232,7 +241,10 @@ pub async fn handle_sell(
                     if price > 0 {
                         total_earned += price as u64;
                         crate::db::update_tool_slot(&server.db, char_id, slot, 0).await?;
-                        debug!("Sold tool {} from slot {} for {} points", tool_id, slot, price);
+                        debug!(
+                            "Sold tool {} from slot {} for {} points",
+                            tool_id, slot, price
+                        );
                     }
                 }
             }
@@ -242,11 +254,11 @@ pub async fn handle_sell(
             return Ok(vec![]);
         }
     }
-    
+
     // Calculate new points - excess over MAX_POINTS goes to bank automatically
     let max_points = crate::constants::MAX_POINTS as u64;
     let potential_points = current_points as u64 + total_earned;
-    
+
     let (new_points, overflow_to_bank) = if potential_points > max_points {
         // Cap points at max, send excess to bank
         let overflow = potential_points - max_points;
@@ -254,35 +266,48 @@ pub async fn handle_sell(
     } else {
         (potential_points as u32, 0u64)
     };
-    
+
     // Get current bank balance if we have overflow
     if overflow_to_bank > 0 {
         let current_bank = crate::db::get_bank_balance(&server.db, char_id).await?;
-        let new_bank = (current_bank as u64 + overflow_to_bank).min(crate::constants::MAX_BANK_BALANCE as u64) as i64;
-        
+        let new_bank = (current_bank as u64 + overflow_to_bank)
+            .min(crate::constants::MAX_BANK_BALANCE as u64) as i64;
+
         // Update both points and bank atomically
         crate::db::update_points_and_bank(&server.db, char_id, new_points as i64, new_bank).await?;
-        
-        info!("Player {} sold items: {} points added, {} overflow sent to bank (bank now: {})", 
-              char_id, total_earned - overflow_to_bank, overflow_to_bank, new_bank);
+
+        info!(
+            "Player {} sold items: {} points added, {} overflow sent to bank (bank now: {})",
+            char_id,
+            total_earned - overflow_to_bank,
+            overflow_to_bank,
+            new_bank
+        );
     } else {
         // Just update points
         crate::db::update_points(&server.db, char_id, new_points as i64).await?;
     }
-    
+
     // Update session
     {
         let mut session_guard = session.write().await;
         session_guard.points = new_points;
     }
-    
-    info!("Player {} sold {} items from category {} for {} total points (new balance: {})", 
-          char_id, slots_to_sell.len(), category, total_earned, new_points);
-    
+
+    info!(
+        "Player {} sold {} items from category {} for {} total points (new balance: {})",
+        char_id,
+        slots_to_sell.len(),
+        category,
+        total_earned,
+        new_points
+    );
+
     // Send response with total points earned
     let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::Sell.id())
+    writer
+        .write_u16(MessageType::Sell.id())
         .write_u32(total_earned as u32);
-    
+
     Ok(vec![writer.into_bytes()])
 }

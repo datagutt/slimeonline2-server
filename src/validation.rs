@@ -62,7 +62,10 @@ pub fn validate_username(username: &str) -> ValidationResult<()> {
     }
 
     // Only allow alphanumeric, underscore, and dash
-    if !username.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+    if !username
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
         return Err(ValidationError::new(
             "username",
             "Username contains invalid characters",
@@ -114,7 +117,10 @@ pub fn validate_chat_message(message: &str) -> ValidationResult<&str> {
 
     // Strip control characters except newline
     // Note: We return the original message but validation passes if OK
-    if message.chars().any(|c| c.is_control() && c != '\n' && c != '\r') {
+    if message
+        .chars()
+        .any(|c| c.is_control() && c != '\n' && c != '\r')
+    {
         return Err(ValidationError::new(
             "message",
             "Message contains control characters",
@@ -157,7 +163,7 @@ pub fn validate_position(x: u16, y: u16) -> ValidationResult<(u16, u16)> {
     // But typical room is ~2000x1000 max
     const MAX_REASONABLE_X: u16 = 10000;
     const MAX_REASONABLE_Y: u16 = 5000;
-    
+
     if x > MAX_REASONABLE_X {
         return Err(ValidationError::new(
             "x",
@@ -165,7 +171,7 @@ pub fn validate_position(x: u16, y: u16) -> ValidationResult<(u16, u16)> {
             Severity::High,
         ));
     }
-    
+
     if y > MAX_REASONABLE_Y {
         return Err(ValidationError::new(
             "y",
@@ -173,7 +179,7 @@ pub fn validate_position(x: u16, y: u16) -> ValidationResult<(u16, u16)> {
             Severity::High,
         ));
     }
-    
+
     Ok((x, y))
 }
 
@@ -186,7 +192,7 @@ pub fn validate_room_id(room_id: u16) -> ValidationResult<u16> {
             Severity::High,
         ));
     }
-    
+
     Ok(room_id)
 }
 
@@ -219,7 +225,10 @@ pub fn validate_accessory_slot(slot: u8) -> ValidationResult<u8> {
     if slot < 1 || slot > ACCESSORY_SLOTS as u8 {
         return Err(ValidationError::new(
             "slot",
-            format!("Invalid accessory slot: {} (must be 1-{})", slot, ACCESSORY_SLOTS),
+            format!(
+                "Invalid accessory slot: {} (must be 1-{})",
+                slot, ACCESSORY_SLOTS
+            ),
             Severity::Medium,
         ));
     }
@@ -243,7 +252,11 @@ pub fn validate_emote_slot(slot: u8) -> ValidationResult<u8> {
     if slot >= EMOTE_SLOTS as u8 {
         return Err(ValidationError::new(
             "slot",
-            format!("Invalid emote slot: {} (must be 0-{})", slot, EMOTE_SLOTS - 1),
+            format!(
+                "Invalid emote slot: {} (must be 0-{})",
+                slot,
+                EMOTE_SLOTS - 1
+            ),
             Severity::Medium,
         ));
     }
@@ -271,7 +284,7 @@ pub fn validate_bank_amount(amount: u32, current_balance: u32) -> ValidationResu
             Severity::Low,
         ));
     }
-    
+
     if amount > current_balance {
         return Err(ValidationError::new(
             "amount",
@@ -279,7 +292,7 @@ pub fn validate_bank_amount(amount: u32, current_balance: u32) -> ValidationResu
             Severity::Medium, // Could be exploit attempt
         ));
     }
-    
+
     if amount > MAX_BANK_BALANCE {
         return Err(ValidationError::new(
             "amount",
@@ -287,7 +300,7 @@ pub fn validate_bank_amount(amount: u32, current_balance: u32) -> ValidationResu
             Severity::High,
         ));
     }
-    
+
     Ok(amount)
 }
 
@@ -296,7 +309,7 @@ pub fn validate_item_id(item_id: u16) -> ValidationResult<u16> {
     // Items 1-61 are defined in the client
     // 0 = empty slot
     const MAX_ITEM_ID: u16 = 61;
-    
+
     if item_id > MAX_ITEM_ID {
         return Err(ValidationError::new(
             "item_id",
@@ -304,7 +317,7 @@ pub fn validate_item_id(item_id: u16) -> ValidationResult<u16> {
             Severity::High,
         ));
     }
-    
+
     Ok(item_id)
 }
 
@@ -319,7 +332,7 @@ pub fn validate_direction(direction: u8) -> ValidationResult<u8> {
             Severity::Medium,
         ));
     }
-    
+
     Ok(direction)
 }
 
@@ -336,7 +349,7 @@ pub fn validate_mail(subject: &str, body: &str) -> ValidationResult<()> {
             Severity::Low,
         ));
     }
-    
+
     if subject.len() > MAX_MAIL_SUBJECT {
         return Err(ValidationError::new(
             "subject",
@@ -344,7 +357,7 @@ pub fn validate_mail(subject: &str, body: &str) -> ValidationResult<()> {
             Severity::Medium,
         ));
     }
-    
+
     if body.len() > MAX_MAIL_BODY {
         return Err(ValidationError::new(
             "body",
@@ -352,7 +365,7 @@ pub fn validate_mail(subject: &str, body: &str) -> ValidationResult<()> {
             Severity::Medium,
         ));
     }
-    
+
     Ok(())
 }
 
@@ -365,7 +378,7 @@ pub fn validate_bbs_post(title: &str, content: &str) -> ValidationResult<()> {
             Severity::Low,
         ));
     }
-    
+
     if title.len() > MAX_BBS_TITLE {
         return Err(ValidationError::new(
             "title",
@@ -373,7 +386,7 @@ pub fn validate_bbs_post(title: &str, content: &str) -> ValidationResult<()> {
             Severity::Medium,
         ));
     }
-    
+
     if content.len() > MAX_BBS_CONTENT {
         return Err(ValidationError::new(
             "content",
@@ -381,7 +394,7 @@ pub fn validate_bbs_post(title: &str, content: &str) -> ValidationResult<()> {
             Severity::Medium,
         ));
     }
-    
+
     Ok(())
 }
 
@@ -395,10 +408,10 @@ pub fn validate_mac_address(mac: &str) -> ValidationResult<()> {
             Severity::Low,
         ));
     }
-    
+
     // Allow formats: AABBCCDDEEFF or AA:BB:CC:DD:EE:FF or AA-BB-CC-DD-EE-FF
     let clean: String = mac.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-    
+
     if clean.len() != 12 {
         return Err(ValidationError::new(
             "mac_address",
@@ -406,7 +419,7 @@ pub fn validate_mac_address(mac: &str) -> ValidationResult<()> {
             Severity::Medium,
         ));
     }
-    
+
     Ok(())
 }
 

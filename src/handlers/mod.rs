@@ -1,20 +1,20 @@
 //! Message handlers for Slime Online 2 server
 
-mod connection;
-pub mod auth;
-pub mod movement;
-pub mod chat;
 pub mod appearance;
-pub mod gameplay;
-pub mod warp;
-pub mod items;
-pub mod shop;
+pub mod auth;
 pub mod bank;
-pub mod mail;
-pub mod collectibles;
 pub mod bbs;
+pub mod chat;
 pub mod clan;
+pub mod collectibles;
+mod connection;
+pub mod gameplay;
+pub mod items;
+pub mod mail;
+pub mod movement;
 pub mod quest;
+pub mod shop;
 pub mod upgrader;
+pub mod warp;
 
 pub use connection::handle_connection;

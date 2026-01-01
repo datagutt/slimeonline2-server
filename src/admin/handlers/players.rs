@@ -9,7 +9,9 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::admin::{verify_api_key, AdminAction, AdminState, ApiResponse, InventoryCategory, PointsMode};
+use crate::admin::{
+    verify_api_key, AdminAction, AdminState, ApiResponse, InventoryCategory, PointsMode,
+};
 use crate::db;
 
 #[derive(Serialize)]
@@ -103,7 +105,10 @@ pub async fn get_info(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::<()>::error(format!("Player '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!(
+                    "Player '{}' not found",
+                    username
+                ))),
             ))
         }
         Err(e) => {
@@ -153,8 +158,14 @@ pub async fn get_info(
         let mut online_info = (false, None, None, None);
         for session_ref in state.sessions.iter() {
             if let Ok(session) = session_ref.value().try_read() {
-                if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
-                    online_info = (true, Some(session.room_id), Some(session.x), Some(session.y));
+                if session.username.as_deref() == Some(&username_lower) && session.is_authenticated
+                {
+                    online_info = (
+                        true,
+                        Some(session.room_id),
+                        Some(session.x),
+                        Some(session.y),
+                    );
                     break;
                 }
             }
@@ -290,7 +301,9 @@ pub async fn ban(
     if !["ip", "mac", "account"].contains(&req.ban_type.as_str()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::error("Invalid ban_type. Must be 'ip', 'mac', or 'account'")),
+            Json(ApiResponse::<()>::error(
+                "Invalid ban_type. Must be 'ip', 'mac', or 'account'",
+            )),
         ));
     }
 
@@ -300,7 +313,10 @@ pub async fn ban(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::<()>::error(format!("Player '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!(
+                    "Player '{}' not found",
+                    username
+                ))),
             ))
         }
         Err(e) => {
@@ -331,7 +347,9 @@ pub async fn ban(
                 None => {
                     return Err((
                         StatusCode::BAD_REQUEST,
-                        Json(ApiResponse::<()>::error("Cannot ban by IP: player is not online")),
+                        Json(ApiResponse::<()>::error(
+                            "Cannot ban by IP: player is not online",
+                        )),
                     ))
                 }
             }
@@ -369,7 +387,10 @@ pub async fn ban(
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::<()>::error(format!("Failed to create ban: {}", e))),
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to create ban: {}",
+                    e
+                ))),
             ))
         }
     };
@@ -456,7 +477,8 @@ pub async fn teleport(
     if !is_online {
         // Update DB position for offline player
         if let Ok(Some(account)) = db::find_account_by_username(&state.db, &username_lower).await {
-            if let Ok(Some(character)) = db::find_character_by_account(&state.db, account.id).await {
+            if let Ok(Some(character)) = db::find_character_by_account(&state.db, account.id).await
+            {
                 let _ = db::update_position(
                     &state.db,
                     character.id,
@@ -527,7 +549,9 @@ pub async fn set_points(
     let mode = PointsMode::from_str(&req.mode).ok_or_else(|| {
         (
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::error("Invalid mode. Use 'set', 'add', or 'subtract'")),
+            Json(ApiResponse::<()>::error(
+                "Invalid mode. Use 'set', 'add', or 'subtract'",
+            )),
         )
     })?;
 
@@ -535,7 +559,9 @@ pub async fn set_points(
     if req.points < 0 && mode == PointsMode::Set {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::error("Points cannot be negative for 'set' mode")),
+            Json(ApiResponse::<()>::error(
+                "Points cannot be negative for 'set' mode",
+            )),
         ));
     }
 
@@ -556,7 +582,9 @@ pub async fn set_points(
         ));
     }
 
-    Ok(Json(ApiResponse::success(SetPointsResponse { queued: true })))
+    Ok(Json(ApiResponse::success(SetPointsResponse {
+        queued: true,
+    })))
 }
 
 #[derive(Deserialize)]
@@ -583,7 +611,9 @@ pub async fn set_bank(
     let mode = PointsMode::from_str(&req.mode).ok_or_else(|| {
         (
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::error("Invalid mode. Use 'set', 'add', or 'subtract'")),
+            Json(ApiResponse::<()>::error(
+                "Invalid mode. Use 'set', 'add', or 'subtract'",
+            )),
         )
     })?;
 
@@ -698,7 +728,10 @@ pub async fn set_moderator(
         Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::<()>::error(format!("Player '{}' not found", username))),
+                Json(ApiResponse::<()>::error(format!(
+                    "Player '{}' not found",
+                    username
+                ))),
             ))
         }
         Err(e) => {
@@ -734,7 +767,10 @@ pub async fn set_moderator(
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::error(format!("Failed to update moderator status: {}", e))),
+            Json(ApiResponse::<()>::error(format!(
+                "Failed to update moderator status: {}",
+                e
+            ))),
         ));
     }
 

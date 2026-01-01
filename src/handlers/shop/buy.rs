@@ -60,8 +60,8 @@ pub struct ResolvedShopItem {
     pub category: u8,
     pub item_id: u16,
     pub price: u32,
-    pub stock: u16,       // Current stock (0 = sold out, 65535 = unlimited)
-    pub max_stock: u16,   // Maximum stock from config (0 = unlimited)
+    pub stock: u16,         // Current stock (0 = sold out, 65535 = unlimited)
+    pub max_stock: u16,     // Maximum stock from config (0 = unlimited)
     pub is_available: bool, // Whether slot is available (config + upgrader)
 }
 
@@ -355,10 +355,7 @@ pub async fn handle_shop_buy(
 
     // Check if slot is available (not locked by upgrader)
     if !shop_item.is_available {
-        warn!(
-            "Shop slot not available: room {} slot {}",
-            room_id, pos_id
-        );
+        warn!("Shop slot not available: room {} slot {}", room_id, pos_id);
         return Ok(vec![]);
     }
 
@@ -381,9 +378,7 @@ pub async fn handle_shop_buy(
             player_id, points, shop_item.price
         );
         let mut writer = MessageWriter::new();
-        writer
-            .write_u16(MessageType::ShopBuyFail.id())
-            .write_u8(2); // case 2 = not enough points
+        writer.write_u16(MessageType::ShopBuyFail.id()).write_u8(2); // case 2 = not enough points
         return Ok(vec![writer.into_bytes()]);
     }
 
@@ -412,9 +407,7 @@ pub async fn handle_shop_buy(
                 player_id, category
             );
             let mut writer = MessageWriter::new();
-            writer
-                .write_u16(MessageType::ShopBuyFail.id())
-                .write_u8(2); // Use case 2 for inventory full
+            writer.write_u16(MessageType::ShopBuyFail.id()).write_u8(2); // Use case 2 for inventory full
             return Ok(vec![writer.into_bytes()]);
         }
     };
@@ -592,9 +585,7 @@ pub async fn build_room_shop_info(server: &Arc<Server>, room_id: u16) -> Result<
 pub async fn restock_all_shops(pool: &DbPool) -> Result<(), sqlx::Error> {
     // Delete all entries from shop_stock table
     // This effectively resets stock to config values (which are used as defaults)
-    sqlx::query("DELETE FROM shop_stock")
-        .execute(pool)
-        .await?;
+    sqlx::query("DELETE FROM shop_stock").execute(pool).await?;
 
     info!("All shop stock has been reset");
     Ok(())

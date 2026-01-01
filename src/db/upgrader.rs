@@ -192,10 +192,7 @@ pub async fn is_unlockable_available(
 }
 
 /// Get all available unlockables in a room
-pub async fn get_room_unlockables(
-    pool: &DbPool,
-    room_id: u16,
-) -> Result<Vec<u8>, sqlx::Error> {
+pub async fn get_room_unlockables(pool: &DbPool, room_id: u16) -> Result<Vec<u8>, sqlx::Error> {
     let results: Vec<(i64,)> = sqlx::query_as(
         r#"
         SELECT unlockable_id
@@ -418,10 +415,7 @@ pub async fn set_shop_slot_unlocked(
 }
 
 /// Get the stock bonus for a room (from upgrader investments)
-pub async fn get_shop_stock_bonus(
-    pool: &DbPool,
-    room_id: u16,
-) -> Result<u16, sqlx::Error> {
+pub async fn get_shop_stock_bonus(pool: &DbPool, room_id: u16) -> Result<u16, sqlx::Error> {
     let result: Option<(i64,)> = sqlx::query_as(
         r#"
         SELECT bonus

@@ -160,10 +160,7 @@ pub struct PlantState {
 }
 
 /// Get plant state for a room
-pub async fn get_plant_states(
-    pool: &DbPool,
-    room_id: u16,
-) -> Result<Vec<PlantState>, sqlx::Error> {
+pub async fn get_plant_states(pool: &DbPool, room_id: u16) -> Result<Vec<PlantState>, sqlx::Error> {
     sqlx::query_as::<_, PlantState>(
         r#"
         SELECT room_id, spot_id, owner_id, seed_id, stage, fairy_count,
@@ -276,7 +273,7 @@ pub async fn add_fairy_to_plant(
     .bind(spot_id as i64)
     .execute(pool)
     .await?;
-    
+
     // Return new fairy count
     let state = get_plant_state(pool, room_id, spot_id).await?;
     Ok(state.map(|s| s.fairy_count as u8).unwrap_or(0))
@@ -305,11 +302,7 @@ pub async fn add_pinwheel_to_plant(
 }
 
 /// Harvest fruit from plant (resets has_fruit)
-pub async fn harvest_plant(
-    pool: &DbPool,
-    room_id: u16,
-    spot_id: u8,
-) -> Result<(), sqlx::Error> {
+pub async fn harvest_plant(pool: &DbPool, room_id: u16, spot_id: u8) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         UPDATE plant_state
@@ -325,11 +318,7 @@ pub async fn harvest_plant(
 }
 
 /// Clear a plant spot (remove plant)
-pub async fn clear_plant(
-    pool: &DbPool,
-    room_id: u16,
-    spot_id: u8,
-) -> Result<(), sqlx::Error> {
+pub async fn clear_plant(pool: &DbPool, room_id: u16, spot_id: u8) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         DELETE FROM plant_state
@@ -373,10 +362,7 @@ pub struct ShopStock {
 }
 
 /// Get shop stock for a room
-pub async fn get_shop_stock(
-    pool: &DbPool,
-    room_id: u16,
-) -> Result<Vec<ShopStock>, sqlx::Error> {
+pub async fn get_shop_stock(pool: &DbPool, room_id: u16) -> Result<Vec<ShopStock>, sqlx::Error> {
     sqlx::query_as::<_, ShopStock>(
         r#"
         SELECT room_id, slot_id, current_stock, last_purchase, last_restock
@@ -416,7 +402,7 @@ pub async fn decrease_shop_stock(
     initial_stock: u16,
 ) -> Result<u16, sqlx::Error> {
     let now = Utc::now().to_rfc3339();
-    
+
     // Insert or update stock
     sqlx::query(
         r#"
@@ -433,7 +419,7 @@ pub async fn decrease_shop_stock(
     .bind(&now)
     .execute(pool)
     .await?;
-    
+
     // Return new stock
     let stock = get_shop_slot_stock(pool, room_id, slot_id).await?;
     Ok(stock.map(|s| s.current_stock as u16).unwrap_or(0))
@@ -482,10 +468,7 @@ pub struct GroundItem {
 }
 
 /// Get ground items in a room
-pub async fn get_ground_items(
-    pool: &DbPool,
-    room_id: u16,
-) -> Result<Vec<GroundItem>, sqlx::Error> {
+pub async fn get_ground_items(pool: &DbPool, room_id: u16) -> Result<Vec<GroundItem>, sqlx::Error> {
     sqlx::query_as::<_, GroundItem>(
         r#"
         SELECT id, room_id, item_id, x, y, dropped_by, dropped_at, expires_at
@@ -511,10 +494,9 @@ pub async fn add_ground_item(
 ) -> Result<i64, sqlx::Error> {
     let now = Utc::now();
     let dropped_at = now.to_rfc3339();
-    let expires_at = expires_in_secs.map(|secs| {
-        (now + chrono::Duration::seconds(secs as i64)).to_rfc3339()
-    });
-    
+    let expires_at =
+        expires_in_secs.map(|secs| (now + chrono::Duration::seconds(secs as i64)).to_rfc3339());
+
     let result = sqlx::query(
         r#"
         INSERT INTO ground_items (room_id, item_id, x, y, dropped_by, dropped_at, expires_at)
@@ -530,7 +512,7 @@ pub async fn add_ground_item(
     .bind(expires_at)
     .execute(pool)
     .await?;
-    
+
     Ok(result.last_insert_rowid())
 }
 
@@ -584,13 +566,11 @@ pub async fn cleanup_expired_ground_items(pool: &DbPool) -> Result<u64, sqlx::Er
 
 /// Get a server state value by key
 pub async fn get_server_state(pool: &DbPool, key: &str) -> Result<Option<String>, sqlx::Error> {
-    let result: Option<(String,)> = sqlx::query_as(
-        "SELECT value FROM server_state WHERE key = ?"
-    )
-    .bind(key)
-    .fetch_optional(pool)
-    .await?;
-    
+    let result: Option<(String,)> = sqlx::query_as("SELECT value FROM server_state WHERE key = ?")
+        .bind(key)
+        .fetch_optional(pool)
+        .await?;
+
     Ok(result.map(|r| r.0))
 }
 

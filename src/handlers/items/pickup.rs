@@ -49,11 +49,14 @@ pub async fn handle_take_dropped_item(
     // Look up the item in the database
     let db_id = instance_id as i64;
     let ground_items = crate::db::get_ground_items(&server.db, room_id).await?;
-    
+
     let dropped_item = match ground_items.iter().find(|item| item.id == db_id) {
         Some(item) => item.clone(),
         None => {
-            debug!("Dropped item {} not found in room {} DB", instance_id, room_id);
+            debug!(
+                "Dropped item {} not found in room {} DB",
+                instance_id, room_id
+            );
             return Ok(vec![]);
         }
     };
@@ -86,8 +89,7 @@ pub async fn handle_take_dropped_item(
     );
 
     // Add item to inventory
-    crate::db::update_item_slot(&server.db, character_id, slot, item_id as i16)
-        .await?;
+    crate::db::update_item_slot(&server.db, character_id, slot, item_id as i16).await?;
 
     // Send MSG_GET_ITEM to player
     let mut writer = MessageWriter::new();
