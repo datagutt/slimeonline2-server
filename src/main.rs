@@ -754,13 +754,8 @@ async fn handle_admin_set_points(server: &Server, username: &str, points: i64, m
             let old_points = session.points;
             session.points = new_points as u32;
             
-            // Send points update to client using MSG_POINT
-            // Format: u8 subtype (1=with sound, 2=silent) + u32 total points
-            let mut writer = protocol::MessageWriter::new();
-            writer.write_u16(protocol::MessageType::Point.id());
-            writer.write_u8(2); // Silent update (no sound)
-            writer.write_u32(new_points as u32);
-            session.queue_message(writer.into_bytes());
+            // Send points update to client
+            session.queue_message(protocol::build_points_update(new_points as u32, false));
             
             info!("Admin set {} points: {} -> {}", username, old_points, new_points);
             return;

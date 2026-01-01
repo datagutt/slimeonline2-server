@@ -408,6 +408,32 @@ pub fn is_valid_message_type(msg_type: u16) -> bool {
     matches!(msg_type, 1..=141) && !matches!(msg_type, 3 | 4 | 8 | 20)
 }
 
+// =============================================================================
+// POINTS MESSAGES
+// =============================================================================
+
+/// Build a points update message (MSG_POINT = 18)
+/// 
+/// Server → Client format:
+/// - u8 subtype: 1 = with collection sound, 2 = silent update
+/// - u32 total_points: player's new total points
+/// 
+/// This is the standard way to update a client's point display.
+pub fn build_points_update(total_points: u32, play_sound: bool) -> Vec<u8> {
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::Point.id());
+    writer.write_u8(if play_sound { 1 } else { 2 });
+    writer.write_u32(total_points);
+    writer.into_bytes()
+}
+
+/// Write a points update message to an existing writer (MSG_POINT = 18)
+pub fn write_points_update(writer: &mut MessageWriter, total_points: u32, play_sound: bool) {
+    writer.write_u16(MessageType::Point.id());
+    writer.write_u8(if play_sound { 1 } else { 2 });
+    writer.write_u32(total_points);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

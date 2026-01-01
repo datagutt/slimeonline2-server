@@ -210,12 +210,9 @@ fn build_clan_info_broadcast(player_id: u16, clan_id: i64) -> Vec<u8> {
     writer.into_bytes()
 }
 
-/// Build points update message
+/// Build points update message using common utility
 fn build_points_update(points: u32) -> Vec<u8> {
-    let mut writer = MessageWriter::new();
-    writer.write_u16(MessageType::Point.id())
-        .write_u32(points);
-    writer.into_bytes()
+    crate::protocol::build_points_update(points, false)
 }
 
 // ============================================================================
