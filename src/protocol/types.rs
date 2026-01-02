@@ -845,8 +845,8 @@ impl FieldDef {
             FieldType::String => reader.read_string().ok().map(FieldValue::String),
             FieldType::Bytes(len) => {
                 let mut bytes = vec![0u8; len];
-                for i in 0..len {
-                    bytes[i] = reader.read_u8().ok()?;
+                for byte in bytes.iter_mut().take(len) {
+                    *byte = reader.read_u8().ok()?;
                 }
                 Some(FieldValue::Bytes(bytes))
             }

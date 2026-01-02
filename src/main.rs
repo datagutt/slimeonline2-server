@@ -803,7 +803,7 @@ async fn handle_admin_set_points(server: &Server, username: &str, points: i64, m
     };
 
     // Calculate new points
-    let new_points = mode.apply(current_points, points).max(0).min(999_999_999);
+    let new_points = mode.apply(current_points, points).clamp(0, 999_999_999);
 
     // Update DB
     if db::update_points(&server.db, char_id, new_points)
@@ -916,7 +916,7 @@ async fn handle_admin_set_bank(server: &Server, username: &str, balance: i64, mo
         _ => return,
     };
 
-    let new_balance = mode.apply(current_balance, balance).max(0).min(999_999_999);
+    let new_balance = mode.apply(current_balance, balance).clamp(0, 999_999_999);
 
     if db::update_bank_balance(&server.db, char_id, new_balance)
         .await
@@ -960,15 +960,17 @@ async fn handle_admin_send_mail(
     // Create mail (from_character_id = None for system mail)
     match db::send_mail(
         &server.db,
-        None, // system sender
-        to_char_id,
-        sender_name,
-        message,
-        item_id as i64,
-        item_category as i64,
-        points,
-        1, // default paper
-        0, // default font color
+        db::SendMailParams {
+            from_character_id: None, // system sender
+            to_character_id: to_char_id,
+            sender_name,
+            message,
+            item_id: item_id as i64,
+            item_cat: item_category as i64,
+            points,
+            paper: 1, // default paper
+            font_color: 0, // default font color
+        },
     )
     .await
     {

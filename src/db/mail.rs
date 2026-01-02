@@ -20,36 +20,39 @@ pub struct Mail {
     pub created_at: String,
 }
 
+/// Parameters for sending mail
+#[derive(Debug)]
+pub struct SendMailParams<'a> {
+    pub from_character_id: Option<i64>,
+    pub to_character_id: i64,
+    pub sender_name: &'a str,
+    pub message: &'a str,
+    pub item_id: i64,
+    pub item_cat: i64,
+    pub points: i64,
+    pub paper: i64,
+    pub font_color: i64,
+}
+
 /// Send mail from one character to another
 /// Returns the new mail ID on success
 /// Use from_character_id = None for system mail
-pub async fn send_mail(
-    pool: &DbPool,
-    from_character_id: Option<i64>,
-    to_character_id: i64,
-    sender_name: &str,
-    message: &str,
-    item_id: i64,
-    item_cat: i64,
-    points: i64,
-    paper: i64,
-    font_color: i64,
-) -> Result<i64, sqlx::Error> {
+pub async fn send_mail(pool: &DbPool, params: SendMailParams<'_>) -> Result<i64, sqlx::Error> {
     let result = sqlx::query(
         r#"
         INSERT INTO mail (from_character_id, to_character_id, sender_name, message, item_id, item_cat, points, paper, font_color)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
-    .bind(from_character_id)
-    .bind(to_character_id)
-    .bind(sender_name)
-    .bind(message)
-    .bind(item_id)
-    .bind(item_cat)
-    .bind(points)
-    .bind(paper)
-    .bind(font_color)
+    .bind(params.from_character_id)
+    .bind(params.to_character_id)
+    .bind(params.sender_name)
+    .bind(params.message)
+    .bind(params.item_id)
+    .bind(params.item_cat)
+    .bind(params.points)
+    .bind(params.paper)
+    .bind(params.font_color)
     .execute(pool)
     .await?;
 

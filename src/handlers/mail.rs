@@ -528,15 +528,17 @@ pub async fn handle_mail_send(
     // Send the mail
     match db::send_mail(
         &server.db,
-        Some(char_id),
-        receiver.id,
-        &sender_name,
-        &message,
-        item_id,
-        item_cat,
-        actual_points,
-        paper as i64,
-        font_color as i64,
+        db::SendMailParams {
+            from_character_id: Some(char_id),
+            to_character_id: receiver.id,
+            sender_name: &sender_name,
+            message: &message,
+            item_id,
+            item_cat,
+            points: actual_points,
+            paper: paper as i64,
+            font_color: font_color as i64,
+        },
     )
     .await
     {
@@ -629,10 +631,10 @@ pub async fn handle_mail_receiver_check(
     let username = reader.read_string()?;
 
     // Check if user exists
-    let exists = match db::find_character_by_username(&server.db, &username).await {
-        Ok(Some(_)) => true,
-        _ => false,
-    };
+    let exists = matches!(
+        db::find_character_by_username(&server.db, &username).await,
+        Ok(Some(_))
+    );
 
     let mut writer = MessageWriter::new();
     writer
