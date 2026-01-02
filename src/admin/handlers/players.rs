@@ -788,3 +788,109 @@ pub async fn set_moderator(
         updated: true,
     })))
 }
+
+#[derive(Deserialize)]
+pub struct SetAppearanceRequest {
+    #[serde(default)]
+    pub body_id: Option<u16>,
+    #[serde(default)]
+    pub acs1_id: Option<u16>,
+    #[serde(default)]
+    pub acs2_id: Option<u16>,
+}
+
+#[derive(Serialize)]
+pub struct SetAppearanceResponse {
+    pub updated: bool,
+    pub was_online: bool,
+}
+
+/// POST /api/players/:username/appearance - Set player appearance (body/accessories)
+pub async fn set_appearance(
+    headers: HeaderMap,
+    Path(username): Path<String>,
+    State(state): State<Arc<AdminState>>,
+    Json(req): Json<SetAppearanceRequest>,
+) -> Result<Json<ApiResponse<SetAppearanceResponse>>, (StatusCode, Json<ApiResponse<()>>)> {
+    verify_api_key(&headers, &state.api_key)?;
+
+    // At least one field must be provided
+    if req.body_id.is_none() && req.acs1_id.is_none() && req.acs2_id.is_none() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "At least one of body_id, acs1_id, or acs2_id must be provided",
+            )),
+        ));
+    }
+
+    let username_lower = username.to_lowercase();
+
+    // Check if player exists
+    let account = match db::find_account_by_username(&state.db, &username_lower).await {
+        Ok(Some(acc)) => acc,
+        Ok(None) => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(ApiResponse::<()>::error(format!(
+                    "Player '{}' not found",
+                    username
+                ))),
+            ))
+        }
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
+            ))
+        }
+    };
+
+    // Verify character exists
+    if db::find_character_by_account(&state.db, account.id)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
+            )
+        })?
+        .is_none()
+    {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::error("Player has no character")),
+        ));
+    }
+
+    // Check if player is online
+    let is_online = state.sessions.iter().any(|s| {
+        s.value()
+            .try_read()
+            .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
+            .unwrap_or(false)
+    });
+
+    // Send appearance action to game loop
+    if state
+        .action_tx
+        .send(AdminAction::SetAppearance {
+            username: username_lower,
+            body_id: req.body_id,
+            acs1_id: req.acs1_id,
+            acs2_id: req.acs2_id,
+        })
+        .await
+        .is_err()
+    {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error("Failed to queue appearance action")),
+        ));
+    }
+
+    Ok(Json(ApiResponse::success(SetAppearanceResponse {
+        updated: true,
+        was_online: is_online,
+    })))
+}

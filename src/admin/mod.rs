@@ -225,6 +225,10 @@ pub fn create_router(state: Arc<AdminState>) -> Router {
             "/api/players/:username/moderator",
             post(handlers::players::set_moderator),
         )
+        .route(
+            "/api/players/:username/appearance",
+            post(handlers::players::set_appearance),
+        )
         // Ban management
         .route("/api/bans", get(handlers::bans::list_bans))
         .route("/api/bans", post(handlers::bans::create_ban))

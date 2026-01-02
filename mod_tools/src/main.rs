@@ -170,6 +170,20 @@ enum PlayerCommands {
         #[arg(long)]
         enable: bool,
     },
+    /// Set player appearance (body/accessories)
+    Appearance {
+        /// Player username
+        username: String,
+        /// Body/outfit ID
+        #[arg(short, long)]
+        body: Option<u16>,
+        /// Accessory 1 ID
+        #[arg(long)]
+        acs1: Option<u16>,
+        /// Accessory 2 ID
+        #[arg(long)]
+        acs2: Option<u16>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -548,6 +562,47 @@ async fn handle_player_command(
                     "Success!".green(),
                     status,
                     username.bold()
+                );
+            }
+        }
+        PlayerCommands::Appearance {
+            username,
+            body,
+            acs1,
+            acs2,
+        } => {
+            if body.is_none() && acs1.is_none() && acs2.is_none() {
+                eprintln!(
+                    "{} At least one of --body, --acs1, or --acs2 must be provided",
+                    "Error:".red()
+                );
+                std::process::exit(1);
+            }
+            let result = client.set_appearance(&username, body, acs1, acs2).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                let online_status = if result.was_online {
+                    "(online - changes visible immediately)"
+                } else {
+                    "(offline - saved for next login)"
+                };
+                let mut changes = Vec::new();
+                if let Some(b) = body {
+                    changes.push(format!("body={}", b));
+                }
+                if let Some(a1) = acs1 {
+                    changes.push(format!("acs1={}", a1));
+                }
+                if let Some(a2) = acs2 {
+                    changes.push(format!("acs2={}", a2));
+                }
+                println!(
+                    "{} Appearance updated for {}: {} {}",
+                    "Success!".green(),
+                    username.bold(),
+                    changes.join(", "),
+                    online_status
                 );
             }
         }
@@ -971,6 +1026,45 @@ async fn run_interactive_mode(client: &AdminClient) -> Result<()> {
                         }
                         Err(e) => println!("{} {}", "Error:".red(), e),
                     },
+                    ["body", username, body_id] => {
+                        if let Ok(body) = body_id.parse::<u16>() {
+                            match client.set_appearance(username, Some(body), None, None).await {
+                                Ok(r) => {
+                                    let status = if r.was_online { "online" } else { "offline" };
+                                    println!("Set body to {} for {} ({})", body, username, status);
+                                }
+                                Err(e) => println!("{} {}", "Error:".red(), e),
+                            }
+                        } else {
+                            println!("Invalid body ID");
+                        }
+                    }
+                    ["acs1", username, acs_id] => {
+                        if let Ok(acs) = acs_id.parse::<u16>() {
+                            match client.set_appearance(username, None, Some(acs), None).await {
+                                Ok(r) => {
+                                    let status = if r.was_online { "online" } else { "offline" };
+                                    println!("Set acs1 to {} for {} ({})", acs, username, status);
+                                }
+                                Err(e) => println!("{} {}", "Error:".red(), e),
+                            }
+                        } else {
+                            println!("Invalid accessory ID");
+                        }
+                    }
+                    ["acs2", username, acs_id] => {
+                        if let Ok(acs) = acs_id.parse::<u16>() {
+                            match client.set_appearance(username, None, None, Some(acs)).await {
+                                Ok(r) => {
+                                    let status = if r.was_online { "online" } else { "offline" };
+                                    println!("Set acs2 to {} for {} ({})", acs, username, status);
+                                }
+                                Err(e) => println!("{} {}", "Error:".red(), e),
+                            }
+                        } else {
+                            println!("Invalid accessory ID");
+                        }
+                    }
                     _ => {
                         println!("Unknown command. Type 'help' for available commands.");
                     }
@@ -1003,6 +1097,9 @@ fn print_interactive_help() {
     println!("  give <name> <pts>        - Give points to a player");
     println!("  tp <name> <room>         - Teleport player to room (100, 100)");
     println!("  tp <name> <room> <x> <y> - Teleport player to room at coordinates");
+    println!("  body <name> <id>         - Set player body/outfit");
+    println!("  acs1 <name> <id>         - Set player accessory 1");
+    println!("  acs2 <name> <id>         - Set player accessory 2");
     println!("  bans                     - List active bans");
     println!("  unban <id>               - Remove a ban");
     println!("  clans                    - List all clans");

@@ -110,6 +110,12 @@ pub struct ModeratorResponse {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct AppearanceResponse {
+    pub updated: bool,
+    pub was_online: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BanRecord {
     pub id: i64,
     pub ban_type: String,
@@ -457,6 +463,33 @@ impl AdminClient {
         self.post(
             &format!("/api/players/{}/moderator", username),
             &ModReq { is_moderator },
+        )
+        .await
+    }
+
+    pub async fn set_appearance(
+        &self,
+        username: &str,
+        body_id: Option<u16>,
+        acs1_id: Option<u16>,
+        acs2_id: Option<u16>,
+    ) -> Result<AppearanceResponse> {
+        #[derive(Serialize)]
+        struct AppearanceReq {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            body_id: Option<u16>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            acs1_id: Option<u16>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            acs2_id: Option<u16>,
+        }
+        self.post(
+            &format!("/api/players/{}/appearance", username),
+            &AppearanceReq {
+                body_id,
+                acs1_id,
+                acs2_id,
+            },
         )
         .await
     }
