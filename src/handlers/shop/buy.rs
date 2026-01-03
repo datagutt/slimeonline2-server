@@ -479,16 +479,13 @@ pub async fn handle_shop_buy(
                 if let Some(other_session_id) =
                     server.game_state.players_by_id.get(&other_player_id)
                 {
-                    if let Some(other_session) = server.sessions.get(&other_session_id) {
+                    if let Some(other_handle) = server.sessions.get(&other_session_id) {
                         let mut writer = MessageWriter::new();
                         writer
                             .write_u16(MessageType::ShopStock.id())
                             .write_u8(1) // case 1 = sold out
                             .write_u8(pos_id);
-                        other_session
-                            .write()
-                            .await
-                            .queue_message(writer.into_bytes());
+                        other_handle.queue_message(writer.into_bytes()).await;
                     }
                 }
             }

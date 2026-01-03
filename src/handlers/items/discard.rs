@@ -115,7 +115,7 @@ pub async fn handle_discard_item(
     let room_players = server.game_state.get_room_players(room_id).await;
     for other_player_id in room_players {
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
+            if let Some(other_handle) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
                 writer
                     .write_u16(MessageType::DiscardItem.id())
@@ -123,10 +123,7 @@ pub async fn handle_discard_item(
                     .write_u16(drop_y)
                     .write_u16(item_id)
                     .write_u16(instance_id);
-                other_session
-                    .write()
-                    .await
-                    .queue_message(writer.into_bytes());
+                other_handle.queue_message(writer.into_bytes()).await;
             }
         }
     }

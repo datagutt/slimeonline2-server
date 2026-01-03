@@ -13,7 +13,7 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::constants::*;
 use crate::crypto::{decrypt_client_message, encrypt_server_message};
-use crate::game::PlayerSession;
+use crate::game::{PlayerSession, SessionHandle};
 use crate::protocol::{describe_message, write_player_left, MessageType, MessageWriter};
 use crate::Server;
 
@@ -34,19 +34,19 @@ pub async fn handle_connection(
     // Track IP connection
     server.add_ip_connection(&ip);
 
-    // Create session with config defaults
-    let session = Arc::new(RwLock::new(PlayerSession::new(
+    // Create session with config defaults and notification handle
+    let session_handle = Arc::new(SessionHandle::new(PlayerSession::new(
         ip.clone(),
         &server.game_config.game.defaults,
     )));
-    let session_id = session.read().await.session_id;
-    server.sessions.insert(session_id, session.clone());
+    let session_id = session_handle.session.read().await.session_id;
+    server.sessions.insert(session_id, session_handle.clone());
 
     // Handle connection result
-    let result = handle_client_messages(&mut socket, &addr, &server, session.clone()).await;
+    let result = handle_client_messages(&mut socket, &addr, &server, session_handle.clone()).await;
 
     // Cleanup on disconnect
-    cleanup_session(&server, session.clone(), &mut socket).await;
+    cleanup_session(&server, session_handle.clone(), &mut socket).await;
     server.sessions.remove(&session_id);
     server.remove_ip_connection(&ip);
 
@@ -70,7 +70,7 @@ async fn handle_client_messages(
     socket: &mut TcpStream,
     addr: &SocketAddr,
     server: &Arc<Server>,
-    session: Arc<RwLock<PlayerSession>>,
+    session_handle: Arc<SessionHandle>,
 ) -> Result<()> {
     let mut recv_buffer = BytesMut::with_capacity(MAX_MESSAGE_SIZE);
 
@@ -80,6 +80,10 @@ async fn handle_client_messages(
 
     // Skip the first immediate tick
     ping_interval.tick().await;
+
+    // Get references to session and notify for the select loop
+    let session = &session_handle.session;
+    let notify = &session_handle.notify;
 
     loop {
         // Check for timeout
@@ -91,7 +95,7 @@ async fn handle_client_messages(
             }
         }
 
-        // Use select! to handle both incoming data and ping timer
+        // Use select! to handle incoming data, ping timer, and message notifications
         let mut temp_buf = [0u8; 4096];
 
         tokio::select! {
@@ -114,6 +118,17 @@ async fn handle_client_messages(
                 for msg in queued_messages {
                     if let Err(e) = send_message(socket, msg).await {
                         error!("Failed to send queued message to {}: {}", addr, e);
+                        return Err(e);
+                    }
+                }
+            }
+
+            // Notified that we have queued messages to send
+            _ = notify.notified() => {
+                let queued_messages = session.write().await.drain_messages();
+                for msg in queued_messages {
+                    if let Err(e) = send_message(socket, msg).await {
+                        error!("Failed to send notified message to {}: {}", addr, e);
                         return Err(e);
                     }
                 }
@@ -452,10 +467,7 @@ async fn handle_message(
                                     .write_u16(player_id)
                                     .write_u16(x)
                                     .write_u16(y);
-                                other_session
-                                    .write()
-                                    .await
-                                    .queue_message(writer.into_bytes());
+                                other_session.queue_message(writer.into_bytes()).await;
                             }
                         }
                     }
@@ -654,9 +666,10 @@ pub async fn send_message(socket: &mut TcpStream, mut data: Vec<u8>) -> Result<(
 /// Clean up session on disconnect.
 async fn cleanup_session(
     server: &Arc<Server>,
-    session: Arc<RwLock<PlayerSession>>,
+    session_handle: Arc<SessionHandle>,
     _socket: &mut TcpStream,
 ) {
+    let session = &session_handle.session;
     let (player_id, room_id, character_id, username) = {
         let session_guard = session.read().await;
         (
@@ -699,23 +712,23 @@ async fn cleanup_session(
             }
         }
 
-        // Broadcast player left to room
-        let room_players = server.game_state.get_room_players(room_id).await;
-        for other_player_id in room_players {
-            if other_player_id == player_id {
+        // Broadcast player left to ALL online players (not just room)
+        // The original server broadcasts to all clients so they can clear cached player info
+        let mut writer = MessageWriter::new();
+        write_player_left(&mut writer, player_id);
+        let logout_msg = writer.into_bytes();
+
+        for session_ref in server.sessions.iter() {
+            let other_handle = session_ref.value();
+            let other_player_id = other_handle.session.read().await.player_id;
+
+            // Skip self and unauthenticated sessions
+            if other_player_id == Some(player_id) || other_player_id.is_none() {
                 continue;
             }
 
-            if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-                if let Some(other_session) = server.sessions.get(&other_session_id) {
-                    let mut writer = MessageWriter::new();
-                    write_player_left(&mut writer, player_id);
-                    other_session
-                        .write()
-                        .await
-                        .queue_message(writer.into_bytes());
-                }
-            }
+            // Use SessionHandle's queue_message which also notifies
+            other_handle.queue_message(logout_msg.clone()).await;
         }
 
         // Remove from room and active players
@@ -787,12 +800,13 @@ async fn check_and_broadcast_top_points(
 
     // Broadcast to all players in city rooms (42 and 126)
     for session_ref in server.sessions.iter() {
-        let session = session_ref.value().read().await;
+        let handle = session_ref.value();
+        let session = handle.session.read().await;
         if session.is_authenticated {
             let room_id = session.room_id;
             if room_id == 42 || room_id == 126 {
                 drop(session);
-                session_ref.value().write().await.queue_message(msg.clone());
+                handle.queue_message(msg.clone()).await;
             }
         }
     }

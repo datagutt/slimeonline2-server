@@ -35,7 +35,7 @@ pub async fn list_online(
     let mut players = Vec::new();
 
     for session_ref in state.sessions.iter() {
-        if let Ok(session) = session_ref.value().try_read() {
+        if let Ok(session) = session_ref.value().session.try_read() {
             if session.is_authenticated {
                 if let Some(username) = &session.username {
                     players.push(OnlinePlayer {
@@ -157,7 +157,7 @@ pub async fn get_info(
     let (is_online, current_room, current_x, current_y) = {
         let mut online_info = (false, None, None, None);
         for session_ref in state.sessions.iter() {
-            if let Ok(session) = session_ref.value().try_read() {
+            if let Ok(session) = session_ref.value().session.try_read() {
                 if session.username.as_deref() == Some(&username_lower) && session.is_authenticated
                 {
                     online_info = (
@@ -231,7 +231,7 @@ pub async fn kick(
     // Check if player is online
     let is_online = state.sessions.iter().any(|s| {
         s.value()
-            .try_read()
+            .session.try_read()
             .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
             .unwrap_or(false)
     });
@@ -334,7 +334,7 @@ pub async fn ban(
         "ip" => {
             // Try to get IP from online session
             let ip = state.sessions.iter().find_map(|s| {
-                s.value().try_read().ok().and_then(|session| {
+                s.value().session.try_read().ok().and_then(|session| {
                     if session.username.as_deref() == Some(&username_lower) {
                         Some(session.ip_address.clone())
                     } else {
@@ -408,7 +408,7 @@ pub async fn ban(
     let kicked = if req.kick {
         let is_online = state.sessions.iter().any(|s| {
             s.value()
-                .try_read()
+                .session.try_read()
                 .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
                 .unwrap_or(false)
         });
@@ -469,7 +469,7 @@ pub async fn teleport(
     // Check if player is online
     let is_online = state.sessions.iter().any(|s| {
         s.value()
-            .try_read()
+            .session.try_read()
             .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
             .unwrap_or(false)
     });
@@ -776,7 +776,7 @@ pub async fn set_moderator(
 
     // Update online session if present
     for session_ref in state.sessions.iter() {
-        if let Ok(mut session) = session_ref.value().try_write() {
+        if let Ok(mut session) = session_ref.value().session.try_write() {
             if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
                 session.is_moderator = req.is_moderator;
                 break;
@@ -866,7 +866,7 @@ pub async fn set_appearance(
     // Check if player is online
     let is_online = state.sessions.iter().any(|s| {
         s.value()
-            .try_read()
+            .session.try_read()
             .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
             .unwrap_or(false)
     });

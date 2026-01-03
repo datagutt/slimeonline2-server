@@ -157,7 +157,7 @@ pub async fn get_account(
 
     let is_online = state.sessions.iter().any(|s| {
         s.value()
-            .try_read()
+            .session.try_read()
             .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
             .unwrap_or(false)
     });

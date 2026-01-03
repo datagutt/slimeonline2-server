@@ -8,7 +8,7 @@ use std::time::Duration;
 use anyhow::Result;
 use dashmap::DashMap;
 use tokio::net::TcpListener;
-use tokio::sync::RwLock;
+
 use tracing::{error, info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
 use uuid::Uuid;
@@ -29,7 +29,7 @@ use admin::{AdminAction, AdminState, InventoryCategory, PointsMode};
 use config::GameConfig;
 use constants::*;
 use db::DbPool;
-use game::{GameState, PlayerSession};
+use game::{GameState};
 use tokio::sync::mpsc;
 
 /// Server configuration
@@ -67,7 +67,7 @@ pub struct Server {
     pub game_config: Arc<GameConfig>,
     pub db: DbPool,
     pub game_state: Arc<GameState>,
-    pub sessions: Arc<DashMap<Uuid, Arc<RwLock<PlayerSession>>>>,
+    pub sessions: Arc<DashMap<Uuid, Arc<game::SessionHandle>>>,
     pub connections_by_ip: Arc<DashMap<String, usize>>,
     pub active_player_ids: Arc<DashMap<u16, Uuid>>,
     next_player_id: Arc<std::sync::atomic::AtomicU16>,
@@ -108,7 +108,7 @@ impl Server {
     pub fn is_player_online(&self, username: &str) -> bool {
         // Check all sessions for matching username
         for session_ref in self.sessions.iter() {
-            if let Ok(session) = session_ref.value().try_read() {
+            if let Ok(session) = session_ref.value().session.try_read() {
                 if session.username.as_deref() == Some(username) {
                     return true;
                 }
@@ -255,7 +255,8 @@ async fn main() -> Result<()> {
 
         // Save ALL player data on shutdown (position + points) regardless of config
         for session_ref in shutdown_server.sessions.iter() {
-            let session = session_ref.value().read().await;
+            let handle = session_ref.value();
+            let session = handle.session.read().await;
             if let (Some(char_id), true) = (session.character_id, session.is_authenticated) {
                 // Always save position on server shutdown
                 if let Err(e) = db::update_position(
@@ -333,7 +334,8 @@ fn spawn_background_tasks(server: Arc<Server>) {
 
             // Save all active player data
             for session_ref in save_server.sessions.iter() {
-                let session = session_ref.value().read().await;
+                let handle = session_ref.value();
+                let session = handle.session.read().await;
                 if let (Some(char_id), true) = (session.character_id, session.is_authenticated) {
                     // Only save position if auto_save_position is enabled
                     if auto_save_position {
@@ -377,15 +379,16 @@ fn spawn_background_tasks(server: Arc<Server>) {
             let mut stale_sessions = Vec::new();
 
             for session_ref in cleanup_server.sessions.iter() {
-                let session = session_ref.value().read().await;
+                let handle = session_ref.value();
+                let session = handle.session.read().await;
                 if session.is_timed_out() {
                     stale_sessions.push(*session_ref.key());
                 }
             }
 
             for session_id in stale_sessions {
-                if let Some((_, session)) = cleanup_server.sessions.remove(&session_id) {
-                    let session_guard = session.read().await;
+                if let Some((_, handle)) = cleanup_server.sessions.remove(&session_id) {
+                    let session_guard = handle.session.read().await;
                     if let Some(username) = &session_guard.username {
                         info!("Cleaning up stale session for {}", username);
                     }
@@ -461,10 +464,10 @@ fn spawn_background_tasks(server: Arc<Server>) {
                                         if let Some(session_id) =
                                             respawn_server.game_state.players_by_id.get(&player_id)
                                         {
-                                            if let Some(session) =
+                                            if let Some(handle) =
                                                 respawn_server.sessions.get(&session_id)
                                             {
-                                                session.write().await.queue_message(msg.clone());
+                                                handle.queue_message(msg.clone()).await;
                                             }
                                         }
                                     }
@@ -509,10 +512,10 @@ fn spawn_background_tasks(server: Arc<Server>) {
                                     if let Some(session_id) =
                                         respawn_server.game_state.players_by_id.get(player_id)
                                     {
-                                        if let Some(session) =
+                                        if let Some(handle) =
                                             respawn_server.sessions.get(&session_id)
                                         {
-                                            session.write().await.queue_message(msg.clone());
+                                            handle.queue_message(msg.clone()).await;
                                         }
                                     }
                                 }
@@ -624,8 +627,8 @@ fn spawn_background_tasks(server: Arc<Server>) {
                             if let Some(session_id) =
                                 restock_server.game_state.players_by_id.get(&player_id)
                             {
-                                if let Some(session) = restock_server.sessions.get(&session_id) {
-                                    session.write().await.queue_message(msg.clone());
+                                if let Some(handle) = restock_server.sessions.get(&session_id) {
+                                    handle.queue_message(msg.clone()).await;
                                 }
                             }
                         }
@@ -719,7 +722,8 @@ async fn handle_admin_kick(server: &Server, username: &str, reason: Option<&str>
     let username_lower = username.to_lowercase();
 
     for session_ref in server.sessions.iter() {
-        let mut session = session_ref.value().write().await;
+        let handle = session_ref.value();
+        let mut session = handle.session.write().await;
         if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
             let kick_reason = reason.unwrap_or("Kicked by administrator");
             session.kick(kick_reason);
@@ -735,7 +739,8 @@ async fn handle_admin_teleport(server: &Server, username: &str, room_id: u16, x:
 
     for session_ref in server.sessions.iter() {
         let session_id = *session_ref.key();
-        let mut session = session_ref.value().write().await;
+        let handle = session_ref.value();
+        let mut session = handle.session.write().await;
 
         if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
             let old_room = session.room_id;
@@ -815,13 +820,15 @@ async fn handle_admin_set_points(server: &Server, username: &str, points: i64, m
 
     // Find online session and update + notify
     for session_ref in server.sessions.iter() {
-        let mut session = session_ref.value().write().await;
+        let handle = session_ref.value();
+        let mut session = handle.session.write().await;
         if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
             let old_points = session.points;
             session.points = new_points as u32;
+            drop(session);
 
             // Send points update to client
-            session.queue_message(protocol::build_points_update(new_points as u32, false));
+            handle.queue_message(protocol::build_points_update(new_points as u32, false)).await;
 
             info!(
                 "Admin set {} points: {} -> {}",
@@ -1021,7 +1028,8 @@ async fn handle_admin_set_appearance(
 
     // Update online session and broadcast appearance change
     for session_ref in server.sessions.iter() {
-        let mut session = session_ref.value().write().await;
+        let handle = session_ref.value();
+        let mut session = handle.session.write().await;
         if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
             if let Some(body) = body_id {
                 session.body_id = body;
@@ -1054,8 +1062,8 @@ async fn handle_admin_set_appearance(
 
                     for pid in &room_players {
                         if let Some(sid) = server.game_state.players_by_id.get(pid) {
-                            if let Some(s) = server.sessions.get(&sid) {
-                                s.write().await.queue_message(msg.clone());
+                            if let Some(h) = server.sessions.get(&sid) {
+                                h.queue_message(msg.clone()).await;
                             }
                         }
                     }
@@ -1071,8 +1079,8 @@ async fn handle_admin_set_appearance(
 
                     for pid in &room_players {
                         if let Some(sid) = server.game_state.players_by_id.get(pid) {
-                            if let Some(s) = server.sessions.get(&sid) {
-                                s.write().await.queue_message(msg.clone());
+                            if let Some(h) = server.sessions.get(&sid) {
+                                h.queue_message(msg.clone()).await;
                             }
                         }
                     }
@@ -1088,8 +1096,8 @@ async fn handle_admin_set_appearance(
 
                     for pid in &room_players {
                         if let Some(sid) = server.game_state.players_by_id.get(pid) {
-                            if let Some(s) = server.sessions.get(&sid) {
-                                s.write().await.queue_message(msg.clone());
+                            if let Some(h) = server.sessions.get(&sid) {
+                                h.queue_message(msg.clone()).await;
                             }
                         }
                     }

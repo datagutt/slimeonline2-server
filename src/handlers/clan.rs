@@ -317,19 +317,21 @@ pub async fn handle_clan_dissolve(
     let left_msg = build_clan_info_left();
     for member in &members {
         // Find the member's session and send them the message
-        if let Some(session_ref) = find_session_by_character_id(server, member.character_id).await {
-            let mut session_guard = session_ref.write().await;
-            session_guard.clan_id = None;
-            session_guard.is_clan_leader = false;
-            session_guard.has_clan_base = false;
-            session_guard.queue_message(left_msg.clone());
+        if let Some(handle) = find_session_by_character_id(server, member.character_id).await {
+            {
+                let mut session_guard = handle.session.write().await;
+                session_guard.clan_id = None;
+                session_guard.is_clan_leader = false;
+                session_guard.has_clan_base = false;
+            }
+            handle.queue_message(left_msg.clone()).await;
         }
     }
 
     // Broadcast to all players that these members are no longer in a clan
     for member in &members {
-        if let Some(session_ref) = find_session_by_character_id(server, member.character_id).await {
-            let pid = session_ref.read().await.player_id;
+        if let Some(handle) = find_session_by_character_id(server, member.character_id).await {
+            let pid = handle.session.read().await.player_id;
             if let Some(member_pid) = pid {
                 let broadcast = build_clan_info_broadcast(member_pid, 0); // clan_id 0 = no clan
                 broadcast_to_all_players(server, member_pid, broadcast).await;
@@ -839,18 +841,20 @@ async fn handle_admin_kick(
     );
 
     // Notify the kicked player if online
-    if let Some(session_ref) =
+    if let Some(handle) =
         find_session_by_character_id(server, kicked_member.character_id).await
     {
-        let mut session_guard = session_ref.write().await;
-        session_guard.clan_id = None;
-        session_guard.is_clan_leader = false;
-        session_guard.has_clan_base = false;
-        session_guard.queue_message(build_clan_info_left());
+        let pid = {
+            let mut session_guard = handle.session.write().await;
+            session_guard.clan_id = None;
+            session_guard.is_clan_leader = false;
+            session_guard.has_clan_base = false;
+            session_guard.player_id
+        };
+        handle.queue_message(build_clan_info_left()).await;
 
         // Broadcast
-        if let Some(pid) = session_guard.player_id {
-            drop(session_guard);
+        if let Some(pid) = pid {
             let broadcast = build_clan_info_broadcast(pid, 0);
             broadcast_to_all_players(server, pid, broadcast).await;
         }
@@ -916,7 +920,7 @@ async fn handle_admin_invite(
     }
 
     // Find target player's session
-    let target_session_ref = match find_session_by_player_id(server, target_pid).await {
+    let target_handle = match find_session_by_player_id(server, target_pid).await {
         Some(s) => s,
         None => {
             debug!("Clan invite failed: player {} not found", target_pid);
@@ -926,7 +930,7 @@ async fn handle_admin_invite(
 
     // Check if target is already in a clan
     {
-        let tg = target_session_ref.read().await;
+        let tg = target_handle.session.read().await;
         if tg.clan_id.is_some() {
             debug!(
                 "Clan invite failed: player {} already in a clan",
@@ -954,18 +958,18 @@ async fn handle_admin_invite(
 
     // Set pending invite on target
     {
-        let mut tg = target_session_ref.write().await;
+        let mut tg = target_handle.session.write().await;
         tg.pending_clan_invite = Some(PendingClanInvite {
             clan_id: current_clan_id,
             clan_name: clan.name.clone(),
             inviter_id: my_pid,
             invited_at: Instant::now(),
         });
-
-        // Send invite message to target
-        let invite_msg = build_clan_invite(my_pid, &clan.name);
-        tg.queue_message(invite_msg);
     }
+    
+    // Send invite message to target
+    let invite_msg = build_clan_invite(my_pid, &clan.name);
+    target_handle.queue_message(invite_msg).await;
 
     debug!(
         "Sent clan invite to player {} for clan '{}'",
@@ -1105,13 +1109,13 @@ async fn handle_admin_news(
 async fn find_session_by_character_id(
     server: &Arc<Server>,
     character_id: i64,
-) -> Option<Arc<RwLock<PlayerSession>>> {
+) -> Option<Arc<crate::game::SessionHandle>> {
     for entry in server.sessions.iter() {
-        let session_ref = entry.value().clone();
-        let session_guard = session_ref.read().await;
+        let handle = entry.value().clone();
+        let session_guard = handle.session.read().await;
         if session_guard.character_id == Some(character_id) {
             drop(session_guard);
-            return Some(session_ref);
+            return Some(handle);
         }
     }
     None
@@ -1121,13 +1125,13 @@ async fn find_session_by_character_id(
 async fn find_session_by_player_id(
     server: &Arc<Server>,
     player_id: u16,
-) -> Option<Arc<RwLock<PlayerSession>>> {
+) -> Option<Arc<crate::game::SessionHandle>> {
     for entry in server.sessions.iter() {
-        let session_ref = entry.value().clone();
-        let session_guard = session_ref.read().await;
+        let handle = entry.value().clone();
+        let session_guard = handle.session.read().await;
         if session_guard.player_id == Some(player_id) {
             drop(session_guard);
-            return Some(session_ref);
+            return Some(handle);
         }
     }
     None
@@ -1136,10 +1140,11 @@ async fn find_session_by_player_id(
 /// Broadcast a message to all connected players except the sender
 async fn broadcast_to_all_players(server: &Arc<Server>, sender_pid: u16, message: Vec<u8>) {
     for entry in server.sessions.iter() {
-        let session_ref = entry.value().clone();
-        let mut session_guard = session_ref.write().await;
+        let handle = entry.value().clone();
+        let session_guard = handle.session.read().await;
         if session_guard.player_id != Some(sender_pid) && session_guard.is_authenticated {
-            session_guard.queue_message(message.clone());
+            drop(session_guard);
+            handle.queue_message(message.clone()).await;
         }
     }
 }

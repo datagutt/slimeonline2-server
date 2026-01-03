@@ -131,8 +131,7 @@ pub struct AdminState {
     /// Channel to send actions to the main game loop
     pub action_tx: mpsc::Sender<AdminAction>,
     /// Reference to server sessions for real-time queries
-    pub sessions:
-        Arc<dashmap::DashMap<uuid::Uuid, Arc<tokio::sync::RwLock<crate::game::PlayerSession>>>>,
+    pub sessions: Arc<dashmap::DashMap<uuid::Uuid, Arc<crate::game::SessionHandle>>>,
     /// Reference to game state for room info
     pub game_state: Arc<crate::game::GameState>,
 }

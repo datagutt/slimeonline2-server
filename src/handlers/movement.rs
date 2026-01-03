@@ -119,16 +119,13 @@ pub async fn handle_movement(
 
         // Find the other player's session and queue the message
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
+            if let Some(other_handle) = server.sessions.get(&other_session_id) {
                 // Build movement broadcast
                 let mut writer = MessageWriter::new();
                 movement.write_broadcast(&mut writer, player_id);
 
                 // Queue message for the other player
-                other_session
-                    .write()
-                    .await
-                    .queue_message(writer.into_bytes());
+                other_handle.queue_message(writer.into_bytes()).await;
             }
         }
     }

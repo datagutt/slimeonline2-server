@@ -265,14 +265,14 @@ pub async fn handle_login(
                 };
                 let mut nw = MessageWriter::new();
                 new_player.write_case1(&mut nw);
-                other_session.write().await.queue_message(nw.into_bytes());
+                other_session.queue_message(nw.into_bytes()).await;
             }
         }
 
         // Get info about existing player to send to new player
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(&other_session_id) {
-                let other_guard = other_session.read().await;
+                let other_guard = other_session.session.read().await;
                 if let Some(other_username) = &other_guard.username {
                     let existing_player = crate::protocol::NewPlayerInfo {
                         x: other_guard.x,

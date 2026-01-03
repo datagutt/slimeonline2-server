@@ -30,7 +30,7 @@ pub async fn get_stats(
         .iter()
         .filter(|s| {
             s.value()
-                .try_read()
+                .session.try_read()
                 .map(|s| s.is_authenticated)
                 .unwrap_or(false)
         })

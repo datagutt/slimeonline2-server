@@ -273,7 +273,7 @@ pub async fn handle_move_get_on(
         }
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.write().await.queue_message(msg.clone());
+                other_session.queue_message(msg.clone()).await;
             }
         }
     }
@@ -312,7 +312,7 @@ pub async fn handle_move_get_off(
         }
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.write().await.queue_message(msg.clone());
+                other_session.queue_message(msg.clone()).await;
             }
         }
     }

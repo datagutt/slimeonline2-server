@@ -460,8 +460,8 @@ async fn broadcast_unlockable_exists(server: &Arc<Server>, room_id: u16, unlocka
     let room_players = server.game_state.get_room_players(room_id).await;
     for player_id in room_players {
         if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
-            if let Some(session) = server.sessions.get(&session_id) {
-                session.write().await.queue_message(message.clone());
+            if let Some(handle) = server.sessions.get(&session_id) {
+                handle.queue_message(message.clone()).await;
             }
         }
     }
@@ -478,8 +478,8 @@ async fn broadcast_shop_stock_update(server: &Arc<Server>, room_id: u16) {
     let room_players = server.game_state.get_room_players(room_id).await;
     for player_id in room_players {
         if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
-            if let Some(session) = server.sessions.get(&session_id) {
-                session.write().await.queue_message(message.clone());
+            if let Some(handle) = server.sessions.get(&session_id) {
+                handle.queue_message(message.clone()).await;
             }
         }
     }

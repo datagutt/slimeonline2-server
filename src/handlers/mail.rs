@@ -582,8 +582,9 @@ fn build_mail_send_response(success: bool) -> Vec<u8> {
 async fn notify_new_mail(server: &Arc<Server>, receiver_character_id: i64) {
     // Find the receiver's session by character_id
     for session_ref in server.sessions.iter() {
+        let handle = session_ref.value();
         let is_receiver = {
-            if let Ok(session_guard) = session_ref.value().try_read() {
+            if let Ok(session_guard) = handle.session.try_read() {
                 session_guard.character_id == Some(receiver_character_id)
             } else {
                 false
@@ -599,11 +600,7 @@ async fn notify_new_mail(server: &Arc<Server>, receiver_character_id: i64) {
                 .write_u8(1); // 1 = has mail
 
             // Queue the message for the receiver
-            session_ref
-                .value()
-                .write()
-                .await
-                .queue_message(writer.into_bytes());
+            handle.queue_message(writer.into_bytes()).await;
             debug!(
                 "Notified player (char_id={}) of new mail",
                 receiver_character_id

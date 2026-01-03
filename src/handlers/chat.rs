@@ -79,13 +79,10 @@ pub async fn handle_chat(
 
     for other_player_id in room_players {
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
+            if let Some(other_handle) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
                 ChatMessage::write_broadcast(&mut writer, player_id, &message);
-                other_session
-                    .write()
-                    .await
-                    .queue_message(writer.into_bytes());
+                other_handle.queue_message(writer.into_bytes()).await;
             }
         }
     }
@@ -120,15 +117,12 @@ pub async fn handle_typing(
         }
 
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
+            if let Some(other_handle) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
                 writer
                     .write_u16(MessageType::PlayerTyping.id())
                     .write_u16(player_id);
-                other_session
-                    .write()
-                    .await
-                    .queue_message(writer.into_bytes());
+                other_handle.queue_message(writer.into_bytes()).await;
             }
         }
     }
@@ -192,16 +186,13 @@ pub async fn handle_emote(
         }
 
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
+            if let Some(other_handle) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
                 writer
                     .write_u16(MessageType::Emote.id())
                     .write_u16(player_id)
                     .write_u8(emote_id);
-                other_session
-                    .write()
-                    .await
-                    .queue_message(writer.into_bytes());
+                other_handle.queue_message(writer.into_bytes()).await;
             }
         }
     }
@@ -248,16 +239,13 @@ pub async fn handle_action(
         }
 
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
+            if let Some(other_handle) = server.sessions.get(&other_session_id) {
                 let mut writer = MessageWriter::new();
                 writer
                     .write_u16(MessageType::Action.id())
                     .write_u16(player_id)
                     .write_u8(action_id);
-                other_session
-                    .write()
-                    .await
-                    .queue_message(writer.into_bytes());
+                other_handle.queue_message(writer.into_bytes()).await;
             }
         }
     }

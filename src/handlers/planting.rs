@@ -154,7 +154,7 @@ pub async fn handle_plant_set(
     for other_player_id in room_players {
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.write().await.queue_message(msg.clone());
+                other_session.queue_message(msg.clone()).await;
             }
         }
     }
@@ -250,7 +250,7 @@ pub async fn handle_plant_add_pinwheel(
     for other_player_id in room_players {
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.write().await.queue_message(msg.clone());
+                other_session.queue_message(msg.clone()).await;
             }
         }
     }
@@ -344,7 +344,7 @@ pub async fn handle_plant_add_fairy(
     for other_player_id in room_players {
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.write().await.queue_message(msg.clone());
+                other_session.queue_message(msg.clone()).await;
             }
         }
     }
@@ -458,7 +458,7 @@ pub async fn handle_plant_take_fruit(
     for other_player_id in room_players {
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
             if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.write().await.queue_message(msg.clone());
+                other_session.queue_message(msg.clone()).await;
             }
         }
     }
@@ -496,7 +496,7 @@ pub async fn handle_plant_take_fruit(
                     server.game_state.players_by_id.get(&other_player_id)
                 {
                     if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                        other_session.write().await.queue_message(msg.clone());
+                        other_session.queue_message(msg.clone()).await;
                     }
                 }
             }

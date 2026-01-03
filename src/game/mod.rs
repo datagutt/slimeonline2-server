@@ -8,11 +8,35 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use dashmap::DashMap;
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 use uuid::Uuid;
 
 use crate::config::DefaultsConfig;
 use crate::constants::*;
+
+/// Handle to a player session with notification support
+/// 
+/// This wraps a PlayerSession with a Notify that can wake up the connection
+/// handler when messages are queued for sending.
+pub struct SessionHandle {
+    pub session: Arc<RwLock<PlayerSession>>,
+    pub notify: Arc<Notify>,
+}
+
+impl SessionHandle {
+    pub fn new(session: PlayerSession) -> Self {
+        Self {
+            session: Arc::new(RwLock::new(session)),
+            notify: Arc::new(Notify::new()),
+        }
+    }
+
+    /// Queue a message and notify the connection handler to send it
+    pub async fn queue_message(&self, message: Vec<u8>) {
+        self.session.write().await.queue_message(message);
+        self.notify.notify_one();
+    }
+}
 
 /// A collectible spawn point (static world collectibles)
 #[derive(Debug, Clone)]

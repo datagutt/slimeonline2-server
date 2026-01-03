@@ -257,11 +257,8 @@ async fn handle_warp_wing(
             continue; // Skip self
         }
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
-                other_session
-                    .write()
-                    .await
-                    .queue_message(broadcast_msg.clone());
+            if let Some(other_handle) = server.sessions.get(&other_session_id) {
+                other_handle.queue_message(broadcast_msg.clone()).await;
             }
         }
     }
@@ -334,9 +331,9 @@ async fn broadcast_visual_effect(server: &Arc<Server>, room_id: u16, item_id: u1
 
     for player_id in room_players {
         if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
-            if let Some(session) = server.sessions.get(&session_id) {
+            if let Some(handle) = server.sessions.get(&session_id) {
                 debug!("Sending visual effect to player {}", player_id);
-                session.write().await.queue_message(msg.clone());
+                handle.queue_message(msg.clone()).await;
             }
         }
     }
@@ -366,8 +363,8 @@ async fn broadcast_bubbles(
     let room_players = server.game_state.get_room_players(room_id).await;
     for player_id in room_players {
         if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
-            if let Some(session) = server.sessions.get(&session_id) {
-                session.write().await.queue_message(msg.clone());
+            if let Some(handle) = server.sessions.get(&session_id) {
+                handle.queue_message(msg.clone()).await;
             }
         }
     }
@@ -391,8 +388,8 @@ async fn broadcast_soundmaker(
     let room_players = server.game_state.get_room_players(room_id).await;
     for pid in room_players {
         if let Some(session_id) = server.game_state.players_by_id.get(&pid) {
-            if let Some(session) = server.sessions.get(&session_id) {
-                session.write().await.queue_message(msg.clone());
+            if let Some(handle) = server.sessions.get(&session_id) {
+                handle.queue_message(msg.clone()).await;
             }
         }
     }
