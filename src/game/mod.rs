@@ -233,6 +233,12 @@ pub struct PlayerSession {
     pub pending_clan_invite: Option<PendingClanInvite>,
     /// Last time we sent an invite to each player (for 15s cooldown)
     pub clan_invite_cooldowns: HashMap<u16, Instant>,
+    /// Current race ID (if in a race)
+    pub race_id: Option<u8>,
+    /// When the race started
+    pub race_start_time: Option<Instant>,
+    /// Checkpoints reached in current race
+    pub race_checkpoints: Vec<u16>,
 }
 
 impl PlayerSession {
@@ -265,6 +271,9 @@ impl PlayerSession {
             has_clan_base: false,
             pending_clan_invite: None,
             clan_invite_cooldowns: HashMap::new(),
+            race_id: None,
+            race_start_time: None,
+            race_checkpoints: Vec::new(),
         }
     }
 

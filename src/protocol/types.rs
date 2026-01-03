@@ -93,15 +93,19 @@ pub enum MessageType {
     StoragePages = 57,
     StorageMove = 58,
 
-    // Planting
+    // Planting (Server → Client broadcasts)
     PlantSpotFree = 63,
     PlantSpotUsed = 64,
-    PlantDie = 65,
     PlantGrow = 66,
-    PlantAddPinwheel = 67,
-    PlantAddFairy = 68,
-    PlantGetFruit = 69,
-    PlantHasFruit = 70,
+    PlantDie = 67,
+    PlantHasFruit = 72,
+    
+    // Planting (Client → Server requests)
+    PlantSet = 65,              // Plant a seed
+    PlantAddPinwheel = 68,      // Add pinwheel to plant
+    PlantAddFairy = 69,         // Add fairy to plant
+    PlantGetFruit = 70,         // Server → Client: fruits appeared
+    PlantTakeFruit = 71,        // Client → Server: take fruit
 
     // Misc
     GetTopPoints = 73,
@@ -247,12 +251,14 @@ impl MessageType {
             58 => Self::StorageMove,
             63 => Self::PlantSpotFree,
             64 => Self::PlantSpotUsed,
-            65 => Self::PlantDie,
+            65 => Self::PlantSet,
             66 => Self::PlantGrow,
-            67 => Self::PlantAddPinwheel,
-            68 => Self::PlantAddFairy,
-            69 => Self::PlantGetFruit,
-            70 => Self::PlantHasFruit,
+            67 => Self::PlantDie,
+            68 => Self::PlantAddPinwheel,
+            69 => Self::PlantAddFairy,
+            70 => Self::PlantGetFruit,
+            71 => Self::PlantTakeFruit,
+            72 => Self::PlantHasFruit,
             73 => Self::GetTopPoints,
             74 => Self::TimeUpdate,
             75 => Self::GetSomething,
@@ -385,12 +391,14 @@ impl MessageType {
             Self::StorageMove => 58,
             Self::PlantSpotFree => 63,
             Self::PlantSpotUsed => 64,
-            Self::PlantDie => 65,
+            Self::PlantSet => 65,
             Self::PlantGrow => 66,
-            Self::PlantAddPinwheel => 67,
-            Self::PlantAddFairy => 68,
-            Self::PlantGetFruit => 69,
-            Self::PlantHasFruit => 70,
+            Self::PlantDie => 67,
+            Self::PlantAddPinwheel => 68,
+            Self::PlantAddFairy => 69,
+            Self::PlantGetFruit => 70,
+            Self::PlantTakeFruit => 71,
+            Self::PlantHasFruit => 72,
             Self::GetTopPoints => 73,
             Self::TimeUpdate => 74,
             Self::GetSomething => 75,
@@ -523,11 +531,13 @@ impl MessageType {
             | Self::QuestReward => "Quest",
             Self::PlantSpotFree
             | Self::PlantSpotUsed
+            | Self::PlantSet
             | Self::PlantDie
             | Self::PlantGrow
             | Self::PlantAddPinwheel
             | Self::PlantAddFairy
             | Self::PlantGetFruit
+            | Self::PlantTakeFruit
             | Self::PlantHasFruit
             | Self::TreePlantedInc => "Plant",
             Self::BuildSpotFree
@@ -646,11 +656,13 @@ impl fmt::Display for MessageType {
             Self::StorageMove => "StorageMove",
             Self::PlantSpotFree => "PlantSpotFree",
             Self::PlantSpotUsed => "PlantSpotUsed",
+            Self::PlantSet => "PlantSet",
             Self::PlantDie => "PlantDie",
             Self::PlantGrow => "PlantGrow",
             Self::PlantAddPinwheel => "PlantAddPinwheel",
             Self::PlantAddFairy => "PlantAddFairy",
             Self::PlantGetFruit => "PlantGetFruit",
+            Self::PlantTakeFruit => "PlantTakeFruit",
             Self::PlantHasFruit => "PlantHasFruit",
             Self::GetTopPoints => "GetTopPoints",
             Self::TimeUpdate => "TimeUpdate",

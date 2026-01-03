@@ -18,8 +18,8 @@ use crate::protocol::{describe_message, write_player_left, MessageType, MessageW
 use crate::Server;
 
 use super::{
-    appearance, auth, bank, bbs, chat, clan, collectibles, gameplay, items, mail, movement, quest,
-    shop, upgrader, warp,
+    appearance, auth, bank, bbs, cannon, chat, clan, collectibles, gameplay, items, mail, movement,
+    music, one_time, planting, quest, racing, shop, storage, upgrader, vending, warp,
 };
 
 /// Handle a client connection.
@@ -557,6 +557,71 @@ async fn handle_message(
 
         MessageType::UpgraderInvest => {
             upgrader::handle_upgrader_invest(payload, server, session).await
+        }
+
+        // Planting System
+        MessageType::PlantSet => planting::handle_plant_set(payload, server, session).await,
+
+        MessageType::PlantAddPinwheel => {
+            planting::handle_plant_add_pinwheel(payload, server, session).await
+        }
+
+        MessageType::PlantAddFairy => {
+            planting::handle_plant_add_fairy(payload, server, session).await
+        }
+
+        MessageType::PlantTakeFruit => {
+            planting::handle_plant_take_fruit(payload, server, session).await
+        }
+
+        // Storage Extension
+        MessageType::StorageReq => storage::handle_storage_req(payload, server, session).await,
+
+        MessageType::StoragePages => storage::handle_storage_pages(payload, server, session).await,
+
+        MessageType::StorageMove => storage::handle_storage_move(payload, server, session).await,
+
+        // Cannon System
+        MessageType::CannonEnter => cannon::handle_cannon_enter(payload, server, session).await,
+
+        MessageType::CannonMove => cannon::handle_cannon_move(payload, server, session).await,
+
+        MessageType::CannonSetPower => {
+            cannon::handle_cannon_set_power(payload, server, session).await
+        }
+
+        MessageType::CannonShoot => cannon::handle_cannon_shoot(payload, server, session).await,
+
+        // Racing System
+        MessageType::RaceInfo => racing::handle_race_info(payload, server, session).await,
+
+        MessageType::RaceStart => racing::handle_race_start(payload, server, session).await,
+
+        MessageType::RaceCheckpoint => {
+            racing::handle_race_checkpoint(payload, server, session).await
+        }
+
+        MessageType::RaceEnd => racing::handle_race_end(payload, server, session).await,
+
+        MessageType::MoveGetOn => racing::handle_move_get_on(payload, server, session).await,
+
+        MessageType::MoveGetOff => racing::handle_move_get_off(payload, server, session).await,
+
+        // Vending Machines
+        MessageType::BuyGum => vending::handle_buy_gum(payload, server, session).await,
+
+        MessageType::BuySoda => vending::handle_buy_soda(payload, server, session).await,
+
+        // One-Time Items
+        MessageType::OneTimeGet => one_time::handle_one_time_take(payload, server, session).await,
+
+        // Music Changer
+        MessageType::MusicChangerList => {
+            music::handle_music_changer_list(payload, server, session).await
+        }
+
+        MessageType::MusicChangerSet => {
+            music::handle_music_changer_set(payload, server, session).await
         }
 
         _ => {

@@ -61,19 +61,20 @@ Some of these features, while *technically* implemented, might not actually work
 | **Top Points** | Complete | Leaderboard sign in city rooms (42, 126) |
 | **Tools** | Complete | Equip/unequip with persistence |
 | **Save Points** | Complete | Manual save at save point NPCs |
+| **Planting System** | Complete | Plant trees, add pinwheels/fairies, harvest fruit |
+| **Upgrader System** | Complete | Town upgrader with points investment |
+| **Storage Extension** | Complete | Extended item storage with pages |
+| **Cannon System** | Complete | Enter, move, set power, shoot cannons |
+| **Racing System** | Complete | Race info, start, checkpoints, end, mount/dismount |
+| **Vending Machines** | Complete | Gum and soda machines with random items |
+| **One-Time Items** | Complete | Collectible one-time items per character |
+| **Music Changer** | Complete | Change room background music |
 
 ### Not Yet Implemented
 
 | Feature | Priority | Messages |
 |---------|----------|----------|
-| **Planting System** | Medium | 9 messages (63-70, 94) |
-| **Storage Extension** | Medium | 3 messages (56-58) |
 | **Building System** | Low | 4 messages (103-106) |
-| **Cannon System** | Low | 4 messages (98-101) |
-| **Racing System** | Low | 6 messages (120-125) |
-| **Upgrader System** | Low | 5 messages (108-112) |
-| **Music Changer** | Low | 2 messages (95-96) |
-| **One-Time Items** | Low | 3 messages (35-37) |
 
 ### Might Implement
 

@@ -736,3 +736,139 @@ pub async fn get_top_points(pool: &DbPool) -> Result<Option<TopPoints>, sqlx::Er
         total_points,
     }))
 }
+
+/// Update all items in inventory at once
+pub async fn update_inventory_items(
+    pool: &DbPool,
+    character_id: i64,
+    items: &[u16; 9],
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE inventories
+        SET item_1 = ?, item_2 = ?, item_3 = ?, item_4 = ?, item_5 = ?,
+            item_6 = ?, item_7 = ?, item_8 = ?, item_9 = ?,
+            updated_at = datetime('now')
+        WHERE character_id = ?
+        "#,
+    )
+    .bind(items[0] as i16)
+    .bind(items[1] as i16)
+    .bind(items[2] as i16)
+    .bind(items[3] as i16)
+    .bind(items[4] as i16)
+    .bind(items[5] as i16)
+    .bind(items[6] as i16)
+    .bind(items[7] as i16)
+    .bind(items[8] as i16)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Increment trees planted count
+pub async fn increment_trees_planted(
+    pool: &DbPool,
+    character_id: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET trees_planted = trees_planted + 1, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Update all outfits in inventory at once
+pub async fn update_inventory_outfits(
+    pool: &DbPool,
+    character_id: i64,
+    outfits: &[u16; 9],
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE inventories
+        SET outfit_1 = ?, outfit_2 = ?, outfit_3 = ?, outfit_4 = ?, outfit_5 = ?,
+            outfit_6 = ?, outfit_7 = ?, outfit_8 = ?, outfit_9 = ?,
+            updated_at = datetime('now')
+        WHERE character_id = ?
+        "#,
+    )
+    .bind(outfits[0] as i16)
+    .bind(outfits[1] as i16)
+    .bind(outfits[2] as i16)
+    .bind(outfits[3] as i16)
+    .bind(outfits[4] as i16)
+    .bind(outfits[5] as i16)
+    .bind(outfits[6] as i16)
+    .bind(outfits[7] as i16)
+    .bind(outfits[8] as i16)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Update all accessories in inventory at once
+pub async fn update_inventory_accessories(
+    pool: &DbPool,
+    character_id: i64,
+    accessories: &[u16; 9],
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE inventories
+        SET accessory_1 = ?, accessory_2 = ?, accessory_3 = ?, accessory_4 = ?, accessory_5 = ?,
+            accessory_6 = ?, accessory_7 = ?, accessory_8 = ?, accessory_9 = ?,
+            updated_at = datetime('now')
+        WHERE character_id = ?
+        "#,
+    )
+    .bind(accessories[0] as i16)
+    .bind(accessories[1] as i16)
+    .bind(accessories[2] as i16)
+    .bind(accessories[3] as i16)
+    .bind(accessories[4] as i16)
+    .bind(accessories[5] as i16)
+    .bind(accessories[6] as i16)
+    .bind(accessories[7] as i16)
+    .bind(accessories[8] as i16)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Update all tools in inventory at once
+pub async fn update_inventory_tools(
+    pool: &DbPool,
+    character_id: i64,
+    tools: &[u16; 3],
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE inventories
+        SET tool_1 = ?, tool_2 = ?, tool_3 = ?,
+            updated_at = datetime('now')
+        WHERE character_id = ?
+        "#,
+    )
+    .bind(tools[0] as i16)
+    .bind(tools[1] as i16)
+    .bind(tools[2] as i16)
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
