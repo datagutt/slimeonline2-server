@@ -149,6 +149,7 @@ impl Inventory {
 }
 
 /// Create a new character for an account.
+/// Sets default emotes (5, 4, 6, 8, 7) and items (1, 1, 1, 24) based on original server's [Acc_Sample].soa
 pub async fn create_character(
     pool: &DbPool,
     account_id: i64,
@@ -167,11 +168,13 @@ pub async fn create_character(
 
     let character_id = result.last_insert_rowid();
 
-    // Create inventory for the character
+    // Create inventory for the character with default emotes and starter items
+    // Default emotes: 5, 4, 6, 8, 7 (from original server [Acc_Sample].soa)
+    // Default items: 1, 1, 1, 24 (starter items from original server)
     sqlx::query(
         r#"
-        INSERT INTO inventories (character_id)
-        VALUES (?)
+        INSERT INTO inventories (character_id, emote_1, emote_2, emote_3, emote_4, emote_5, item_1, item_2, item_3, item_4)
+        VALUES (?, 5, 4, 6, 8, 7, 1, 1, 1, 24)
         "#,
     )
     .bind(character_id)
