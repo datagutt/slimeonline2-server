@@ -78,10 +78,10 @@ Some of these features, while *technically* implemented, might not actually work
 
 ## Unique features
 
-| Feature | Messages |
+| Feature | Notes    |
 |---------|----------|
-| **Admin API**      | HTTP-based Admin API for managing the server and clients
-| **CLI Mod Tools**  | CLI-based moderation tools leveraging the Admin API
+| **Admin API**      | HTTP-based Admin API for managing the server and clients|
+| **CLI Mod Tools**  | CLI-based moderation tools leveraging the Admin API|
 
 ### Might Implement
 
