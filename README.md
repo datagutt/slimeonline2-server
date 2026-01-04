@@ -76,10 +76,16 @@ Some of these features, while *technically* implemented, might not actually work
 |---------|----------|----------|
 | **Building System** | Low | 4 messages (103-106) |
 
+## Unique features
+
+| Feature | Messages |
+|---------|----------|
+| **Admin API**      | HTTP-based Admin API for managing the server and clients
+| **CLI Mod Tools**  | CLI-based moderation tools leveraging the Admin API
+
 ### Might Implement
 
 - Automatic shop item rotation (new items for daily restock)
-- Mod tools (SO2 ones are weak)
 - Live player map in browser
 
 ### Untested / Needs Verification
