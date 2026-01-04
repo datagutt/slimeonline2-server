@@ -85,7 +85,6 @@ Some of these features, while *technically* implemented, might not actually work
 ### Untested / Needs Verification
 
 - Clan functionality
-- Quests
 - Collectible evolution (mushroom transformation over time)
 - Full multi-player stress testing
 
