@@ -74,7 +74,7 @@ Some of these features, while *technically* implemented, might not actually work
 
 | Feature | Priority | Messages |
 |---------|----------|----------|
-| **Building System** | Low | 4 messages (103-106) |
+| **Building System**| Low      | 4 messages (103-106)
 
 ## Unique features
 
