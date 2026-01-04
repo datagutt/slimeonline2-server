@@ -5,11 +5,11 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::constants::{MAX_MAIL_BODY, MAX_POINTS};
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Handle MSG_MAILBOX (47)
 /// Client requests mailbox contents (paginated)
@@ -422,8 +422,16 @@ pub async fn handle_mail_send(
     let points = reader.read_u16()? as u32;
     let message = reader.read_string()?;
 
-    debug!("Mail send: receiver='{}', message_len={}, present_cat={}, present_id={}, points={}, paper={}, font={}", 
-           receiver_name, message.len(), present_cat, present_id, points, paper, font_color);
+    debug!(
+        "Mail send: receiver='{}', message_len={}, present_cat={}, present_id={}, points={}, paper={}, font={}",
+        receiver_name,
+        message.len(),
+        present_cat,
+        present_id,
+        points,
+        paper,
+        font_color
+    );
 
     let (character_id, username) = {
         let session_guard = session.read().await;
@@ -468,31 +476,32 @@ pub async fn handle_mail_send(
     // Handle item attachment based on present_cat
     // present_cat: 0=none, 1=outfits, 2=items, 3=accessories, 4=tools
     // present_id: slot number (1-9)
-    if present_cat > 0 && (1..=9).contains(&present_id) {
-        if let Ok(Some(inventory)) = db::get_inventory(&server.db, char_id).await {
-            let slot_item: u16 = match present_cat {
-                1 => inventory.outfits()[(present_id - 1) as usize],
-                2 => inventory.items()[(present_id - 1) as usize],
-                3 => inventory.accessories()[(present_id - 1) as usize],
-                4 => inventory.tools()[(present_id - 1) as usize] as u16,
-                _ => 0,
-            };
+    if present_cat > 0
+        && (1..=9).contains(&present_id)
+        && let Ok(Some(inventory)) = db::get_inventory(&server.db, char_id).await
+    {
+        let slot_item: u16 = match present_cat {
+            1 => inventory.outfits()[(present_id - 1) as usize],
+            2 => inventory.items()[(present_id - 1) as usize],
+            3 => inventory.accessories()[(present_id - 1) as usize],
+            4 => inventory.tools()[(present_id - 1) as usize] as u16,
+            _ => 0,
+        };
 
-            if slot_item > 0 {
-                item_id = slot_item as i64;
-                item_cat = present_cat as i64;
-                // Remove item from sender's inventory based on category
-                let remove_result = match present_cat {
-                    1 => db::update_outfit_slot(&server.db, char_id, present_id as u8, 0).await,
-                    2 => db::update_item_slot(&server.db, char_id, present_id as u8, 0).await,
-                    3 => db::update_accessory_slot(&server.db, char_id, present_id as u8, 0).await,
-                    4 => db::update_tool_slot(&server.db, char_id, present_id as u8, 0).await,
-                    _ => Ok(()),
-                };
-                if let Err(e) = remove_result {
-                    warn!("Failed to remove item for mail: {}", e);
-                    return Ok(vec![build_mail_send_response(false)]);
-                }
+        if slot_item > 0 {
+            item_id = slot_item as i64;
+            item_cat = present_cat as i64;
+            // Remove item from sender's inventory based on category
+            let remove_result = match present_cat {
+                1 => db::update_outfit_slot(&server.db, char_id, present_id as u8, 0).await,
+                2 => db::update_item_slot(&server.db, char_id, present_id as u8, 0).await,
+                3 => db::update_accessory_slot(&server.db, char_id, present_id as u8, 0).await,
+                4 => db::update_tool_slot(&server.db, char_id, present_id as u8, 0).await,
+                _ => Ok(()),
+            };
+            if let Err(e) = remove_result {
+                warn!("Failed to remove item for mail: {}", e);
+                return Ok(vec![build_mail_send_response(false)]);
             }
         }
     }

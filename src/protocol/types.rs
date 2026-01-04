@@ -99,13 +99,13 @@ pub enum MessageType {
     PlantGrow = 66,
     PlantDie = 67,
     PlantHasFruit = 72,
-    
+
     // Planting (Client → Server requests)
-    PlantSet = 65,              // Plant a seed
-    PlantAddPinwheel = 68,      // Add pinwheel to plant
-    PlantAddFairy = 69,         // Add fairy to plant
-    PlantGetFruit = 70,         // Server → Client: fruits appeared
-    PlantTakeFruit = 71,        // Client → Server: take fruit
+    PlantSet = 65,         // Plant a seed
+    PlantAddPinwheel = 68, // Add pinwheel to plant
+    PlantAddFairy = 69,    // Add fairy to plant
+    PlantGetFruit = 70,    // Server → Client: fruits appeared
+    PlantTakeFruit = 71,   // Client → Server: take fruit
 
     // Misc
     GetTopPoints = 73,

@@ -5,9 +5,9 @@
 use std::sync::Arc;
 
 use axum::{
+    Json, Router,
     http::{HeaderMap, StatusCode},
     routing::{delete, get, post},
-    Json, Router,
 };
 use serde::Serialize;
 use tokio::sync::mpsc;

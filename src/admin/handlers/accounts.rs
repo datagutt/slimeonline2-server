@@ -3,13 +3,13 @@
 use std::sync::Arc;
 
 use axum::{
+    Json,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
-    Json,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::admin::{verify_api_key, AdminState, ApiResponse};
+use crate::admin::{AdminState, ApiResponse, verify_api_key};
 use crate::db;
 
 #[derive(Serialize)]
@@ -140,13 +140,13 @@ pub async fn get_account(
                     "Account '{}' not found",
                     username
                 ))),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -157,7 +157,8 @@ pub async fn get_account(
 
     let is_online = state.sessions.iter().any(|s| {
         s.value()
-            .session.try_read()
+            .session
+            .try_read()
             .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
             .unwrap_or(false)
     });

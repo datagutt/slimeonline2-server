@@ -3,13 +3,13 @@
 use std::sync::Arc;
 
 use axum::{
+    Json,
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
-    Json,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::admin::{verify_api_key, AdminState, ApiResponse};
+use crate::admin::{AdminState, ApiResponse, verify_api_key};
 use crate::db;
 
 #[derive(Serialize)]
@@ -105,13 +105,13 @@ pub async fn get_clan(
                     "Clan '{}' not found",
                     name
                 ))),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -174,13 +174,13 @@ pub async fn dissolve_clan(
                     "Clan '{}' not found",
                     name
                 ))),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -234,13 +234,13 @@ pub async fn add_points(
                     "Clan '{}' not found",
                     name
                 ))),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 

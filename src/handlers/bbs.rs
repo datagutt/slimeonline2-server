@@ -5,10 +5,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
+use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Cooldown between posts in seconds (prevent spam)
 const BBS_POST_COOLDOWN_SECONDS: i64 = 60;

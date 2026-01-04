@@ -11,11 +11,11 @@ use tokio::net::TcpStream;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, trace, warn};
 
+use crate::Server;
 use crate::constants::*;
 use crate::crypto::{decrypt_client_message, encrypt_server_message};
 use crate::game::{PlayerSession, SessionHandle};
-use crate::protocol::{describe_message, write_player_left, MessageType, MessageWriter};
-use crate::Server;
+use crate::protocol::{MessageType, MessageWriter, describe_message, write_player_left};
 
 use super::{
     appearance, auth, bank, bbs, cannon, chat, clan, collectibles, gameplay, items, mail, movement,
@@ -409,8 +409,10 @@ async fn handle_message(
                     error!("Failed to save points: {}", e);
                 }
 
-                debug!("Saved player data at save point (char_id: {}, room: {}, pos: {},{}, points: {})", 
-                       char_id, room_id, x, y, points);
+                debug!(
+                    "Saved player data at save point (char_id: {}, room: {}, pos: {},{}, points: {})",
+                    char_id, room_id, x, y, points
+                );
 
                 // Check if this player now has the top points and broadcast if so
                 // (from check_top_points.gml in original server)
@@ -459,16 +461,15 @@ async fn handle_message(
                         }
                         if let Some(other_session_id) =
                             server.game_state.players_by_id.get(&other_player_id)
+                            && let Some(other_session) = server.sessions.get(&other_session_id)
                         {
-                            if let Some(other_session) = server.sessions.get(&other_session_id) {
-                                let mut writer = MessageWriter::new();
-                                writer
-                                    .write_u16(MessageType::PlayerStop.id())
-                                    .write_u16(player_id)
-                                    .write_u16(x)
-                                    .write_u16(y);
-                                other_session.queue_message(writer.into_bytes()).await;
-                            }
+                            let mut writer = MessageWriter::new();
+                            writer
+                                .write_u16(MessageType::PlayerStop.id())
+                                .write_u16(player_id)
+                                .write_u16(x)
+                                .write_u16(y);
+                            other_session.queue_message(writer.into_bytes()).await;
                         }
                     }
                 }
@@ -514,10 +515,10 @@ async fn handle_message(
         MessageType::ToolUnequip => {
             // Client unequipped their tool
             let character_id = session.read().await.character_id;
-            if let Some(char_id) = character_id {
-                if let Err(e) = crate::db::update_equipped_tool(&server.db, char_id, 0).await {
-                    error!("Failed to clear equipped tool: {}", e);
-                }
+            if let Some(char_id) = character_id
+                && let Err(e) = crate::db::update_equipped_tool(&server.db, char_id, 0).await
+            {
+                error!("Failed to clear equipped tool: {}", e);
             }
             Ok(vec![])
         }

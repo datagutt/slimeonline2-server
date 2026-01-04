@@ -3,13 +3,13 @@
 use std::sync::Arc;
 
 use axum::{
+    Json,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
-    Json,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::admin::{verify_api_key, AdminState, ApiResponse};
+use crate::admin::{AdminState, ApiResponse, verify_api_key};
 
 #[derive(Serialize)]
 pub struct BanRecord {
@@ -278,15 +278,14 @@ pub async fn delete_ban(
         })?;
 
     // If it was an account ban, also clear the account's is_banned flag
-    if let Some((ban_type, value)) = ban_info {
-        if ban_type == "account" {
-            let _ = sqlx::query(
-                "UPDATE accounts SET is_banned = 0, ban_reason = NULL WHERE username = ?",
-            )
-            .bind(value.to_lowercase())
-            .execute(&state.db)
-            .await;
-        }
+    if let Some((ban_type, value)) = ban_info
+        && ban_type == "account"
+    {
+        let _ =
+            sqlx::query("UPDATE accounts SET is_banned = 0, ban_reason = NULL WHERE username = ?")
+                .bind(value.to_lowercase())
+                .execute(&state.db)
+                .await;
     }
 
     Ok(Json(ApiResponse::success(DeleteBanResponse {

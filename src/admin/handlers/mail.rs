@@ -3,13 +3,13 @@
 use std::sync::Arc;
 
 use axum::{
+    Json,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
-    Json,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::admin::{verify_api_key, AdminAction, AdminState, ApiResponse};
+use crate::admin::{AdminAction, AdminState, ApiResponse, verify_api_key};
 use crate::db;
 
 #[derive(Deserialize)]
@@ -78,7 +78,9 @@ pub async fn send_system_mail(
     if req.item_id > 0 && req.item_category == 0 {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::error("item_category required when item_id is provided (1=outfit, 2=item, 3=accessory, 4=tool)")),
+            Json(ApiResponse::<()>::error(
+                "item_category required when item_id is provided (1=outfit, 2=item, 3=accessory, 4=tool)",
+            )),
         ));
     }
 
@@ -152,13 +154,13 @@ pub async fn get_mailbox(
                     "Player '{}' not found",
                     username
                 ))),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -168,13 +170,13 @@ pub async fn get_mailbox(
             return Err((
                 StatusCode::NOT_FOUND,
                 Json(ApiResponse::<()>::error("Player has no character")),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 

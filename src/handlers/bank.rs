@@ -5,12 +5,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
+use crate::Server;
 use crate::constants::{MAX_BANK_BALANCE, MAX_POINTS};
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
-use crate::Server;
 
 /// Handle MSG_REQUEST_STATUS (44)
 /// Client requests status of a game element (bank balance, etc.)

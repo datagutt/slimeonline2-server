@@ -15,7 +15,7 @@ use crate::config::DefaultsConfig;
 use crate::constants::*;
 
 /// Handle to a player session with notification support
-/// 
+///
 /// This wraps a PlayerSession with a Notify that can wake up the connection
 /// handler when messages are queued for sending.
 pub struct SessionHandle {
@@ -167,13 +167,12 @@ impl Room {
 
         for (_, col) in collectibles.iter_mut() {
             // Check if it's available or has respawned
-            if let Some(taken_at) = col.taken_at {
-                if let Some(respawn_secs) = col.spawn.respawn_secs {
-                    if taken_at.elapsed().as_secs() >= respawn_secs as u64 {
-                        // Respawned!
-                        col.taken_at = None;
-                    }
-                }
+            if let Some(taken_at) = col.taken_at
+                && let Some(respawn_secs) = col.spawn.respawn_secs
+                && taken_at.elapsed().as_secs() >= respawn_secs as u64
+            {
+                // Respawned!
+                col.taken_at = None;
             }
 
             if col.taken_at.is_none() {
@@ -192,12 +191,12 @@ impl Room {
         if let Some(col) = collectibles.get_mut(&col_id) {
             // Check if it's available (or respawned)
             if let Some(taken_at) = col.taken_at {
-                if let Some(respawn_secs) = col.spawn.respawn_secs {
-                    if taken_at.elapsed().as_secs() >= respawn_secs as u64 {
-                        // Respawned, allow taking
-                        col.taken_at = Some(now);
-                        return Some(col.spawn.clone());
-                    }
+                if let Some(respawn_secs) = col.spawn.respawn_secs
+                    && taken_at.elapsed().as_secs() >= respawn_secs as u64
+                {
+                    // Respawned, allow taking
+                    col.taken_at = Some(now);
+                    return Some(col.spawn.clone());
                 }
                 // Already taken and not respawned
                 return None;

@@ -3,14 +3,14 @@
 use std::sync::Arc;
 
 use axum::{
+    Json,
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
-    Json,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::admin::{
-    verify_api_key, AdminAction, AdminState, ApiResponse, InventoryCategory, PointsMode,
+    AdminAction, AdminState, ApiResponse, InventoryCategory, PointsMode, verify_api_key,
 };
 use crate::db;
 
@@ -35,20 +35,19 @@ pub async fn list_online(
     let mut players = Vec::new();
 
     for session_ref in state.sessions.iter() {
-        if let Ok(session) = session_ref.value().session.try_read() {
-            if session.is_authenticated {
-                if let Some(username) = &session.username {
-                    players.push(OnlinePlayer {
-                        username: username.clone(),
-                        player_id: session.player_id.unwrap_or(0),
-                        room_id: session.room_id,
-                        x: session.x,
-                        y: session.y,
-                        points: session.points,
-                        is_moderator: session.is_moderator,
-                    });
-                }
-            }
+        if let Ok(session) = session_ref.value().session.try_read()
+            && session.is_authenticated
+            && let Some(username) = &session.username
+        {
+            players.push(OnlinePlayer {
+                username: username.clone(),
+                player_id: session.player_id.unwrap_or(0),
+                room_id: session.room_id,
+                x: session.x,
+                y: session.y,
+                points: session.points,
+                is_moderator: session.is_moderator,
+            });
         }
     }
 
@@ -109,13 +108,13 @@ pub async fn get_info(
                     "Player '{}' not found",
                     username
                 ))),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -126,13 +125,13 @@ pub async fn get_info(
             return Err((
                 StatusCode::NOT_FOUND,
                 Json(ApiResponse::<()>::error("Player has no character")),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -143,13 +142,13 @@ pub async fn get_info(
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error("Player has no inventory")),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -157,17 +156,17 @@ pub async fn get_info(
     let (is_online, current_room, current_x, current_y) = {
         let mut online_info = (false, None, None, None);
         for session_ref in state.sessions.iter() {
-            if let Ok(session) = session_ref.value().session.try_read() {
-                if session.username.as_deref() == Some(&username_lower) && session.is_authenticated
-                {
-                    online_info = (
-                        true,
-                        Some(session.room_id),
-                        Some(session.x),
-                        Some(session.y),
-                    );
-                    break;
-                }
+            if let Ok(session) = session_ref.value().session.try_read()
+                && session.username.as_deref() == Some(&username_lower)
+                && session.is_authenticated
+            {
+                online_info = (
+                    true,
+                    Some(session.room_id),
+                    Some(session.x),
+                    Some(session.y),
+                );
+                break;
             }
         }
         online_info
@@ -231,7 +230,8 @@ pub async fn kick(
     // Check if player is online
     let is_online = state.sessions.iter().any(|s| {
         s.value()
-            .session.try_read()
+            .session
+            .try_read()
             .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
             .unwrap_or(false)
     });
@@ -317,13 +317,13 @@ pub async fn ban(
                     "Player '{}' not found",
                     username
                 ))),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -350,7 +350,7 @@ pub async fn ban(
                         Json(ApiResponse::<()>::error(
                             "Cannot ban by IP: player is not online",
                         )),
-                    ))
+                    ));
                 }
             }
         }
@@ -391,7 +391,7 @@ pub async fn ban(
                     "Failed to create ban: {}",
                     e
                 ))),
-            ))
+            ));
         }
     };
 
@@ -408,7 +408,8 @@ pub async fn ban(
     let kicked = if req.kick {
         let is_online = state.sessions.iter().any(|s| {
             s.value()
-                .session.try_read()
+                .session
+                .try_read()
                 .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
                 .unwrap_or(false)
         });
@@ -469,25 +470,25 @@ pub async fn teleport(
     // Check if player is online
     let is_online = state.sessions.iter().any(|s| {
         s.value()
-            .session.try_read()
+            .session
+            .try_read()
             .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
             .unwrap_or(false)
     });
 
     if !is_online {
         // Update DB position for offline player
-        if let Ok(Some(account)) = db::find_account_by_username(&state.db, &username_lower).await {
-            if let Ok(Some(character)) = db::find_character_by_account(&state.db, account.id).await
-            {
-                let _ = db::update_position(
-                    &state.db,
-                    character.id,
-                    req.x as i16,
-                    req.y as i16,
-                    req.room_id as i16,
-                )
-                .await;
-            }
+        if let Ok(Some(account)) = db::find_account_by_username(&state.db, &username_lower).await
+            && let Ok(Some(character)) = db::find_character_by_account(&state.db, account.id).await
+        {
+            let _ = db::update_position(
+                &state.db,
+                character.id,
+                req.x as i16,
+                req.y as i16,
+                req.room_id as i16,
+            )
+            .await;
         }
 
         return Ok(Json(ApiResponse::success(TeleportResponse {
@@ -732,13 +733,13 @@ pub async fn set_moderator(
                     "Player '{}' not found",
                     username
                 ))),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -748,13 +749,13 @@ pub async fn set_moderator(
             return Err((
                 StatusCode::NOT_FOUND,
                 Json(ApiResponse::<()>::error("Player has no character")),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -776,11 +777,12 @@ pub async fn set_moderator(
 
     // Update online session if present
     for session_ref in state.sessions.iter() {
-        if let Ok(mut session) = session_ref.value().session.try_write() {
-            if session.username.as_deref() == Some(&username_lower) && session.is_authenticated {
-                session.is_moderator = req.is_moderator;
-                break;
-            }
+        if let Ok(mut session) = session_ref.value().session.try_write()
+            && session.username.as_deref() == Some(&username_lower)
+            && session.is_authenticated
+        {
+            session.is_moderator = req.is_moderator;
+            break;
         }
     }
 
@@ -836,13 +838,13 @@ pub async fn set_appearance(
                     "Player '{}' not found",
                     username
                 ))),
-            ))
+            ));
         }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Database error: {}", e))),
-            ))
+            ));
         }
     };
 
@@ -866,7 +868,8 @@ pub async fn set_appearance(
     // Check if player is online
     let is_online = state.sessions.iter().any(|s| {
         s.value()
-            .session.try_read()
+            .session
+            .try_read()
             .map(|s| s.username.as_deref() == Some(&username_lower) && s.is_authenticated)
             .unwrap_or(false)
     });
@@ -885,7 +888,9 @@ pub async fn set_appearance(
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::error("Failed to queue appearance action")),
+            Json(ApiResponse::<()>::error(
+                "Failed to queue appearance action",
+            )),
         ));
     }
 

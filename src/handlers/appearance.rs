@@ -6,9 +6,9 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::debug;
 
+use crate::Server;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageType, MessageWriter};
-use crate::Server;
 
 /// Handle outfit change (MSG_CHANGE_OUT)
 /// Client sends: slot (1 byte) - the inventory slot of the outfit to equip
@@ -83,15 +83,15 @@ pub async fn handle_change_outfit(
             continue;
         }
 
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::ChangeOutfit.id())
-                    .write_u16(player_id)
-                    .write_u16(new_body_id);
-                other_handle.queue_message(writer.into_bytes()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            let mut writer = MessageWriter::new();
+            writer
+                .write_u16(MessageType::ChangeOutfit.id())
+                .write_u16(player_id)
+                .write_u16(new_body_id);
+            other_handle.queue_message(writer.into_bytes()).await;
         }
     }
 
@@ -171,15 +171,15 @@ pub async fn handle_change_accessory1(
             continue;
         }
 
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::ChangeAccessory1.id())
-                    .write_u16(player_id)
-                    .write_u16(new_acs_id);
-                other_handle.queue_message(writer.into_bytes()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            let mut writer = MessageWriter::new();
+            writer
+                .write_u16(MessageType::ChangeAccessory1.id())
+                .write_u16(player_id)
+                .write_u16(new_acs_id);
+            other_handle.queue_message(writer.into_bytes()).await;
         }
     }
 
@@ -259,15 +259,15 @@ pub async fn handle_change_accessory2(
             continue;
         }
 
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::ChangeAccessory2.id())
-                    .write_u16(player_id)
-                    .write_u16(new_acs_id);
-                other_handle.queue_message(writer.into_bytes()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            let mut writer = MessageWriter::new();
+            writer
+                .write_u16(MessageType::ChangeAccessory2.id())
+                .write_u16(player_id)
+                .write_u16(new_acs_id);
+            other_handle.queue_message(writer.into_bytes()).await;
         }
     }
 

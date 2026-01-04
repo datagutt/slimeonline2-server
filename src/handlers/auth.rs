@@ -7,14 +7,14 @@ use chrono::{Datelike, Timelike};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
+use crate::Server;
 use crate::constants::*;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{
-    write_login_failure, write_register_response, LoginRequest, LoginSuccessData, MessageReader,
-    MessageWriter, RegisterRequest,
+    LoginRequest, LoginSuccessData, MessageReader, MessageWriter, RegisterRequest,
+    write_login_failure, write_register_response,
 };
-use crate::Server;
 
 use super::{collectibles, shop};
 
@@ -246,17 +246,44 @@ pub async fn handle_login(
         }
 
         // Send new player notification to existing players
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
-                let new_player = crate::protocol::NewPlayerInfo {
-                    x: character.x as u16,
-                    y: character.y as u16,
-                    player_id,
-                    room_id: character.room_id as u16,
-                    username: login.username.clone(),
-                    body_id: character.body_id as u16,
-                    acs1_id: character.acs1_id as u16,
-                    acs2_id: character.acs2_id as u16,
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(&other_session_id)
+        {
+            let new_player = crate::protocol::NewPlayerInfo {
+                x: character.x as u16,
+                y: character.y as u16,
+                player_id,
+                room_id: character.room_id as u16,
+                username: login.username.clone(),
+                body_id: character.body_id as u16,
+                acs1_id: character.acs1_id as u16,
+                acs2_id: character.acs2_id as u16,
+                ileft: 0,
+                iright: 0,
+                iup: 0,
+                idown: 0,
+                iup_press: 0,
+            };
+            let mut nw = MessageWriter::new();
+            new_player.write_case1(&mut nw);
+            other_session.queue_message(nw.into_bytes()).await;
+        }
+
+        // Get info about existing player to send to new player
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(&other_session_id)
+        {
+            let other_guard = other_session.session.read().await;
+            if let Some(other_username) = &other_guard.username {
+                let existing_player = crate::protocol::NewPlayerInfo {
+                    x: other_guard.x,
+                    y: other_guard.y,
+                    player_id: other_player_id,
+                    room_id: other_guard.room_id,
+                    username: other_username.clone(),
+                    body_id: other_guard.body_id,
+                    acs1_id: other_guard.acs1_id,
+                    acs2_id: other_guard.acs2_id,
                     ileft: 0,
                     iright: 0,
                     iup: 0,
@@ -264,35 +291,8 @@ pub async fn handle_login(
                     iup_press: 0,
                 };
                 let mut nw = MessageWriter::new();
-                new_player.write_case1(&mut nw);
-                other_session.queue_message(nw.into_bytes()).await;
-            }
-        }
-
-        // Get info about existing player to send to new player
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(&other_session_id) {
-                let other_guard = other_session.session.read().await;
-                if let Some(other_username) = &other_guard.username {
-                    let existing_player = crate::protocol::NewPlayerInfo {
-                        x: other_guard.x,
-                        y: other_guard.y,
-                        player_id: other_player_id,
-                        room_id: other_guard.room_id,
-                        username: other_username.clone(),
-                        body_id: other_guard.body_id,
-                        acs1_id: other_guard.acs1_id,
-                        acs2_id: other_guard.acs2_id,
-                        ileft: 0,
-                        iright: 0,
-                        iup: 0,
-                        idown: 0,
-                        iup_press: 0,
-                    };
-                    let mut nw = MessageWriter::new();
-                    existing_player.write_case2(&mut nw);
-                    responses.push(nw.into_bytes());
-                }
+                existing_player.write_case2(&mut nw);
+                responses.push(nw.into_bytes());
             }
         }
     }

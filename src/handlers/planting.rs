@@ -13,10 +13,10 @@ use chrono::{Duration, Utc};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Valid seed item IDs
 const SEED_BASIC: u16 = 9;
@@ -66,7 +66,7 @@ pub async fn handle_plant_set(
     };
 
     // Validate slot range (1-9)
-    if seed_slot < 1 || seed_slot > 9 {
+    if !(1..=9).contains(&seed_slot) {
         warn!("Invalid seed slot: {}", seed_slot);
         return Ok(vec![]);
     }
@@ -112,8 +112,15 @@ pub async fn handle_plant_set(
     let next_stage_at = Utc::now() + Duration::minutes(growth_time as i64);
 
     // Plant the seed
-    if let Err(e) = db::plant_seed(&server.db, room_id, plant_spot, char_id, seed_id, next_stage_at)
-        .await
+    if let Err(e) = db::plant_seed(
+        &server.db,
+        room_id,
+        plant_spot,
+        char_id,
+        seed_id,
+        next_stage_at,
+    )
+    .await
     {
         warn!("Failed to plant seed: {}", e);
         return Ok(vec![]);
@@ -152,10 +159,10 @@ pub async fn handle_plant_set(
     // Broadcast to all players in room
     let room_players = server.game_state.get_room_players(room_id).await;
     for other_player_id in room_players {
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 
@@ -188,7 +195,7 @@ pub async fn handle_plant_add_pinwheel(
     };
 
     // Validate slot
-    if item_slot < 1 || item_slot > 9 {
+    if !(1..=9).contains(&item_slot) {
         return Ok(vec![]);
     }
 
@@ -248,10 +255,10 @@ pub async fn handle_plant_add_pinwheel(
 
     let room_players = server.game_state.get_room_players(room_id).await;
     for other_player_id in room_players {
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 
@@ -284,7 +291,7 @@ pub async fn handle_plant_add_fairy(
     };
 
     // Validate slot
-    if item_slot < 1 || item_slot > 9 {
+    if !(1..=9).contains(&item_slot) {
         return Ok(vec![]);
     }
 
@@ -342,10 +349,10 @@ pub async fn handle_plant_add_fairy(
 
     let room_players = server.game_state.get_room_players(room_id).await;
     for other_player_id in room_players {
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 
@@ -378,7 +385,7 @@ pub async fn handle_plant_take_fruit(
     };
 
     // Validate fruit slot (1-3)
-    if fruit_slot < 1 || fruit_slot > 3 {
+    if !(1..=3).contains(&fruit_slot) {
         warn!("Invalid fruit slot: {}", fruit_slot);
         return Ok(vec![]);
     }
@@ -456,10 +463,10 @@ pub async fn handle_plant_take_fruit(
 
     let room_players = server.game_state.get_room_players(room_id).await;
     for other_player_id in room_players {
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 
@@ -494,10 +501,9 @@ pub async fn handle_plant_take_fruit(
             for other_player_id in server.game_state.get_room_players(room_id).await {
                 if let Some(other_session_id) =
                     server.game_state.players_by_id.get(&other_player_id)
+                    && let Some(other_session) = server.sessions.get(other_session_id.value())
                 {
-                    if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                        other_session.queue_message(msg.clone()).await;
-                    }
+                    other_session.queue_message(msg.clone()).await;
                 }
             }
         }
@@ -584,11 +590,7 @@ fn get_fruit_for_plant(plant: &db::PlantState, slot: u8) -> u16 {
         SEED_BASIC => SEED_BASIC, // Basic seed produces basic seeds
         SEED_BLUE => {
             // Blue seed produces mostly Juicy Bango (25), sometimes Blue Seed (24)
-            if slot == 2 {
-                24
-            } else {
-                25
-            }
+            if slot == 2 { 24 } else { 25 }
         }
         _ => SEED_BASIC,
     }

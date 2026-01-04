@@ -9,10 +9,10 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Category constants
 const CAT_OUTFIT: u8 = 1;
@@ -47,10 +47,7 @@ pub async fn handle_one_time_take(
     let one_time = match db::get_one_time_item(&server.db, room_id, real_id).await? {
         Some(item) => item,
         None => {
-            warn!(
-                "One-time item {} not found in room {}",
-                real_id, room_id
-            );
+            warn!("One-time item {} not found in room {}", real_id, room_id);
             return Ok(vec![]);
         }
     };
@@ -120,7 +117,10 @@ pub async fn handle_one_time_take(
 
     info!(
         "Player {} took one-time item {} (category {}, slot {})",
-        char_id, one_time.item_id, one_time.category, free_slot + 1
+        char_id,
+        one_time.item_id,
+        one_time.category,
+        free_slot + 1
     );
 
     // Send response (uses different message type than request)

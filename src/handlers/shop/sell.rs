@@ -17,10 +17,10 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::config::PriceConfig;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Get sell price for an item by ID from config (buy_price / 3)
 fn get_item_sell_price(prices: &PriceConfig, item_id: u16) -> u16 {
@@ -143,10 +143,10 @@ pub async fn handle_sell(
     // Read all slots to sell
     let mut slots_to_sell = Vec::with_capacity(count as usize);
     for _ in 0..count {
-        if let Ok(slot) = reader.read_u8() {
-            if (1..=9).contains(&slot) {
-                slots_to_sell.push(slot);
-            }
+        if let Ok(slot) = reader.read_u8()
+            && (1..=9).contains(&slot)
+        {
+            slots_to_sell.push(slot);
         }
     }
 

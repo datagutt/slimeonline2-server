@@ -11,10 +11,10 @@ use rand::Rng;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageType, MessageWriter};
-use crate::Server;
 
 /// Gum price in points
 const PRICE_GUM: u32 = 20;
@@ -57,7 +57,10 @@ pub async fn handle_buy_gum(
         None => return Ok(vec![]),
     };
 
-    debug!("Buy gum: char_id={}, room={}, points={}", char_id, room_id, points);
+    debug!(
+        "Buy gum: char_id={}, room={}, points={}",
+        char_id, room_id, points
+    );
 
     // Check if player is in valid room
     if !VENDING_ROOMS.contains(&room_id) {
@@ -67,7 +70,10 @@ pub async fn handle_buy_gum(
 
     // Check if player has enough points
     if points < PRICE_GUM {
-        warn!("Player doesn't have enough points for gum: {} < {}", points, PRICE_GUM);
+        warn!(
+            "Player doesn't have enough points for gum: {} < {}",
+            points, PRICE_GUM
+        );
         return Ok(vec![]);
     }
 
@@ -113,7 +119,10 @@ pub async fn handle_buy_gum(
 
     info!(
         "Player {} bought gum {} (slot {}) for {} points",
-        char_id, item_id, free_slot + 1, PRICE_GUM
+        char_id,
+        item_id,
+        free_slot + 1,
+        PRICE_GUM
     );
 
     // Send response
@@ -145,7 +154,10 @@ pub async fn handle_buy_soda(
         None => return Ok(vec![]),
     };
 
-    debug!("Buy soda: char_id={}, room={}, points={}", char_id, room_id, points);
+    debug!(
+        "Buy soda: char_id={}, room={}, points={}",
+        char_id, room_id, points
+    );
 
     // Check if player is in valid room
     if !VENDING_ROOMS.contains(&room_id) {
@@ -155,7 +167,10 @@ pub async fn handle_buy_soda(
 
     // Check if player has enough points
     if points < PRICE_SODA {
-        warn!("Player doesn't have enough points for soda: {} < {}", points, PRICE_SODA);
+        warn!(
+            "Player doesn't have enough points for soda: {} < {}",
+            points, PRICE_SODA
+        );
         return Ok(vec![]);
     }
 
@@ -197,7 +212,10 @@ pub async fn handle_buy_soda(
 
     info!(
         "Player {} bought soda {} (slot {}) for {} points",
-        char_id, item_id, free_slot + 1, PRICE_SODA
+        char_id,
+        item_id,
+        free_slot + 1,
+        PRICE_SODA
     );
 
     // Send response

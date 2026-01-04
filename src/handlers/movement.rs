@@ -6,11 +6,11 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::warn;
 
-use crate::anticheat::{validate_position_bounds, CheatResult};
+use crate::Server;
+use crate::anticheat::{CheatResult, validate_position_bounds};
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageWriter, MovementUpdate};
 use crate::rate_limit::ActionType;
-use crate::Server;
 
 /// Handle movement message
 pub async fn handle_movement(
@@ -118,15 +118,15 @@ pub async fn handle_movement(
         }
 
         // Find the other player's session and queue the message
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                // Build movement broadcast
-                let mut writer = MessageWriter::new();
-                movement.write_broadcast(&mut writer, player_id);
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            // Build movement broadcast
+            let mut writer = MessageWriter::new();
+            movement.write_broadcast(&mut writer, player_id);
 
-                // Queue message for the other player
-                other_handle.queue_message(writer.into_bytes()).await;
-            }
+            // Queue message for the other player
+            other_handle.queue_message(writer.into_bytes()).await;
         }
     }
 

@@ -15,10 +15,10 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::db;
 use crate::game::{PendingClanInvite, PlayerSession};
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Clan invite cooldown in seconds (15s between invites to the same player)
 const CLAN_INVITE_COOLDOWN_SECS: u64 = 15;
@@ -841,9 +841,7 @@ async fn handle_admin_kick(
     );
 
     // Notify the kicked player if online
-    if let Some(handle) =
-        find_session_by_character_id(server, kicked_member.character_id).await
-    {
+    if let Some(handle) = find_session_by_character_id(server, kicked_member.character_id).await {
         let pid = {
             let mut session_guard = handle.session.write().await;
             session_guard.clan_id = None;
@@ -899,15 +897,15 @@ async fn handle_admin_invite(
     // Check invite cooldown
     {
         let session_guard = session.read().await;
-        if let Some(last_invite) = session_guard.clan_invite_cooldowns.get(&target_pid) {
-            if last_invite.elapsed().as_secs() < CLAN_INVITE_COOLDOWN_SECS {
-                debug!(
-                    "Clan invite cooldown for player {} ({}s remaining)",
-                    target_pid,
-                    CLAN_INVITE_COOLDOWN_SECS - last_invite.elapsed().as_secs()
-                );
-                return Ok(vec![]);
-            }
+        if let Some(last_invite) = session_guard.clan_invite_cooldowns.get(&target_pid)
+            && last_invite.elapsed().as_secs() < CLAN_INVITE_COOLDOWN_SECS
+        {
+            debug!(
+                "Clan invite cooldown for player {} ({}s remaining)",
+                target_pid,
+                CLAN_INVITE_COOLDOWN_SECS - last_invite.elapsed().as_secs()
+            );
+            return Ok(vec![]);
         }
     }
 
@@ -966,7 +964,7 @@ async fn handle_admin_invite(
             invited_at: Instant::now(),
         });
     }
-    
+
     // Send invite message to target
     let invite_msg = build_clan_invite(my_pid, &clan.name);
     target_handle.queue_message(invite_msg).await;

@@ -772,10 +772,7 @@ pub async fn update_inventory_items(
 }
 
 /// Increment trees planted count
-pub async fn increment_trees_planted(
-    pool: &DbPool,
-    character_id: i64,
-) -> Result<(), sqlx::Error> {
+pub async fn increment_trees_planted(pool: &DbPool, character_id: i64) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         UPDATE characters

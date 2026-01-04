@@ -6,9 +6,9 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 
+use crate::Server;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 use super::{collectibles, items, shop, upgrader};
 
@@ -71,20 +71,18 @@ pub async fn handle_warp(
     };
 
     // Save new position to database (only if auto_save_position is enabled)
-    if server.config.auto_save_position {
-        if let Some(char_id) = character_id {
-            if let Err(e) = crate::db::update_position(
-                &server.db,
-                char_id,
-                new_x as i16,
-                new_y as i16,
-                new_room_id as i16,
-            )
-            .await
-            {
-                error!("Failed to save position for character {}: {}", char_id, e);
-            }
-        }
+    if server.config.auto_save_position
+        && let Some(char_id) = character_id
+        && let Err(e) = crate::db::update_position(
+            &server.db,
+            char_id,
+            new_x as i16,
+            new_y as i16,
+            new_room_id as i16,
+        )
+        .await
+    {
+        error!("Failed to save position for character {}: {}", char_id, e);
     }
 
     // Update room tracking
@@ -108,16 +106,16 @@ pub async fn handle_warp(
                 continue;
             }
 
-            if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-                if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                    let mut writer = MessageWriter::new();
-                    // MSG_WARP + player_id + case(2 = left)
-                    writer
-                        .write_u16(MessageType::Warp.id())
-                        .write_u16(player_id)
-                        .write_u8(2); // Case 2 = player leaves room
-                    other_handle.queue_message(writer.into_bytes()).await;
-                }
+            if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+                && let Some(other_handle) = server.sessions.get(&other_session_id)
+            {
+                let mut writer = MessageWriter::new();
+                // MSG_WARP + player_id + case(2 = left)
+                writer
+                    .write_u16(MessageType::Warp.id())
+                    .write_u16(player_id)
+                    .write_u8(2); // Case 2 = player leaves room
+                other_handle.queue_message(writer.into_bytes()).await;
             }
         }
     }
@@ -131,36 +129,36 @@ pub async fn handle_warp(
             continue;
         }
 
-        if let Some(other_session_id) = server.game_state.players_by_id.get(other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                // Tell existing players that this player entered
-                let mut writer = MessageWriter::new();
-                // MSG_WARP + player_id + case(1 = entered) + x + y
-                writer
-                    .write_u16(MessageType::Warp.id())
-                    .write_u16(player_id)
-                    .write_u8(1) // Case 1 = player enters room
-                    .write_u16(new_x)
-                    .write_u16(new_y);
-                other_handle.queue_message(writer.into_bytes()).await;
+        if let Some(other_session_id) = server.game_state.players_by_id.get(other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            // Tell existing players that this player entered
+            let mut writer = MessageWriter::new();
+            // MSG_WARP + player_id + case(1 = entered) + x + y
+            writer
+                .write_u16(MessageType::Warp.id())
+                .write_u16(player_id)
+                .write_u8(1) // Case 1 = player enters room
+                .write_u16(new_x)
+                .write_u16(new_y);
+            other_handle.queue_message(writer.into_bytes()).await;
 
-                // Also send the existing player's info to the warping player
-                let other_session = other_handle.session.read().await;
-                if other_session.is_authenticated {
-                    if let Some(other_username) = &other_session.username {
-                        let mut new_player_writer = MessageWriter::new();
-                        new_player_writer
-                            .write_u16(MessageType::NewPlayer.id())
-                            .write_u16(*other_player_id)
-                            .write_string(other_username)
-                            .write_u16(other_session.x)
-                            .write_u16(other_session.y)
-                            .write_u16(other_session.body_id)
-                            .write_u16(other_session.acs1_id)
-                            .write_u16(other_session.acs2_id);
-                        responses.push(new_player_writer.into_bytes());
-                    }
-                }
+            // Also send the existing player's info to the warping player
+            let other_session = other_handle.session.read().await;
+            if other_session.is_authenticated
+                && let Some(other_username) = &other_session.username
+            {
+                let mut new_player_writer = MessageWriter::new();
+                new_player_writer
+                    .write_u16(MessageType::NewPlayer.id())
+                    .write_u16(*other_player_id)
+                    .write_string(other_username)
+                    .write_u16(other_session.x)
+                    .write_u16(other_session.y)
+                    .write_u16(other_session.body_id)
+                    .write_u16(other_session.acs1_id)
+                    .write_u16(other_session.acs2_id);
+                responses.push(new_player_writer.into_bytes());
             }
         }
     }
@@ -189,10 +187,10 @@ pub async fn handle_warp(
 
     // Send top points info for city rooms (from room_check_city in original)
     // Rooms 42 (New City) and 126 (Old City Back Alley) have the top points sign
-    if new_room_id == 42 || new_room_id == 126 {
-        if let Some(top_points_msg) = build_top_points_message(server).await {
-            responses.push(top_points_msg);
-        }
+    if (new_room_id == 42 || new_room_id == 126)
+        && let Some(top_points_msg) = build_top_points_message(server).await
+    {
+        responses.push(top_points_msg);
     }
 
     // Send unlockable objects info for the new room (bubblegum machines, etc.)

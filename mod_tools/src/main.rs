@@ -1028,7 +1028,10 @@ async fn run_interactive_mode(client: &AdminClient) -> Result<()> {
                     },
                     ["body", username, body_id] => {
                         if let Ok(body) = body_id.parse::<u16>() {
-                            match client.set_appearance(username, Some(body), None, None).await {
+                            match client
+                                .set_appearance(username, Some(body), None, None)
+                                .await
+                            {
                                 Ok(r) => {
                                     let status = if r.was_online { "online" } else { "offline" };
                                     println!("Set body to {} for {} ({})", body, username, status);

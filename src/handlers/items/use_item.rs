@@ -11,14 +11,14 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::anticheat::validate_position_bounds;
 use crate::constants::ITEM_SLOTS;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
-use crate::Server;
 
-use super::database::{get_item_info, ItemType};
+use super::database::{ItemType, get_item_info};
 
 /// Handle MSG_USE_ITEM (31)
 pub async fn handle_use_item(
@@ -256,10 +256,10 @@ async fn handle_warp_wing(
         if Some(other_player_id) == player_id {
             continue; // Skip self
         }
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                other_handle.queue_message(broadcast_msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            other_handle.queue_message(broadcast_msg.clone()).await;
         }
     }
 
@@ -330,11 +330,11 @@ async fn broadcast_visual_effect(server: &Arc<Server>, room_id: u16, item_id: u1
     );
 
     for player_id in room_players {
-        if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
-            if let Some(handle) = server.sessions.get(&session_id) {
-                debug!("Sending visual effect to player {}", player_id);
-                handle.queue_message(msg.clone()).await;
-            }
+        if let Some(session_id) = server.game_state.players_by_id.get(&player_id)
+            && let Some(handle) = server.sessions.get(&session_id)
+        {
+            debug!("Sending visual effect to player {}", player_id);
+            handle.queue_message(msg.clone()).await;
         }
     }
 }
@@ -362,10 +362,10 @@ async fn broadcast_bubbles(
 
     let room_players = server.game_state.get_room_players(room_id).await;
     for player_id in room_players {
-        if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
-            if let Some(handle) = server.sessions.get(&session_id) {
-                handle.queue_message(msg.clone()).await;
-            }
+        if let Some(session_id) = server.game_state.players_by_id.get(&player_id)
+            && let Some(handle) = server.sessions.get(&session_id)
+        {
+            handle.queue_message(msg.clone()).await;
         }
     }
 }
@@ -387,10 +387,10 @@ async fn broadcast_soundmaker(
 
     let room_players = server.game_state.get_room_players(room_id).await;
     for pid in room_players {
-        if let Some(session_id) = server.game_state.players_by_id.get(&pid) {
-            if let Some(handle) = server.sessions.get(&session_id) {
-                handle.queue_message(msg.clone()).await;
-            }
+        if let Some(session_id) = server.game_state.players_by_id.get(&pid)
+            && let Some(handle) = server.sessions.get(&session_id)
+        {
+            handle.queue_message(msg.clone()).await;
         }
     }
 }

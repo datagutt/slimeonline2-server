@@ -16,10 +16,10 @@ use chrono::{Duration, Utc};
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
+use crate::Server;
 use crate::config::GameConfig;
 use crate::game::{CollectibleSpawn, PlayerSession};
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Get collectible spawn definitions for a room from config
 ///
@@ -271,13 +271,13 @@ pub async fn handle_collectible_take(
             continue;
         }
 
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                let mut taken_writer = MessageWriter::new();
-                taken_writer.write_u16(MessageType::CollectibleTaken.id());
-                taken_writer.write_u8(col_id);
-                other_handle.queue_message(taken_writer.into_bytes()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            let mut taken_writer = MessageWriter::new();
+            taken_writer.write_u16(MessageType::CollectibleTaken.id());
+            taken_writer.write_u8(col_id);
+            other_handle.queue_message(taken_writer.into_bytes()).await;
         }
     }
 

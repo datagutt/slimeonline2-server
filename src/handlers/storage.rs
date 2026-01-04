@@ -11,10 +11,10 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
+use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Storage categories
 const CAT_OUTFITS: u8 = 1;
@@ -71,11 +71,7 @@ pub async fn handle_storage_req(
     // Write 9 item IDs for this page
     for i in 0..SLOTS_PER_PAGE {
         let idx = start_idx + i;
-        let item_id = if idx < storage.len() {
-            storage[idx]
-        } else {
-            0
-        };
+        let item_id = if idx < storage.len() { storage[idx] } else { 0 };
         writer.write_u16(item_id);
     }
 
@@ -283,11 +279,7 @@ pub async fn handle_storage_move(
             // Unequip tool if moving tool category
             let _ = db::update_equipped_tool(&server.db, char_id, 0).await;
             // Tools only have 3 slots
-            let tools: [u16; 3] = [
-                inv_items[0],
-                inv_items[1],
-                inv_items[2],
-            ];
+            let tools: [u16; 3] = [inv_items[0], inv_items[1], inv_items[2]];
             let _ = db::update_inventory_tools(&server.db, char_id, &tools).await;
         }
         _ => {}
@@ -307,11 +299,7 @@ pub async fn handle_storage_move(
                 break;
             }
         }
-        if has_items {
-            1
-        } else {
-            0
-        }
+        if has_items { 1 } else { 0 }
     };
 
     let mut writer = MessageWriter::new();

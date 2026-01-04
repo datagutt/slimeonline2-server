@@ -3,13 +3,13 @@
 use std::sync::Arc;
 
 use axum::{
+    Json,
     extract::State,
     http::{HeaderMap, StatusCode},
-    Json,
 };
 use serde::Serialize;
 
-use crate::admin::{verify_api_key, AdminState, ApiResponse};
+use crate::admin::{AdminState, ApiResponse, verify_api_key};
 
 #[derive(Serialize)]
 pub struct ServerStats {
@@ -30,7 +30,8 @@ pub async fn get_stats(
         .iter()
         .filter(|s| {
             s.value()
-                .session.try_read()
+                .session
+                .try_read()
                 .map(|s| s.is_authenticated)
                 .unwrap_or(false)
         })

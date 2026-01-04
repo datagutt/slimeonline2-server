@@ -11,9 +11,9 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
+use crate::Server;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Handle MSG_DISCARDED_ITEM_TAKE (40)
 pub async fn handle_take_dropped_item(

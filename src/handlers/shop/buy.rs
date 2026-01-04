@@ -24,12 +24,12 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::config::{GameConfig, ShopSlotConfig};
 use crate::db::DbPool;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
-use crate::Server;
 
 /// Shop item category
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -478,15 +478,14 @@ pub async fn handle_shop_buy(
                 }
                 if let Some(other_session_id) =
                     server.game_state.players_by_id.get(&other_player_id)
+                    && let Some(other_handle) = server.sessions.get(&other_session_id)
                 {
-                    if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                        let mut writer = MessageWriter::new();
-                        writer
-                            .write_u16(MessageType::ShopStock.id())
-                            .write_u8(1) // case 1 = sold out
-                            .write_u8(pos_id);
-                        other_handle.queue_message(writer.into_bytes()).await;
-                    }
+                    let mut writer = MessageWriter::new();
+                    writer
+                        .write_u16(MessageType::ShopStock.id())
+                        .write_u8(1) // case 1 = sold out
+                        .write_u8(pos_id);
+                    other_handle.queue_message(writer.into_bytes()).await;
                 }
             }
         }

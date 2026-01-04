@@ -14,22 +14,21 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Race configurations
 /// Magma Dungeon race checkpoints (room IDs in order)
-const MAGMA_DUNGEON_CHECKPOINTS: [u16; 14] = [
-    91, 92, 94, 94, 95, 95, 97, 97, 98, 99, 100, 101, 102, 103,
-];
+const MAGMA_DUNGEON_CHECKPOINTS: [u16; 14] =
+    [91, 92, 94, 94, 95, 95, 97, 97, 98, 99, 100, 101, 102, 103];
 
 /// Handle MSG_RACE_INFO (120) - Request race info/leaderboards
 pub async fn handle_race_info(
     payload: &[u8],
     server: &Arc<Server>,
-    session: Arc<RwLock<PlayerSession>>,
+    _session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let info_type = reader.read_u8()?;
@@ -157,7 +156,10 @@ pub async fn handle_race_end(
 
     // Verify race ID matches
     if expected_race_id != Some(race_id) {
-        warn!("Race end with wrong race_id: expected {:?}, got {}", expected_race_id, race_id);
+        warn!(
+            "Race end with wrong race_id: expected {:?}, got {}",
+            expected_race_id, race_id
+        );
         return Ok(vec![]);
     }
 
@@ -271,10 +273,10 @@ pub async fn handle_move_get_on(
         if other_player_id == player_id {
             continue;
         }
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 
@@ -310,10 +312,10 @@ pub async fn handle_move_get_off(
         if other_player_id == player_id {
             continue;
         }
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 

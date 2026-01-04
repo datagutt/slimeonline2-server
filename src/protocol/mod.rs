@@ -9,5 +9,5 @@ mod writer;
 
 pub use messages::*;
 pub use reader::MessageReader;
-pub use types::{describe_message, MessageType};
+pub use types::{MessageType, describe_message};
 pub use writer::MessageWriter;

@@ -11,11 +11,11 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::anticheat::validate_position_bounds;
 use crate::constants::ITEM_SLOTS;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 use super::database::can_discard_item;
 
@@ -114,17 +114,17 @@ pub async fn handle_discard_item(
     // Broadcast to all players in the room
     let room_players = server.game_state.get_room_players(room_id).await;
     for other_player_id in room_players {
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::DiscardItem.id())
-                    .write_u16(drop_x)
-                    .write_u16(drop_y)
-                    .write_u16(item_id)
-                    .write_u16(instance_id);
-                other_handle.queue_message(writer.into_bytes()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            let mut writer = MessageWriter::new();
+            writer
+                .write_u16(MessageType::DiscardItem.id())
+                .write_u16(drop_x)
+                .write_u16(drop_y)
+                .write_u16(item_id)
+                .write_u16(instance_id);
+            other_handle.queue_message(writer.into_bytes()).await;
         }
     }
 

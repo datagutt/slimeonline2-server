@@ -8,10 +8,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Category names matching the config file
 const CATEGORY_NAMES: [&str; 5] = [
@@ -89,11 +89,7 @@ pub async fn handle_upgrader_get(
                     } else {
                         let pct = ((paid as f64 / need as f64) * 100.0).round() as u8;
                         // Don't show 100% unless actually complete
-                        if pct >= 100 {
-                            99
-                        } else {
-                            pct
-                        }
+                        if pct >= 100 { 99 } else { pct }
                     };
 
                     writer.write_string(&upgrade.name);
@@ -459,10 +455,10 @@ async fn broadcast_unlockable_exists(server: &Arc<Server>, room_id: u16, unlocka
     // Get all players in the room using game_state
     let room_players = server.game_state.get_room_players(room_id).await;
     for player_id in room_players {
-        if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
-            if let Some(handle) = server.sessions.get(&session_id) {
-                handle.queue_message(message.clone()).await;
-            }
+        if let Some(session_id) = server.game_state.players_by_id.get(&player_id)
+            && let Some(handle) = server.sessions.get(&session_id)
+        {
+            handle.queue_message(message.clone()).await;
         }
     }
 }
@@ -477,10 +473,10 @@ async fn broadcast_shop_stock_update(server: &Arc<Server>, room_id: u16) {
     // Get all players in the room using game_state
     let room_players = server.game_state.get_room_players(room_id).await;
     for player_id in room_players {
-        if let Some(session_id) = server.game_state.players_by_id.get(&player_id) {
-            if let Some(handle) = server.sessions.get(&session_id) {
-                handle.queue_message(message.clone()).await;
-            }
+        if let Some(session_id) = server.game_state.players_by_id.get(&player_id)
+            && let Some(handle) = server.sessions.get(&session_id)
+        {
+            handle.queue_message(message.clone()).await;
         }
     }
 }

@@ -10,7 +10,7 @@ use dashmap::DashMap;
 use tokio::net::TcpListener;
 
 use tracing::{error, info, warn};
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 use uuid::Uuid;
 
 mod admin;
@@ -29,7 +29,7 @@ use admin::{AdminAction, AdminState, InventoryCategory, PointsMode};
 use config::GameConfig;
 use constants::*;
 use db::DbPool;
-use game::{GameState};
+use game::GameState;
 use tokio::sync::mpsc;
 
 /// Server configuration
@@ -108,10 +108,10 @@ impl Server {
     pub fn is_player_online(&self, username: &str) -> bool {
         // Check all sessions for matching username
         for session_ref in self.sessions.iter() {
-            if let Ok(session) = session_ref.value().session.try_read() {
-                if session.username.as_deref() == Some(username) {
-                    return true;
-                }
+            if let Ok(session) = session_ref.value().session.try_read()
+                && session.username.as_deref() == Some(username)
+            {
+                return true;
             }
         }
         false
@@ -216,7 +216,9 @@ async fn main() -> Result<()> {
         if admin_config.api_key.is_empty()
             || admin_config.api_key == "change-me-in-production-use-openssl-rand-hex-32"
         {
-            warn!("Admin API enabled but using default/empty API key! Set a secure key in config/server.toml");
+            warn!(
+                "Admin API enabled but using default/empty API key! Set a secure key in config/server.toml"
+            );
         }
 
         // Create channel for admin actions
@@ -338,8 +340,8 @@ fn spawn_background_tasks(server: Arc<Server>) {
                 let session = handle.session.read().await;
                 if let (Some(char_id), true) = (session.character_id, session.is_authenticated) {
                     // Only save position if auto_save_position is enabled
-                    if auto_save_position {
-                        if let Err(e) = db::update_position(
+                    if auto_save_position
+                        && let Err(e) = db::update_position(
                             &save_server.db,
                             char_id,
                             session.x as i16,
@@ -347,9 +349,8 @@ fn spawn_background_tasks(server: Arc<Server>) {
                             session.room_id as i16,
                         )
                         .await
-                        {
-                            error!("Failed to save position for character {}: {}", char_id, e);
-                        }
+                    {
+                        error!("Failed to save position for character {}: {}", char_id, e);
                     }
 
                     // Always save points
@@ -463,12 +464,10 @@ fn spawn_background_tasks(server: Arc<Server>) {
                                     for player_id in room_players {
                                         if let Some(session_id) =
                                             respawn_server.game_state.players_by_id.get(&player_id)
-                                        {
-                                            if let Some(handle) =
+                                            && let Some(handle) =
                                                 respawn_server.sessions.get(&session_id)
-                                            {
-                                                handle.queue_message(msg.clone()).await;
-                                            }
+                                        {
+                                            handle.queue_message(msg.clone()).await;
                                         }
                                     }
                                 }
@@ -511,12 +510,10 @@ fn spawn_background_tasks(server: Arc<Server>) {
                                 for player_id in &room_players {
                                     if let Some(session_id) =
                                         respawn_server.game_state.players_by_id.get(player_id)
-                                    {
-                                        if let Some(handle) =
+                                        && let Some(handle) =
                                             respawn_server.sessions.get(&session_id)
-                                        {
-                                            handle.queue_message(msg.clone()).await;
-                                        }
+                                    {
+                                        handle.queue_message(msg.clone()).await;
                                     }
                                 }
                             }
@@ -626,10 +623,9 @@ fn spawn_background_tasks(server: Arc<Server>) {
                         for player_id in room_players {
                             if let Some(session_id) =
                                 restock_server.game_state.players_by_id.get(&player_id)
+                                && let Some(handle) = restock_server.sessions.get(&session_id)
                             {
-                                if let Some(handle) = restock_server.sessions.get(&session_id) {
-                                    handle.queue_message(msg.clone()).await;
-                                }
+                                handle.queue_message(msg.clone()).await;
                             }
                         }
                     }
@@ -828,7 +824,9 @@ async fn handle_admin_set_points(server: &Server, username: &str, points: i64, m
             drop(session);
 
             // Send points update to client
-            handle.queue_message(protocol::build_points_update(new_points as u32, false)).await;
+            handle
+                .queue_message(protocol::build_points_update(new_points as u32, false))
+                .await;
 
             info!(
                 "Admin set {} points: {} -> {}",
@@ -975,7 +973,7 @@ async fn handle_admin_send_mail(
             item_id: item_id as i64,
             item_cat: item_category as i64,
             points,
-            paper: 1, // default paper
+            paper: 1,      // default paper
             font_color: 0, // default font color
         },
     )
@@ -1061,10 +1059,10 @@ async fn handle_admin_set_appearance(
                     let msg = writer.into_bytes();
 
                     for pid in &room_players {
-                        if let Some(sid) = server.game_state.players_by_id.get(pid) {
-                            if let Some(h) = server.sessions.get(&sid) {
-                                h.queue_message(msg.clone()).await;
-                            }
+                        if let Some(sid) = server.game_state.players_by_id.get(pid)
+                            && let Some(h) = server.sessions.get(&sid)
+                        {
+                            h.queue_message(msg.clone()).await;
                         }
                     }
                 }
@@ -1078,10 +1076,10 @@ async fn handle_admin_set_appearance(
                     let msg = writer.into_bytes();
 
                     for pid in &room_players {
-                        if let Some(sid) = server.game_state.players_by_id.get(pid) {
-                            if let Some(h) = server.sessions.get(&sid) {
-                                h.queue_message(msg.clone()).await;
-                            }
+                        if let Some(sid) = server.game_state.players_by_id.get(pid)
+                            && let Some(h) = server.sessions.get(&sid)
+                        {
+                            h.queue_message(msg.clone()).await;
                         }
                     }
                 }
@@ -1095,10 +1093,10 @@ async fn handle_admin_set_appearance(
                     let msg = writer.into_bytes();
 
                     for pid in &room_players {
-                        if let Some(sid) = server.game_state.players_by_id.get(pid) {
-                            if let Some(h) = server.sessions.get(&sid) {
-                                h.queue_message(msg.clone()).await;
-                            }
+                        if let Some(sid) = server.game_state.players_by_id.get(pid)
+                            && let Some(h) = server.sessions.get(&sid)
+                        {
+                            h.queue_message(msg.clone()).await;
                         }
                     }
                 }

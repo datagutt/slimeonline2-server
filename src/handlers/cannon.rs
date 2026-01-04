@@ -12,9 +12,9 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::debug;
 
+use crate::Server;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Handle MSG_CANNON_ENTER (98) - Player enters a cannon
 pub async fn handle_cannon_enter(
@@ -54,10 +54,10 @@ pub async fn handle_cannon_enter(
         if other_player_id == player_id {
             continue;
         }
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 
@@ -103,10 +103,10 @@ pub async fn handle_cannon_move(
         if other_player_id == player_id {
             continue;
         }
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 
@@ -147,10 +147,10 @@ pub async fn handle_cannon_set_power(
         if other_player_id == player_id {
             continue;
         }
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 
@@ -208,10 +208,10 @@ pub async fn handle_cannon_shoot(
         if other_player_id == player_id {
             continue;
         }
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_session) = server.sessions.get(other_session_id.value()) {
-                other_session.queue_message(msg.clone()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_session) = server.sessions.get(other_session_id.value())
+        {
+            other_session.queue_message(msg.clone()).await;
         }
     }
 

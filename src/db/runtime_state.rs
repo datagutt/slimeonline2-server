@@ -879,10 +879,12 @@ pub async fn submit_race_record(
     .await?;
 
     // Delete 11th place if it exists
-    sqlx::query("DELETE FROM race_records WHERE race_id = ? AND record_type = 'single' AND rank > 10")
-        .bind(race_id as i64)
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "DELETE FROM race_records WHERE race_id = ? AND record_type = 'single' AND rank > 10",
+    )
+    .bind(race_id as i64)
+    .execute(pool)
+    .await?;
 
     // Insert new record
     sqlx::query(
@@ -919,10 +921,10 @@ pub struct MusicChangerState {
 
 impl MusicChangerState {
     pub fn is_on_cooldown(&self) -> bool {
-        if let Some(ref until) = self.cooldown_until {
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(until) {
-                return dt > Utc::now();
-            }
+        if let Some(ref until) = self.cooldown_until
+            && let Ok(dt) = chrono::DateTime::parse_from_rfc3339(until)
+        {
+            return dt > Utc::now();
         }
         false
     }
@@ -933,17 +935,28 @@ pub async fn get_music_changer_state(
     pool: &DbPool,
     room_id: u16,
 ) -> Result<Option<MusicChangerState>, sqlx::Error> {
-    let row: Option<(i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, Option<String>)> =
-        sqlx::query_as(
-            r#"SELECT current_day_music, current_night_music,
+    let row: Option<(
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        Option<String>,
+    )> = sqlx::query_as(
+        r#"SELECT current_day_music, current_night_music,
                       day_track_1, day_track_2, day_track_3, day_track_3_unlocked,
                       night_track_1, night_track_2, night_track_3, night_track_3_unlocked,
                       cooldown_until
                FROM music_changer_state WHERE room_id = ?"#,
-        )
-        .bind(room_id as i64)
-        .fetch_optional(pool)
-        .await?;
+    )
+    .bind(room_id as i64)
+    .fetch_optional(pool)
+    .await?;
 
     Ok(row.map(|r| MusicChangerState {
         current_day_music: r.0 as u8,

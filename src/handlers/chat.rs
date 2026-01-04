@@ -6,12 +6,12 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
+use crate::Server;
 use crate::constants::MAX_CHAT_LENGTH;
 use crate::game::PlayerSession;
 use crate::protocol::{ChatMessage, MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
 use crate::validation::{sanitize_chat, validate_chat_message};
-use crate::Server;
 
 /// Handle chat message
 pub async fn handle_chat(
@@ -78,12 +78,12 @@ pub async fn handle_chat(
     let room_players = server.game_state.get_room_players(room_id).await;
 
     for other_player_id in room_players {
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                ChatMessage::write_broadcast(&mut writer, player_id, &message);
-                other_handle.queue_message(writer.into_bytes()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            let mut writer = MessageWriter::new();
+            ChatMessage::write_broadcast(&mut writer, player_id, &message);
+            other_handle.queue_message(writer.into_bytes()).await;
         }
     }
 
@@ -116,14 +116,14 @@ pub async fn handle_typing(
             continue;
         }
 
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::PlayerTyping.id())
-                    .write_u16(player_id);
-                other_handle.queue_message(writer.into_bytes()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            let mut writer = MessageWriter::new();
+            writer
+                .write_u16(MessageType::PlayerTyping.id())
+                .write_u16(player_id);
+            other_handle.queue_message(writer.into_bytes()).await;
         }
     }
 
@@ -185,15 +185,15 @@ pub async fn handle_emote(
             continue;
         }
 
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::Emote.id())
-                    .write_u16(player_id)
-                    .write_u8(emote_id);
-                other_handle.queue_message(writer.into_bytes()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            let mut writer = MessageWriter::new();
+            writer
+                .write_u16(MessageType::Emote.id())
+                .write_u16(player_id)
+                .write_u8(emote_id);
+            other_handle.queue_message(writer.into_bytes()).await;
         }
     }
 
@@ -238,15 +238,15 @@ pub async fn handle_action(
             continue;
         }
 
-        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id) {
-            if let Some(other_handle) = server.sessions.get(&other_session_id) {
-                let mut writer = MessageWriter::new();
-                writer
-                    .write_u16(MessageType::Action.id())
-                    .write_u16(player_id)
-                    .write_u8(action_id);
-                other_handle.queue_message(writer.into_bytes()).await;
-            }
+        if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
+            && let Some(other_handle) = server.sessions.get(&other_session_id)
+        {
+            let mut writer = MessageWriter::new();
+            writer
+                .write_u16(MessageType::Action.id())
+                .write_u16(player_id)
+                .write_u8(action_id);
+            other_handle.queue_message(writer.into_bytes()).await;
         }
     }
 
