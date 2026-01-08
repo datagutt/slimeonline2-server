@@ -1,0 +1,197 @@
+# One-Time Items Configuration
+# Items that can only be collected once per character
+# Category: 1=Outfit, 2=Item, 3=Accessory
+# Hours: 0-23, or use start=0 and end=0 for always available
+# If start > end, item is available from start hour through midnight and from midnight through end hour
+
+# Room 14 - Tutorial area
+[[room]]
+id = 14
+[[room.items]]
+real_id = 1
+category = 1  # Outfit
+item_id = 4
+x = 250
+y = 250
+start_hour = 13
+end_hour = 14
+
+# Room 49 - Cave area
+[[room]]
+id = 49
+[[room.items]]
+real_id = 1
+category = 1  # Outfit
+item_id = 19
+x = 52
+y = 359
+start_hour = 13
+end_hour = 17
+
+# Room 53 - Multiple items
+[[room]]
+id = 53
+[[room.items]]
+real_id = 1
+category = 2  # Item
+item_id = 9
+x = 320
+y = 102
+start_hour = 0
+end_hour = 0
+[[room.items]]
+real_id = 2
+category = 2  # Item
+item_id = 9
+x = 336
+y = 102
+start_hour = 0
+end_hour = 0
+[[room.items]]
+real_id = 3
+category = 2  # Item
+item_id = 9
+x = 352
+y = 102
+start_hour = 0
+end_hour = 0
+
+# Room 58
+[[room]]
+id = 58
+[[room.items]]
+real_id = 1
+category = 3  # Accessory
+item_id = 46
+x = 600
+y = 376
+start_hour = 10
+end_hour = 10
+
+# Room 66 - Multiple accessories
+[[room]]
+id = 66
+[[room.items]]
+real_id = 1
+category = 3  # Accessory
+item_id = 58
+x = 48
+y = 31
+start_hour = 8
+end_hour = 16
+[[room.items]]
+real_id = 2
+category = 3  # Accessory
+item_id = 61
+x = 256
+y = 48
+start_hour = 16
+end_hour = 20
+
+# Room 77 - Wraps around midnight
+[[room]]
+id = 77
+[[room.items]]
+real_id = 1
+category = 3  # Accessory
+item_id = 55
+x = 639
+y = 295
+start_hour = 20
+end_hour = 10  # Available from 8pm-10am
+
+# Room 78 - Wraps around midnight
+[[room]]
+id = 78
+[[room.items]]
+real_id = 1
+category = 1  # Outfit
+item_id = 33
+x = 604
+y = 503
+start_hour = 20
+end_hour = 5  # Available from 8pm-5am
+
+# Room 103 - Always available
+[[room]]
+id = 103
+[[room.items]]
+real_id = 1
+category = 1  # Outfit
+item_id = 7
+x = 232
+y = 151
+start_hour = 0
+end_hour = 0
+
+# Room 108 - Always available
+[[room]]
+id = 108
+[[room.items]]
+real_id = 1
+category = 3  # Accessory
+item_id = 52
+x = 424
+y = 308
+start_hour = 0
+end_hour = 0
+
+# Room 116 - Specific hour only
+[[room]]
+id = 116
+[[room.items]]
+real_id = 1
+category = 1  # Outfit
+item_id = 52
+x = 720
+y = 343
+start_hour = 18
+end_hour = 18  # 6pm only
+
+# Room 117 - Morning hours
+[[room]]
+id = 117
+[[room.items]]
+real_id = 1
+category = 1  # Outfit
+item_id = 55
+x = 504
+y = 247
+start_hour = 0
+end_hour = 6  # Midnight to 6am
+
+# Room 120
+[[room]]
+id = 120
+[[room.items]]
+real_id = 1
+category = 3  # Accessory
+item_id = 37
+x = 176
+y = 200
+start_hour = 8
+end_hour = 12
+
+# Room 136
+[[room]]
+id = 136
+[[room.items]]
+real_id = 1
+category = 1  # Outfit
+item_id = 37
+x = 576
+y = 87
+start_hour = 12
+end_hour = 12  # Noon only
+
+# Room 143 - Always available
+[[room]]
+id = 143
+[[room.items]]
+real_id = 1
+category = 1  # Outfit
+item_id = 6
+x = 104
+y = 168
+start_hour = 0
+end_hour = 0

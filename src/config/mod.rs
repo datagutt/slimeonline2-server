@@ -38,6 +38,7 @@ pub struct GameConfig {
     pub plants: PlantsConfig,
     pub clans: ClansConfig,
     pub upgrader: UpgraderConfig,
+    pub onetimes: OneTimesConfig,
 }
 
 // =============================================================================
@@ -652,6 +653,95 @@ impl TownUpgraderConfig {
 }
 
 // =============================================================================
+// onetimes.toml
+// =============================================================================
+
+/// Raw one-time items config as parsed from TOML
+#[derive(Debug, Clone, Deserialize)]
+struct OneTimesConfigRaw {
+    #[serde(default)]
+    room: Vec<RoomOneTimesConfig>,
+}
+
+/// Processed one-time items config with easy lookups
+#[derive(Debug, Clone, Default)]
+pub struct OneTimesConfig {
+    pub rooms: HashMap<u16, RoomOneTimesConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RoomOneTimesConfig {
+    pub id: u16,
+    #[serde(default)]
+    pub items: Vec<OneTimeItemConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct OneTimeItemConfig {
+    pub real_id: u8,     // Unique ID within the room
+    pub category: u8,    // 1=outfit, 2=item, 3=accessory
+    pub item_id: u16,    // Actual item/outfit/accessory ID
+    pub x: u16,
+    pub y: u16,
+    pub start_hour: u8,  // 0-23, use 0 for always available
+    pub end_hour: u8,    // 0-23, use 0 for always available
+}
+
+impl OneTimeItemConfig {
+    /// Check if item is available at the given hour (0-23)
+    pub fn is_available_at(&self, hour: u8) -> bool {
+        // If start and end are both 0, item is always available
+        if self.start_hour == 0 && self.end_hour == 0 {
+            return true;
+        }
+
+        // If start == end, only available at that exact hour
+        if self.start_hour == self.end_hour {
+            return hour == self.start_hour;
+        }
+
+        // If start < end, simple range check
+        if self.start_hour < self.end_hour {
+            return hour >= self.start_hour && hour <= self.end_hour;
+        }
+
+        // If start > end, wraps around midnight
+        hour >= self.start_hour || hour <= self.end_hour
+    }
+}
+
+impl From<OneTimesConfigRaw> for OneTimesConfig {
+    fn from(raw: OneTimesConfigRaw) -> Self {
+        Self {
+            rooms: raw
+                .room
+                .into_iter()
+                .map(|r| (r.id, r))
+                .collect(),
+        }
+    }
+}
+
+impl OneTimesConfig {
+    /// Get one-time items for a room by room ID
+    pub fn get_room(&self, room_id: u16) -> Option<&RoomOneTimesConfig> {
+        self.rooms.get(&room_id)
+    }
+
+    /// Get items available in a room at the current hour
+    pub fn get_available_items(&self, room_id: u16, hour: u8) -> Vec<&OneTimeItemConfig> {
+        self.get_room(room_id)
+            .map(|r| {
+                r.items
+                    .iter()
+                    .filter(|item| item.is_available_at(hour))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+}
+
+// =============================================================================
 // clans.toml
 // =============================================================================
 
@@ -732,6 +822,8 @@ impl GameConfig {
         let clans = load_toml::<ClansConfig>(&dir.join("clans.toml"))?;
         let upgrader_raw = load_toml::<UpgraderConfigRaw>(&dir.join("upgrader.toml"))?;
         let upgrader: UpgraderConfig = upgrader_raw.into();
+        let onetimes_raw = load_toml::<OneTimesConfigRaw>(&dir.join("onetimes.toml"))?;
+        let onetimes: OneTimesConfig = onetimes_raw.into();
 
         Ok(Self {
             server,
@@ -742,6 +834,7 @@ impl GameConfig {
             plants,
             clans,
             upgrader,
+            onetimes,
         })
     }
 }

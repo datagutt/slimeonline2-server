@@ -10,7 +10,7 @@ use crate::Server;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 
-use super::{collectibles, items, shop, upgrader};
+use super::{collectibles, items, one_time, shop, upgrader};
 
 /// Handle warp/room change
 ///
@@ -179,6 +179,12 @@ pub async fn handle_warp(
     // Send collectible info for the new room (if any collectibles exist)
     if let Some(collectible_msg) = collectibles::write_collectible_info(server, new_room_id).await {
         responses.push(collectible_msg);
+    }
+
+    // Send one-time items info for the new room (if character is authenticated)
+    if let Some(char_id) = character_id {
+        let onetime_msgs = one_time::write_room_onetimes(server, new_room_id, char_id).await;
+        responses.extend(onetime_msgs);
     }
 
     // Send dropped items info for the new room (from room_check_discarded_item in original)
