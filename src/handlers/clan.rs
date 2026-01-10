@@ -134,39 +134,29 @@ pub async fn handle_clan_create(
     }
 
     // All checks passed - create the clan!
+    // Convert item_slots to the format expected by create_clan_with_cost (1-indexed slot numbers)
+    let slots_to_clear: Vec<(u8, u16)> = item_slots
+        .iter()
+        .map(|(slot_idx, item_id)| ((*slot_idx + 1) as u8, *item_id))
+        .collect();
 
-    // 1. Deduct points
     let new_points = points - creation_cost;
-    if let Err(e) = db::update_points(&server.db, char_id, new_points as i64).await {
-        warn!("Failed to deduct points for clan create: {}", e);
-        return Ok(vec![]);
-    }
 
-    // 2. Remove required items from inventory
-    for (slot_idx, _) in &item_slots {
-        let slot_num = (*slot_idx + 1) as u8;
-        if let Err(e) = db::update_item_slot(&server.db, char_id, slot_num, 0).await {
-            warn!(
-                "Failed to remove item from slot {} for clan create: {}",
-                slot_num, e
-            );
-            // Continue anyway, clan is being created
-        }
-    }
-
-    // 3. Create the clan
-    let clan_id = match db::create_clan(
+    // Create clan with all operations in a single transaction
+    // If any step fails, everything is rolled back automatically
+    let clan_id = match db::create_clan_with_cost(
         &server.db,
         &clan_name,
         char_id,
         config.limits.initial_member_slots,
+        new_points as i64,
+        &slots_to_clear,
     )
     .await
     {
         Ok(id) => id,
         Err(e) => {
             warn!("Failed to create clan '{}': {}", clan_name, e);
-            // TODO: Refund points/items on failure?
             return Ok(vec![]);
         }
     };

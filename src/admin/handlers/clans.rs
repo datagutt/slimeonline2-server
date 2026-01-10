@@ -9,7 +9,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::admin::{AdminState, ApiResponse, verify_api_key};
+use crate::admin::{AdminAction, AdminState, ApiResponse, verify_api_key};
 use crate::db;
 
 #[derive(Serialize)]
@@ -184,9 +184,12 @@ pub async fn dissolve_clan(
         }
     };
 
-    let member_count = db::get_clan_member_count(&state.db, clan.id)
+    // Get members before dissolving (to notify them)
+    let members = db::get_clan_members(&state.db, clan.id)
         .await
-        .unwrap_or(0);
+        .unwrap_or_default();
+
+    let member_count = members.len() as i64;
 
     if let Err(e) = db::dissolve_clan(&state.db, clan.id).await {
         return Err((
@@ -198,7 +201,14 @@ pub async fn dissolve_clan(
         ));
     }
 
-    // TODO: Notify online clan members via AdminAction
+    // Notify online clan members via AdminAction
+    let member_ids: Vec<i64> = members.iter().map(|m| m.character_id).collect();
+    let _ = state
+        .action_tx
+        .send(AdminAction::NotifyClanDissolved {
+            member_character_ids: member_ids,
+        })
+        .await;
 
     Ok(Json(ApiResponse::success(DissolveClanResponse {
         dissolved: true,

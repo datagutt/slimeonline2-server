@@ -68,6 +68,93 @@ pub async fn create_clan(
     Ok(clan_id)
 }
 
+/// Create a new clan with point cost and item requirements
+/// Uses a transaction to ensure all operations are atomic - if any step fails, everything is rolled back
+pub async fn create_clan_with_cost(
+    pool: &DbPool,
+    name: &str,
+    leader_id: i64,
+    initial_slots: u8,
+    new_points: i64,
+    item_slots_to_clear: &[(u8, u16)], // (slot_number, item_id) - slot numbers are 1-indexed
+) -> Result<i64, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+
+    // 1. Deduct points
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET points = ?, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(new_points)
+    .bind(leader_id)
+    .execute(&mut *tx)
+    .await?;
+
+    // 2. Remove required items from inventory
+    for (slot, _item_id) in item_slots_to_clear {
+        let column = match slot {
+            1 => "item_1",
+            2 => "item_2",
+            3 => "item_3",
+            4 => "item_4",
+            5 => "item_5",
+            6 => "item_6",
+            7 => "item_7",
+            8 => "item_8",
+            9 => "item_9",
+            _ => continue,
+        };
+
+        let query = format!(
+            "UPDATE inventories SET {} = 0, updated_at = datetime('now') WHERE character_id = ?",
+            column
+        );
+
+        sqlx::query(&query)
+            .bind(leader_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    // 3. Create the clan
+    let result = sqlx::query(
+        r#"
+        INSERT INTO clans (name, leader_id, max_members, description, news)
+        VALUES (?, ?, ?, 'A new clan', 'No news')
+        "#,
+    )
+    .bind(name)
+    .bind(leader_id)
+    .bind(initial_slots as i64)
+    .execute(&mut *tx)
+    .await?;
+
+    let clan_id = result.last_insert_rowid();
+
+    // 4. Update the leader's clan_id
+    sqlx::query("UPDATE characters SET clan_id = ? WHERE id = ?")
+        .bind(clan_id)
+        .bind(leader_id)
+        .execute(&mut *tx)
+        .await?;
+
+    // Commit - if this fails, all changes are rolled back
+    tx.commit().await?;
+
+    debug!(
+        "Created clan '{}' (id={}) with leader_id={}, deducted points to {}, cleared {} item slots",
+        name,
+        clan_id,
+        leader_id,
+        new_points,
+        item_slots_to_clear.len()
+    );
+    Ok(clan_id)
+}
+
 /// Get a clan by ID
 pub async fn get_clan(pool: &DbPool, clan_id: i64) -> Result<Option<Clan>, sqlx::Error> {
     sqlx::query_as::<_, Clan>("SELECT * FROM clans WHERE id = ?")

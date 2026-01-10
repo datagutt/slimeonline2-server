@@ -781,6 +781,11 @@ fn spawn_admin_action_handler(server: Arc<Server>, mut action_rx: mpsc::Receiver
                     handle_admin_set_appearance(&server, &username, body_id, acs1_id, acs2_id)
                         .await;
                 }
+                AdminAction::NotifyClanDissolved {
+                    member_character_ids,
+                } => {
+                    handle_admin_clan_dissolved(&server, &member_character_ids).await;
+                }
             }
         }
     });
@@ -1187,4 +1192,69 @@ async fn handle_admin_set_appearance(
         "Admin set {} appearance (offline): body={:?}, acs1={:?}, acs2={:?}",
         username, body_id, acs1_id, acs2_id
     );
+}
+
+/// Handle admin clan dissolved notification
+/// Notifies online members that their clan was dissolved and broadcasts to all players
+async fn handle_admin_clan_dissolved(server: &Server, member_character_ids: &[i64]) {
+    // Build the "left clan" message (MSG_CLAN_INFO type 6)
+    let mut left_writer = protocol::MessageWriter::new();
+    left_writer
+        .write_u16(protocol::MessageType::ClanInfo.id())
+        .write_u8(6); // type 6 = left clan
+    let left_msg = left_writer.into_bytes();
+
+    let mut notified_count = 0;
+
+    for &char_id in member_character_ids {
+        // Find the session for this character
+        for session_ref in server.sessions.iter() {
+            let handle = session_ref.value();
+            let mut session = handle.session.write().await;
+
+            if session.character_id == Some(char_id) && session.is_authenticated {
+                // Update session state
+                session.clan_id = None;
+                session.is_clan_leader = false;
+                session.has_clan_base = false;
+
+                // Send them the "left clan" notification
+                handle.queue_message(left_msg.clone()).await;
+                notified_count += 1;
+
+                // Broadcast to all players that this member is no longer in a clan
+                if let Some(player_id) = session.player_id {
+                    let mut broadcast_writer = protocol::MessageWriter::new();
+                    broadcast_writer
+                        .write_u16(protocol::MessageType::ClanInfo.id())
+                        .write_u8(2) // type 2 = broadcast
+                        .write_u16(player_id)
+                        .write_u16(0); // clan_id 0 = no clan
+                    let broadcast_msg = broadcast_writer.into_bytes();
+
+                    // Send to all players in the same room
+                    let room_id = session.room_id;
+                    drop(session); // Release lock before iterating sessions again
+
+                    let room_players = server.game_state.get_room_players(room_id).await;
+                    for pid in &room_players {
+                        if let Some(sid) = server.game_state.players_by_id.get(pid)
+                            && let Some(h) = server.sessions.get(&sid)
+                        {
+                            h.queue_message(broadcast_msg.clone()).await;
+                        }
+                    }
+                }
+
+                break; // Found this character, move to next
+            }
+        }
+    }
+
+    if notified_count > 0 {
+        info!(
+            "Admin clan dissolved: notified {} online members",
+            notified_count
+        );
+    }
 }

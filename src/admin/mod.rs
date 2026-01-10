@@ -67,6 +67,11 @@ pub enum AdminAction {
         acs1_id: Option<u16>,
         acs2_id: Option<u16>,
     },
+    /// Notify online members that their clan was dissolved (after DB dissolution)
+    NotifyClanDissolved {
+        /// Character IDs of members who were in the clan
+        member_character_ids: Vec<i64>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
