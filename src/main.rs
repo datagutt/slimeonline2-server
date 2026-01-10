@@ -539,6 +539,51 @@ fn spawn_background_tasks(server: Arc<Server>) {
                     error!("Failed to get expired ground items: {}", e);
                 }
             }
+
+            // Check for expired buildings and notify players
+            match db::get_expired_buildings(&respawn_server.db).await {
+                Ok(expired_buildings) => {
+                    for building in &expired_buildings {
+                        let room_id = building.room_id as u16;
+                        let spot_id = building.spot_id as u8;
+
+                        // Notify all players in the room that the building spot is now free
+                        let room_players =
+                            respawn_server.game_state.get_room_players(room_id).await;
+                        let mut writer = protocol::MessageWriter::new();
+                        writer.write_u16(protocol::MessageType::BuildSpotBecomeFree.id());
+                        writer.write_u8(spot_id);
+                        let msg = writer.into_bytes();
+
+                        for player_id in &room_players {
+                            if let Some(session_id) =
+                                respawn_server.game_state.players_by_id.get(player_id)
+                                && let Some(handle) = respawn_server.sessions.get(&session_id)
+                            {
+                                handle.queue_message(msg.clone()).await;
+                            }
+                        }
+
+                        // Remove from database
+                        if let Err(e) =
+                            db::remove_building(&respawn_server.db, room_id, spot_id).await
+                        {
+                            error!(
+                                "Failed to remove expired building {}/{}: {}",
+                                room_id, spot_id, e
+                            );
+                        } else {
+                            info!(
+                                "Building at spot {} in room {} expired and was removed",
+                                spot_id, room_id
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to check for expired buildings: {}", e);
+                }
+            }
         }
     });
 

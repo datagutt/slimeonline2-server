@@ -1,0 +1,65 @@
+# Slime Online 2 - Building Spots Configuration
+#
+# Building spots are locations in rooms where players can place buildable items.
+# Items like the Weak Cannon Kit (26) can be placed on these spots.
+#
+# Format:
+#   [room.<room_id>]
+#   spots = [{ id = <spot_id> }, ...]
+#
+# Building objects:
+#   [objects.<item_id>]
+#   name = "Object Name"
+#   duration_hours = 24  # How long until the building expires
+
+# =============================================================================
+# Building Objects - Items that can be placed on building spots
+# =============================================================================
+
+[objects]
+
+[objects.26]
+name = "Weak Cannon"
+duration_hours = 24
+
+# =============================================================================
+# Room Building Spots
+# =============================================================================
+
+# Test Map 1 (Room 14)
+[room.14]
+spots = [
+    { id = 1 },
+]
+
+# City Mountain Feet 1 (Room 32)
+[room.32]
+spots = [
+    { id = 1 },
+    { id = 2 },
+]
+
+# Magma Dungeon 2 (Room 92)
+[room.92]
+spots = [
+    { id = 1 },
+    { id = 2 },
+]
+
+# Wastelands 2 (Room 116)
+[room.116]
+spots = [
+    { id = 1 },
+]
+
+# Wastelands 5 (Room 132)
+[room.132]
+spots = [
+    { id = 1 },
+]
+
+# Swamp 6 (Room 143)
+[room.143]
+spots = [
+    { id = 1 },
+]

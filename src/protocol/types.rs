@@ -145,8 +145,9 @@ pub enum MessageType {
     // Building
     BuildSpotFree = 103,
     BuildSpotUsed = 104,
-    BuildSpotBecomeFree = 105,
-    ObjectsBuiltInc = 106,
+    BuildObject = 105,
+    BuildSpotBecomeFree = 106,
+    ObjectsBuiltInc = 107,
 
     // Upgrader
     UpgraderGet = 108,
@@ -290,8 +291,9 @@ impl MessageType {
             101 => Self::CannonShoot,
             103 => Self::BuildSpotFree,
             104 => Self::BuildSpotUsed,
-            105 => Self::BuildSpotBecomeFree,
-            106 => Self::ObjectsBuiltInc,
+            105 => Self::BuildObject,
+            106 => Self::BuildSpotBecomeFree,
+            107 => Self::ObjectsBuiltInc,
             108 => Self::UpgraderGet,
             109 => Self::UpgraderPoints,
             110 => Self::UpgraderInvest,
@@ -430,8 +432,9 @@ impl MessageType {
             Self::CannonShoot => 101,
             Self::BuildSpotFree => 103,
             Self::BuildSpotUsed => 104,
-            Self::BuildSpotBecomeFree => 105,
-            Self::ObjectsBuiltInc => 106,
+            Self::BuildObject => 105,
+            Self::BuildSpotBecomeFree => 106,
+            Self::ObjectsBuiltInc => 107,
             Self::UpgraderGet => 108,
             Self::UpgraderPoints => 109,
             Self::UpgraderInvest => 110,
@@ -542,6 +545,7 @@ impl MessageType {
             | Self::TreePlantedInc => "Plant",
             Self::BuildSpotFree
             | Self::BuildSpotUsed
+            | Self::BuildObject
             | Self::BuildSpotBecomeFree
             | Self::ObjectsBuiltInc => "Build",
             Self::CannonEnter | Self::CannonMove | Self::CannonSetPower | Self::CannonShoot => {
@@ -695,6 +699,7 @@ impl fmt::Display for MessageType {
             Self::CannonShoot => "CannonShoot",
             Self::BuildSpotFree => "BuildSpotFree",
             Self::BuildSpotUsed => "BuildSpotUsed",
+            Self::BuildObject => "BuildObject",
             Self::BuildSpotBecomeFree => "BuildSpotBecomeFree",
             Self::ObjectsBuiltInc => "ObjectsBuiltInc",
             Self::UpgraderGet => "UpgraderGet",

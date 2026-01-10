@@ -4,6 +4,7 @@ pub mod appearance;
 pub mod auth;
 pub mod bank;
 pub mod bbs;
+pub mod building;
 pub mod cannon;
 pub mod chat;
 pub mod clan;

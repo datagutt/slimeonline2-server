@@ -16,7 +16,7 @@ use crate::protocol::{
     write_login_failure, write_register_response,
 };
 
-use super::{collectibles, shop};
+use super::{building, collectibles, shop};
 
 /// Handle login request
 pub async fn handle_login(
@@ -319,6 +319,10 @@ pub async fn handle_login(
     {
         responses.push(collectible_msg);
     }
+
+    // Send building state for the spawn room (if any building spots exist)
+    let building_msgs = building::send_room_buildings(server, character.room_id as u16).await;
+    responses.extend(building_msgs);
 
     Ok(responses)
 }

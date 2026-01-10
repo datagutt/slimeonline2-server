@@ -1003,3 +1003,141 @@ pub async fn set_room_music(
 
     Ok(())
 }
+
+// =============================================================================
+// Building State
+// =============================================================================
+
+#[derive(Debug, Clone, FromRow)]
+pub struct BuildingState {
+    pub room_id: i64,
+    pub spot_id: i64,
+    pub owner_id: Option<i64>,
+    pub object_id: Option<i64>,
+    pub built_at: Option<String>,
+    pub expires_at: Option<String>,
+}
+
+impl BuildingState {
+    /// Check if this spot is free (no building)
+    pub fn is_free(&self) -> bool {
+        self.owner_id.is_none()
+    }
+}
+
+/// Get building state for a room
+pub async fn get_building_states(
+    pool: &DbPool,
+    room_id: u16,
+) -> Result<Vec<BuildingState>, sqlx::Error> {
+    sqlx::query_as::<_, BuildingState>(
+        r#"
+        SELECT room_id, spot_id, owner_id, object_id, built_at, expires_at
+        FROM building_state
+        WHERE room_id = ?
+        "#,
+    )
+    .bind(room_id as i64)
+    .fetch_all(pool)
+    .await
+}
+
+/// Get a single building spot's state
+pub async fn get_building_state(
+    pool: &DbPool,
+    room_id: u16,
+    spot_id: u8,
+) -> Result<Option<BuildingState>, sqlx::Error> {
+    sqlx::query_as::<_, BuildingState>(
+        r#"
+        SELECT room_id, spot_id, owner_id, object_id, built_at, expires_at
+        FROM building_state
+        WHERE room_id = ? AND spot_id = ?
+        "#,
+    )
+    .bind(room_id as i64)
+    .bind(spot_id as i64)
+    .fetch_optional(pool)
+    .await
+}
+
+/// Place a building on a spot
+pub async fn place_building(
+    pool: &DbPool,
+    room_id: u16,
+    spot_id: u8,
+    owner_id: i64,
+    object_id: u16,
+    expires_at: DateTime<Utc>,
+) -> Result<(), sqlx::Error> {
+    let now = Utc::now().to_rfc3339();
+    sqlx::query(
+        r#"
+        INSERT INTO building_state (room_id, spot_id, owner_id, object_id, built_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (room_id, spot_id) DO UPDATE SET
+            owner_id = excluded.owner_id,
+            object_id = excluded.object_id,
+            built_at = excluded.built_at,
+            expires_at = excluded.expires_at
+        "#,
+    )
+    .bind(room_id as i64)
+    .bind(spot_id as i64)
+    .bind(owner_id)
+    .bind(object_id as i64)
+    .bind(&now)
+    .bind(expires_at.to_rfc3339())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Remove a building from a spot (free the spot)
+pub async fn remove_building(
+    pool: &DbPool,
+    room_id: u16,
+    spot_id: u8,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        DELETE FROM building_state
+        WHERE room_id = ? AND spot_id = ?
+        "#,
+    )
+    .bind(room_id as i64)
+    .bind(spot_id as i64)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Get all buildings that have expired (expires_at <= now)
+pub async fn get_expired_buildings(pool: &DbPool) -> Result<Vec<BuildingState>, sqlx::Error> {
+    let now = Utc::now().to_rfc3339();
+    sqlx::query_as::<_, BuildingState>(
+        r#"
+        SELECT room_id, spot_id, owner_id, object_id, built_at, expires_at
+        FROM building_state
+        WHERE owner_id IS NOT NULL AND expires_at IS NOT NULL AND expires_at <= ?
+        "#,
+    )
+    .bind(now)
+    .fetch_all(pool)
+    .await
+}
+
+/// Remove all expired buildings
+pub async fn cleanup_expired_buildings(pool: &DbPool) -> Result<u64, sqlx::Error> {
+    let now = Utc::now().to_rfc3339();
+    let result = sqlx::query(
+        r#"
+        DELETE FROM building_state
+        WHERE owner_id IS NOT NULL AND expires_at IS NOT NULL AND expires_at <= ?
+        "#,
+    )
+    .bind(now)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected())
+}

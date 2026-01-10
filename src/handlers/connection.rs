@@ -18,8 +18,8 @@ use crate::game::{PlayerSession, SessionHandle};
 use crate::protocol::{MessageType, MessageWriter, describe_message, write_player_left};
 
 use super::{
-    appearance, auth, bank, bbs, cannon, chat, clan, collectibles, gameplay, items, mail, movement,
-    music, one_time, planting, quest, racing, shop, storage, upgrader, vending, warp,
+    appearance, auth, bank, bbs, building, cannon, chat, clan, collectibles, gameplay, items, mail,
+    movement, music, one_time, planting, quest, racing, shop, storage, upgrader, vending, warp,
 };
 
 /// Handle a client connection.
@@ -604,6 +604,9 @@ async fn handle_message(
         }
 
         MessageType::CannonShoot => cannon::handle_cannon_shoot(payload, server, session).await,
+
+        // Building System
+        MessageType::BuildObject => building::handle_build_object(payload, server, session).await,
 
         // Racing System
         MessageType::RaceInfo => racing::handle_race_info(payload, server, session).await,

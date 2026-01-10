@@ -39,6 +39,7 @@ pub struct GameConfig {
     pub clans: ClansConfig,
     pub upgrader: UpgraderConfig,
     pub onetimes: OneTimesConfig,
+    pub buildings: BuildingsConfig,
 }
 
 // =============================================================================
@@ -742,6 +743,92 @@ impl OneTimesConfig {
 }
 
 // =============================================================================
+// buildings.toml
+// =============================================================================
+
+/// Raw buildings config as parsed from TOML
+#[derive(Debug, Clone, Deserialize)]
+struct BuildingsConfigRaw {
+    #[serde(default)]
+    objects: HashMap<String, BuildingObjectConfig>,
+    #[serde(default)]
+    room: HashMap<String, RoomBuildingSpotsConfig>,
+}
+
+/// Processed buildings config with numeric keys
+#[derive(Debug, Clone, Default)]
+pub struct BuildingsConfig {
+    pub objects: HashMap<u16, BuildingObjectConfig>,
+    pub rooms: HashMap<u16, RoomBuildingSpotsConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BuildingObjectConfig {
+    pub name: String,
+    pub duration_hours: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RoomBuildingSpotsConfig {
+    pub spots: Vec<BuildingSpotConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BuildingSpotConfig {
+    pub id: u8,
+}
+
+impl From<BuildingsConfigRaw> for BuildingsConfig {
+    fn from(raw: BuildingsConfigRaw) -> Self {
+        Self {
+            objects: raw
+                .objects
+                .into_iter()
+                .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
+                .collect(),
+            rooms: raw
+                .room
+                .into_iter()
+                .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
+                .collect(),
+        }
+    }
+}
+
+impl BuildingsConfig {
+    /// Get building object config by item ID
+    pub fn get_object(&self, item_id: u16) -> Option<&BuildingObjectConfig> {
+        self.objects.get(&item_id)
+    }
+
+    /// Check if an item is a buildable object
+    pub fn is_buildable(&self, item_id: u16) -> bool {
+        self.objects.contains_key(&item_id)
+    }
+
+    /// Get building spots for a room by room ID
+    pub fn get_room(&self, room_id: u16) -> Option<&RoomBuildingSpotsConfig> {
+        self.rooms.get(&room_id)
+    }
+
+    /// Check if a room has a specific building spot
+    pub fn has_spot(&self, room_id: u16, spot_id: u8) -> bool {
+        self.rooms
+            .get(&room_id)
+            .map(|r| r.spots.iter().any(|s| s.id == spot_id))
+            .unwrap_or(false)
+    }
+
+    /// Get all spot IDs for a room
+    pub fn get_spot_ids(&self, room_id: u16) -> Vec<u8> {
+        self.rooms
+            .get(&room_id)
+            .map(|r| r.spots.iter().map(|s| s.id).collect())
+            .unwrap_or_default()
+    }
+}
+
+// =============================================================================
 // clans.toml
 // =============================================================================
 
@@ -824,6 +911,8 @@ impl GameConfig {
         let upgrader: UpgraderConfig = upgrader_raw.into();
         let onetimes_raw = load_toml::<OneTimesConfigRaw>(&dir.join("onetimes.toml"))?;
         let onetimes: OneTimesConfig = onetimes_raw.into();
+        let buildings_raw = load_toml::<BuildingsConfigRaw>(&dir.join("buildings.toml"))?;
+        let buildings: BuildingsConfig = buildings_raw.into();
 
         Ok(Self {
             server,
@@ -835,6 +924,7 @@ impl GameConfig {
             clans,
             upgrader,
             onetimes,
+            buildings,
         })
     }
 }

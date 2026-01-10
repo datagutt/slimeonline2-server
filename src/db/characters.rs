@@ -787,6 +787,22 @@ pub async fn increment_trees_planted(pool: &DbPool, character_id: i64) -> Result
     Ok(())
 }
 
+/// Increment the objects_built counter for a character
+pub async fn increment_objects_built(pool: &DbPool, character_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE characters
+        SET objects_built = objects_built + 1, updated_at = datetime('now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(character_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
 /// Update all outfits in inventory at once
 pub async fn update_inventory_outfits(
     pool: &DbPool,

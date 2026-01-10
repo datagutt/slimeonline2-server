@@ -69,12 +69,7 @@ Some of these features, while *technically* implemented, might not actually work
 | **Vending Machines** | Complete | Gum and soda machines with random items |
 | **One-Time Items** | Complete | Collectible one-time items per character |
 | **Music Changer** | Complete | Change room background music |
-
-### Not Yet Implemented
-
-| Feature | Priority | Messages |
-|---------|----------|----------|
-| **Building System**| Low      | 4 messages (103-106)
+| **Building System** | Complete | Place buildings (cannons), timed expiration, persistence |
 
 ## Unique features
 
