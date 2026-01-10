@@ -17,3 +17,4 @@ target/
 #.idea/
 slime_online2.db
 room_data.json
+/.claude
