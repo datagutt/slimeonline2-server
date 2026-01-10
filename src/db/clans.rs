@@ -29,12 +29,15 @@ pub struct ClanMember {
 }
 
 /// Create a new clan
+/// Uses a transaction to ensure clan creation and leader assignment are atomic
 pub async fn create_clan(
     pool: &DbPool,
     name: &str,
     leader_id: i64,
     initial_slots: u8,
 ) -> Result<i64, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+
     let result = sqlx::query(
         r#"
         INSERT INTO clans (name, leader_id, max_members, description, news)
@@ -44,7 +47,7 @@ pub async fn create_clan(
     .bind(name)
     .bind(leader_id)
     .bind(initial_slots as i64)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
 
     let clan_id = result.last_insert_rowid();
@@ -53,8 +56,10 @@ pub async fn create_clan(
     sqlx::query("UPDATE characters SET clan_id = ? WHERE id = ?")
         .bind(clan_id)
         .bind(leader_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
+
+    tx.commit().await?;
 
     debug!(
         "Created clan '{}' (id={}) with leader_id={}",
@@ -138,18 +143,23 @@ pub async fn remove_clan_member(pool: &DbPool, character_id: i64) -> Result<(), 
 }
 
 /// Delete a clan and remove all members
+/// Uses a transaction to ensure member removal and clan deletion are atomic
 pub async fn dissolve_clan(pool: &DbPool, clan_id: i64) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+
     // First remove all members from the clan
     sqlx::query("UPDATE characters SET clan_id = NULL WHERE clan_id = ?")
         .bind(clan_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
     // Then delete the clan
     sqlx::query("DELETE FROM clans WHERE id = ?")
         .bind(clan_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
+
+    tx.commit().await?;
 
     debug!("Dissolved clan {}", clan_id);
     Ok(())
@@ -238,18 +248,14 @@ pub async fn is_clan_leader(
 }
 
 /// Increase max member slots for a clan
+/// Uses RETURNING clause to atomically update and retrieve the new value
 pub async fn increase_clan_slots(pool: &DbPool, clan_id: i64) -> Result<i64, sqlx::Error> {
-    sqlx::query(
-        "UPDATE clans SET max_members = max_members + 1, updated_at = datetime('now') WHERE id = ?",
+    let result: (i64,) = sqlx::query_as(
+        "UPDATE clans SET max_members = max_members + 1, updated_at = datetime('now') WHERE id = ? RETURNING max_members",
     )
     .bind(clan_id)
-    .execute(pool)
+    .fetch_one(pool)
     .await?;
-
-    let result: (i64,) = sqlx::query_as("SELECT max_members FROM clans WHERE id = ?")
-        .bind(clan_id)
-        .fetch_one(pool)
-        .await?;
 
     Ok(result.0)
 }
