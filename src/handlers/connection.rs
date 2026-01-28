@@ -109,56 +109,16 @@ async fn handle_client_messages(
     let session = &session_handle.session;
     let notify = &session_handle.notify;
 
+    // Pre-allocate read buffer outside the loop to avoid repeated stack allocation
+    let mut temp_buf = [0u8; 4096];
+
     loop {
-        // Check for timeout
-        {
-            let session_guard = session.read().await;
-            if session_guard.is_timed_out() {
-                warn!("Connection timed out for {}", addr);
-                return Ok(());
-            }
-        }
-
-        // Use select! to handle incoming data, ping timer, and message notifications
-        let mut temp_buf = [0u8; 4096];
-
+        // Use biased select! to prioritize socket reads (most common and latency-sensitive)
+        // This reduces overhead by checking branches in order rather than randomly
         tokio::select! {
-            // Ping timer fired - send ping to client and any queued messages
-            _ = ping_interval.tick() => {
-                // Only send pings to authenticated clients
-                let is_authenticated = session.read().await.is_authenticated;
-                if is_authenticated {
-                    debug!("Sending keepalive ping to {}", addr);
-                    let mut writer = MessageWriter::new();
-                    crate::protocol::write_ping(&mut writer);
-                    if let Err(e) = send_message(socket, writer.into_bytes()).await {
-                        error!("Failed to send ping to {}: {}", addr, e);
-                        return Err(e);
-                    }
-                }
+            biased;
 
-                // Also flush any queued messages (from broadcasts by other players, etc.)
-                let queued_messages = session.write().await.drain_messages();
-                for msg in queued_messages {
-                    if let Err(e) = send_message(socket, msg).await {
-                        error!("Failed to send queued message to {}: {}", addr, e);
-                        return Err(e);
-                    }
-                }
-            }
-
-            // Notified that we have queued messages to send
-            _ = notify.notified() => {
-                let queued_messages = session.write().await.drain_messages();
-                for msg in queued_messages {
-                    if let Err(e) = send_message(socket, msg).await {
-                        error!("Failed to send notified message to {}: {}", addr, e);
-                        return Err(e);
-                    }
-                }
-            }
-
-            // Data available to read
+            // PRIORITY 1: Data available to read - most common case, check first
             read_result = socket.read(&mut temp_buf) => {
                 match read_result {
                     Ok(0) => {
@@ -171,7 +131,7 @@ async fn handle_client_messages(
                         recv_buffer.extend_from_slice(&temp_buf[..n]);
                         trace!("Received {} bytes, buffer now has {} bytes", n, recv_buffer.len());
 
-                        // Update activity
+                        // Update activity timestamp
                         session.write().await.update_activity();
 
                         // Process all complete messages in buffer
@@ -207,9 +167,9 @@ async fn handle_client_messages(
 
                             trace!("Decrypted payload: {:02X?}", &payload[..std::cmp::min(payload.len(), 32)]);
 
-                            // Parse message type (first 2 bytes of decrypted payload)
+                            // Parse and handle the message
                             if payload.len() < 2 {
-                                warn!("Payload too short after decryption");
+                                error!("Payload too small for message type from {}", addr);
                                 continue;
                             }
 
@@ -263,6 +223,49 @@ async fn handle_client_messages(
                     Err(e) => {
                         error!("Read error from {}: {}", addr, e);
                         return Err(e.into());
+                    }
+                }
+            }
+
+            // PRIORITY 2: Queued messages notification - respond to broadcasts quickly
+            _ = notify.notified() => {
+                let queued_messages = session.write().await.drain_messages();
+                for msg in queued_messages {
+                    if let Err(e) = send_message(socket, msg).await {
+                        error!("Failed to send notified message to {}: {}", addr, e);
+                        return Err(e);
+                    }
+                }
+            }
+
+            // PRIORITY 3: Ping timer - least urgent, only every 20 seconds
+            _ = ping_interval.tick() => {
+                // Check for timeout on ping tick (reduces lock contention vs checking every loop)
+                {
+                    let session_guard = session.read().await;
+                    if session_guard.is_timed_out() {
+                        warn!("Connection timed out for {}", addr);
+                        return Ok(());
+                    }
+                }
+                // Only send pings to authenticated clients
+                let is_authenticated = session.read().await.is_authenticated;
+                if is_authenticated {
+                    debug!("Sending keepalive ping to {}", addr);
+                    let mut writer = MessageWriter::new();
+                    crate::protocol::write_ping(&mut writer);
+                    if let Err(e) = send_message(socket, writer.into_bytes()).await {
+                        error!("Failed to send ping to {}: {}", addr, e);
+                        return Err(e);
+                    }
+                }
+
+                // Also flush any queued messages (from broadcasts by other players, etc.)
+                let queued_messages = session.write().await.drain_messages();
+                for msg in queued_messages {
+                    if let Err(e) = send_message(socket, msg).await {
+                        error!("Failed to send queued message to {}: {}", addr, e);
+                        return Err(e);
                     }
                 }
             }
