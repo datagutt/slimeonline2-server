@@ -1,12 +1,12 @@
 //! Racing system handlers
 //!
 //! Handles racing-related messages:
-//! - MSG_RACE_INFO (120) - Request race info/leaderboards
-//! - MSG_RACE_START (121) - Start a race
-//! - MSG_RACE_CHECKPOINT (122) - Hit a checkpoint
-//! - MSG_RACE_END (123) - Finish a race
-//! - MSG_MOVE_GET_ON (124) - Get on a moving platform
-//! - MSG_MOVE_GET_OFF (125) - Get off a moving platform
+//! - MSG_RACE_INFO (119) - Request race info/leaderboards
+//! - MSG_RACE_START (120) - Start a race
+//! - MSG_RACE_CHECKPOINT (121) - Hit a checkpoint
+//! - MSG_RACE_END (122) - Finish a race
+//! - MSG_MOVE_GET_ON (123) - Get on a moving platform
+//! - MSG_MOVE_GET_OFF (124) - Get off a moving platform
 
 use std::sync::Arc;
 
@@ -24,7 +24,7 @@ use crate::protocol::{MessageReader, MessageType, MessageWriter};
 const MAGMA_DUNGEON_CHECKPOINTS: [u16; 14] =
     [91, 92, 94, 94, 95, 95, 97, 97, 98, 99, 100, 101, 102, 103];
 
-/// Handle MSG_RACE_INFO (120) - Request race info/leaderboards
+/// Handle MSG_RACE_INFO (119) - Request race info/leaderboards
 pub async fn handle_race_info(
     payload: &[u8],
     server: &Arc<Server>,
@@ -84,7 +84,7 @@ pub async fn handle_race_info(
     }
 }
 
-/// Handle MSG_RACE_START (121) - Start a race
+/// Handle MSG_RACE_START (120) - Start a race
 pub async fn handle_race_start(
     payload: &[u8],
     _server: &Arc<Server>,
@@ -107,7 +107,7 @@ pub async fn handle_race_start(
     Ok(vec![])
 }
 
-/// Handle MSG_RACE_CHECKPOINT (122) - Hit a checkpoint
+/// Handle MSG_RACE_CHECKPOINT (121) - Hit a checkpoint
 pub async fn handle_race_checkpoint(
     _payload: &[u8],
     _server: &Arc<Server>,
@@ -134,7 +134,7 @@ pub async fn handle_race_checkpoint(
     Ok(vec![])
 }
 
-/// Handle MSG_RACE_END (123) - Finish a race
+/// Handle MSG_RACE_END (122) - Finish a race
 pub async fn handle_race_end(
     payload: &[u8],
     server: &Arc<Server>,
@@ -235,7 +235,7 @@ pub async fn handle_race_end(
     Ok(vec![writer.into_bytes()])
 }
 
-/// Handle MSG_MOVE_GET_ON (124) - Get on a moving platform
+/// Handle MSG_MOVE_GET_ON (123) - Get on a moving platform
 pub async fn handle_move_get_on(
     payload: &[u8],
     server: &Arc<Server>,
@@ -283,7 +283,7 @@ pub async fn handle_move_get_on(
     Ok(vec![])
 }
 
-/// Handle MSG_MOVE_GET_OFF (125) - Get off a moving platform
+/// Handle MSG_MOVE_GET_OFF (124) - Get off a moving platform
 pub async fn handle_move_get_off(
     _payload: &[u8],
     server: &Arc<Server>,
