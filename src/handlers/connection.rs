@@ -131,9 +131,6 @@ async fn handle_client_messages(
                         recv_buffer.extend_from_slice(&temp_buf[..n]);
                         trace!("Received {} bytes, buffer now has {} bytes", n, recv_buffer.len());
 
-                        // Update activity timestamp
-                        session.write().await.update_activity();
-
                         // Process all complete messages in buffer
                         // Format: [2-byte length][encrypted payload]
                         while recv_buffer.len() >= 2 {
@@ -175,6 +172,28 @@ async fn handle_client_messages(
 
                             let msg_type_id = u16::from_le_bytes([payload[0], payload[1]]);
                             let msg_type = MessageType::from_id(msg_type_id);
+
+                            // FAST PATH: Handle latency-critical ping messages immediately
+                            // This avoids lock contention, queued message processing, and disconnect checks
+                            match msg_type {
+                                MessageType::PingReq => {
+                                    // Client latency measurement - respond immediately
+                                    trace!("Fast-path PingReq response");
+                                    let mut writer = MessageWriter::new();
+                                    crate::protocol::write_ping_req(&mut writer);
+                                    send_message(socket, writer.into_bytes()).await?;
+                                    continue;
+                                }
+                                MessageType::Ping => {
+                                    // Keepalive ping - respond immediately
+                                    trace!("Fast-path Ping response");
+                                    let mut writer = MessageWriter::new();
+                                    crate::protocol::write_ping(&mut writer);
+                                    send_message(socket, writer.into_bytes()).await?;
+                                    continue;
+                                }
+                                _ => {}
+                            }
 
                             // Log message with parsed fields (skip high-frequency messages)
                             if !msg_type.is_high_frequency() {
@@ -218,6 +237,14 @@ async fn handle_client_messages(
                                     return Ok(());
                                 }
                             }
+
+                        }
+
+                        // Update activity after processing all messages
+                        // Use try_write to avoid blocking - if lock unavailable, skip this update
+                        // (we'll get it on the next receive, and pings have already been sent)
+                        if let Ok(mut guard) = session.try_write() {
+                            guard.update_activity();
                         }
                     }
                     Err(e) => {
