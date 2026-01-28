@@ -1,6 +1,8 @@
 //! Connection handling for client connections
 
 use std::net::SocketAddr;
+#[cfg(target_os = "linux")]
+use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -32,6 +34,22 @@ pub async fn handle_connection(
     // This can reduce round-trip latency by 20-40ms for small messages
     if let Err(e) = socket.set_nodelay(true) {
         warn!("Failed to set TCP_NODELAY for {}: {}", addr, e);
+    }
+
+    // Disable delayed ACKs on Linux for faster acknowledgments
+    // This reduces latency by sending ACKs immediately instead of waiting up to 40ms
+    #[cfg(target_os = "linux")]
+    {
+        let fd = socket.as_raw_fd();
+        unsafe {
+            libc::setsockopt(
+                fd,
+                libc::IPPROTO_TCP,
+                libc::TCP_QUICKACK,
+                &1i32 as *const _ as *const libc::c_void,
+                std::mem::size_of::<i32>() as libc::socklen_t,
+            );
+        }
     }
 
     let ip = addr.ip().to_string();
