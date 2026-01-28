@@ -40,6 +40,7 @@ pub struct GameConfig {
     pub upgrader: UpgraderConfig,
     pub onetimes: OneTimesConfig,
     pub buildings: BuildingsConfig,
+    pub rooms: RoomsConfig,
 }
 
 // =============================================================================
@@ -889,6 +890,93 @@ pub struct ColorConfig {
 }
 
 // =============================================================================
+// rooms.toml - Room music configuration
+// =============================================================================
+
+/// Raw rooms config as parsed from TOML (nested room tables)
+#[derive(Debug, Clone, Deserialize)]
+struct RoomsConfigRaw {
+    #[serde(default)]
+    time: DayNightTimeConfig,
+    #[serde(default)]
+    room: HashMap<String, RoomMusicConfig>,
+}
+
+/// Day/night time configuration
+#[derive(Debug, Clone, Deserialize)]
+pub struct DayNightTimeConfig {
+    /// Hour when day starts (inclusive), default 8
+    #[serde(default = "default_day_start_hour")]
+    pub day_start_hour: u8,
+    /// Hour when night starts (inclusive), default 20
+    #[serde(default = "default_night_start_hour")]
+    pub night_start_hour: u8,
+}
+
+impl Default for DayNightTimeConfig {
+    fn default() -> Self {
+        Self {
+            day_start_hour: default_day_start_hour(),
+            night_start_hour: default_night_start_hour(),
+        }
+    }
+}
+
+fn default_day_start_hour() -> u8 {
+    8
+}
+
+fn default_night_start_hour() -> u8 {
+    20
+}
+
+/// Processed rooms config with numeric room IDs
+#[derive(Debug, Clone, Default)]
+pub struct RoomsConfig {
+    pub time: DayNightTimeConfig,
+    pub rooms: HashMap<u16, RoomMusicConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RoomMusicConfig {
+    pub day_music: u8,
+    pub night_music: u8,
+}
+
+impl From<RoomsConfigRaw> for RoomsConfig {
+    fn from(raw: RoomsConfigRaw) -> Self {
+        Self {
+            time: raw.time,
+            rooms: raw
+                .room
+                .into_iter()
+                .filter_map(|(k, v)| k.parse::<u16>().ok().map(|id| (id, v)))
+                .collect(),
+        }
+    }
+}
+
+impl RoomsConfig {
+    /// Get music for a room based on current hour
+    /// Day time is day_start_hour to night_start_hour-1
+    /// Night time is night_start_hour to day_start_hour-1
+    pub fn get_room_music(&self, room_id: u16, hour: u8) -> Option<u8> {
+        self.rooms.get(&room_id).map(|config| {
+            if hour >= self.time.day_start_hour && hour < self.time.night_start_hour {
+                config.day_music
+            } else {
+                config.night_music
+            }
+        })
+    }
+
+    /// Check if it's currently daytime based on the hour
+    pub fn is_daytime(&self, hour: u8) -> bool {
+        hour >= self.time.day_start_hour && hour < self.time.night_start_hour
+    }
+}
+
+// =============================================================================
 // Config Loading
 // =============================================================================
 
@@ -913,6 +1001,8 @@ impl GameConfig {
         let onetimes: OneTimesConfig = onetimes_raw.into();
         let buildings_raw = load_toml::<BuildingsConfigRaw>(&dir.join("buildings.toml"))?;
         let buildings: BuildingsConfig = buildings_raw.into();
+        let rooms_raw = load_toml::<RoomsConfigRaw>(&dir.join("rooms.toml"))?;
+        let rooms: RoomsConfig = rooms_raw.into();
 
         Ok(Self {
             server,
@@ -925,6 +1015,7 @@ impl GameConfig {
             upgrader,
             onetimes,
             buildings,
+            rooms,
         })
     }
 }

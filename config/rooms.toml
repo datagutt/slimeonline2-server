@@ -1,0 +1,475 @@
+# Day/night time configuration
+# Day is from day_start_hour (inclusive) to night_start_hour (exclusive)
+# Night is from night_start_hour (inclusive) to day_start_hour (exclusive)
+[time]
+day_start_hour = 8
+night_start_hour = 20
+
+[room.100]
+day_music = 23
+night_music = 23
+
+[room.101]
+day_music = 23
+night_music = 23
+
+[room.102]
+day_music = 23
+night_music = 23
+
+[room.103]
+day_music = 23
+night_music = 23
+
+[room.104]
+day_music = 18
+night_music = 85
+
+[room.105]
+day_music = 143
+night_music = 147
+
+[room.106]
+day_music = 143
+night_music = 147
+
+[room.107]
+day_music = 18
+night_music = 85
+
+[room.108]
+day_music = 23
+night_music = 23
+
+[room.109]
+day_music = 34
+night_music = 34
+
+[room.110]
+day_music = 18
+night_music = 85
+
+[room.111]
+day_music = 30
+night_music = 30
+
+[room.112]
+day_music = 30
+night_music = 30
+
+[room.113]
+day_music = 52
+night_music = 52
+
+[room.114]
+day_music = 24
+night_music = 142
+
+[room.115]
+day_music = 24
+night_music = 142
+
+[room.116]
+day_music = 24
+night_music = 142
+
+[room.117]
+day_music = 24
+night_music = 142
+
+[room.118]
+day_music = 24
+night_music = 142
+
+[room.119]
+day_music = 24
+night_music = 142
+
+[room.120]
+day_music = 24
+night_music = 142
+
+[room.121]
+day_music = 20
+night_music = 20
+
+[room.122]
+day_music = 97
+night_music = 97
+
+[room.123]
+day_music = 44
+night_music = 44
+
+[room.124]
+day_music = 44
+night_music = 44
+
+[room.125]
+day_music = 44
+night_music = 44
+
+[room.126]
+day_music = 20
+night_music = 20
+
+[room.127]
+day_music = 2
+night_music = 2
+
+[room.128]
+day_music = 113
+night_music = 113
+
+[room.129]
+day_music = 117
+night_music = 117
+
+[room.130]
+day_music = 193
+night_music = 193
+
+[room.131]
+day_music = 24
+night_music = 142
+
+[room.132]
+day_music = 24
+night_music = 142
+
+[room.133]
+day_music = 24
+night_music = 142
+
+[room.134]
+day_music = 24
+night_music = 142
+
+[room.135]
+day_music = 24
+night_music = 142
+
+[room.136]
+day_music = 24
+night_music = 142
+
+[room.137]
+day_music = 24
+night_music = 142
+
+[room.138]
+day_music = 24
+night_music = 142
+
+[room.139]
+day_music = 193
+night_music = 193
+
+[room.14]
+day_music = 20
+night_music = 10
+
+[room.140]
+day_music = 193
+night_music = 193
+
+[room.141]
+day_music = 193
+night_music = 193
+
+[room.142]
+day_music = 193
+night_music = 193
+
+[room.143]
+day_music = 193
+night_music = 193
+
+[room.144]
+day_music = 193
+night_music = 193
+
+[room.145]
+day_music = 193
+night_music = 193
+
+[room.146]
+day_music = 193
+night_music = 193
+
+[room.15]
+day_music = 30
+night_music = 40
+
+[room.32]
+day_music = 18
+night_music = 85
+
+[room.33]
+day_music = 18
+night_music = 85
+
+[room.34]
+day_music = 18
+night_music = 85
+
+[room.35]
+day_music = 35
+night_music = 85
+
+[room.36]
+day_music = 35
+night_music = 85
+
+[room.37]
+day_music = 35
+night_music = 85
+
+[room.38]
+day_music = 57
+night_music = 57
+
+[room.39]
+day_music = 35
+night_music = 85
+
+[room.40]
+day_music = 18
+night_music = 85
+
+[room.41]
+day_music = 18
+night_music = 85
+
+[room.42]
+day_music = 33
+night_music = 84
+
+[room.43]
+day_music = 35
+night_music = 85
+
+[room.44]
+day_music = 44
+night_music = 44
+
+[room.45]
+day_music = 44
+night_music = 44
+
+[room.46]
+day_music = 44
+night_music = 44
+
+[room.47]
+day_music = 30
+night_music = 30
+
+[room.48]
+day_music = 30
+night_music = 30
+
+[room.49]
+day_music = 30
+night_music = 30
+
+[room.50]
+day_music = 30
+night_music = 30
+
+[room.51]
+day_music = 2
+night_music = 2
+
+[room.52]
+day_music = 30
+night_music = 30
+
+[room.53]
+day_music = 35
+night_music = 85
+
+[room.54]
+day_music = 30
+night_music = 30
+
+[room.55]
+day_music = 18
+night_music = 85
+
+[room.56]
+day_music = 18
+night_music = 85
+
+[room.57]
+day_music = 93
+night_music = 93
+
+[room.58]
+day_music = 93
+night_music = 93
+
+[room.59]
+day_music = 93
+night_music = 93
+
+[room.60]
+day_music = 93
+night_music = 93
+
+[room.61]
+day_music = 93
+night_music = 93
+
+[room.62]
+day_music = 93
+night_music = 93
+
+[room.63]
+day_music = 93
+night_music = 93
+
+[room.64]
+day_music = 111
+night_music = 157
+
+[room.65]
+day_music = 111
+night_music = 157
+
+[room.66]
+day_music = 93
+night_music = 93
+
+[room.67]
+day_music = 111
+night_music = 157
+
+[room.68]
+day_music = 111
+night_music = 157
+
+[room.69]
+day_music = 111
+night_music = 157
+
+[room.70]
+day_music = 111
+night_music = 157
+
+[room.71]
+day_music = 143
+night_music = 147
+
+[room.72]
+day_music = 111
+night_music = 157
+
+[room.73]
+day_music = 143
+night_music = 147
+
+[room.74]
+day_music = 143
+night_music = 147
+
+[room.75]
+day_music = 143
+night_music = 147
+
+[room.76]
+day_music = 143
+night_music = 147
+
+[room.77]
+day_music = 143
+night_music = 147
+
+[room.78]
+day_music = 143
+night_music = 147
+
+[room.79]
+day_music = 16
+night_music = 16
+
+[room.80]
+day_music = 97
+night_music = 97
+
+[room.81]
+day_music = 16
+night_music = 16
+
+[room.82]
+day_music = 143
+night_music = 147
+
+[room.83]
+day_music = 143
+night_music = 147
+
+[room.84]
+day_music = 113
+night_music = 113
+
+[room.85]
+day_music = 98
+night_music = 98
+
+[room.86]
+day_music = 98
+night_music = 98
+
+[room.87]
+day_music = 16
+night_music = 16
+
+[room.88]
+day_music = 16
+night_music = 16
+
+[room.89]
+day_music = 30
+night_music = 30
+
+[room.90]
+day_music = 35
+night_music = 85
+
+[room.91]
+day_music = 23
+night_music = 23
+
+[room.92]
+day_music = 23
+night_music = 23
+
+[room.93]
+day_music = 143
+night_music = 147
+
+[room.94]
+day_music = 23
+night_music = 23
+
+[room.95]
+day_music = 23
+night_music = 23
+
+[room.96]
+day_music = 143
+night_music = 147
+
+[room.97]
+day_music = 23
+night_music = 23
+
+[room.98]
+day_music = 23
+night_music = 23
+
+[room.99]
+day_music = 23
+night_music = 23
+

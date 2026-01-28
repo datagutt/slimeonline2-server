@@ -10,7 +10,7 @@ use crate::Server;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 
-use super::{building, collectibles, items, one_time, shop, upgrader};
+use super::{building, collectibles, items, music, one_time, shop, upgrader};
 
 /// Handle warp/room change
 ///
@@ -206,6 +206,11 @@ pub async fn handle_warp(
     // Send building state for the new room (cannons, etc.)
     let building_msgs = building::send_room_buildings(server, new_room_id).await;
     responses.extend(building_msgs);
+
+    // Send music for the new room (from room_check_music in original)
+    if let Some(music_msg) = music::build_room_music_message(server, new_room_id) {
+        responses.push(music_msg);
+    }
 
     Ok(responses)
 }

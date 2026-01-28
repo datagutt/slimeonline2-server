@@ -1,12 +1,14 @@
-//! Music changer handlers
+//! Music handlers
 //!
-//! Handles music changer in city rooms:
-//! - MSG_MUSIC_CHANGER_LIST (95) - Get available music tracks
-//! - MSG_MUSIC_CHANGER_SET (96) - Change room music
+//! Handles music-related messages:
+//! - MSG_MUSIC_CHANGE (22) - Server tells client to change background music
+//! - MSG_MUSIC_CHANGER_LIST (95) - Get available music tracks for city music changer
+//! - MSG_MUSIC_CHANGER_SET (96) - Change room music via city music changer
 
 use std::sync::Arc;
 
 use anyhow::Result;
+use chrono::Timelike;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
@@ -148,4 +150,27 @@ pub async fn handle_music_changer_set(
     writer.write_u8(1); // Success
 
     Ok(vec![writer.into_bytes()])
+}
+
+/// Build MSG_MUSIC_CHANGE (22) message for a room
+/// Returns None if the room has no music configured
+pub fn build_room_music_message(server: &Arc<Server>, room_id: u16) -> Option<Vec<u8>> {
+    let now = chrono::Utc::now();
+    let hour = now.hour() as u8;
+
+    let music_id = server.game_config.rooms.get_room_music(room_id, hour)?;
+
+    debug!(
+        "Room {} music: {} (hour={}, is_day={})",
+        room_id,
+        music_id,
+        hour,
+        server.game_config.rooms.is_daytime(hour)
+    );
+
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::MusicChange.id());
+    writer.write_u8(music_id);
+
+    Some(writer.into_bytes())
 }
