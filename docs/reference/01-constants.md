@@ -17,8 +17,8 @@ pub const MSG_LOGOUT: u16 = 6;
 pub const MSG_PLAYER_LEAVE: u16 = 11;
 
 // Movement & Control (5)
-pub const MSG_MOVE_GET_ON: u16 = 124;
-pub const MSG_MOVE_GET_OFF: u16 = 125;
+pub const MSG_MOVE_GET_ON: u16 = 123;
+pub const MSG_MOVE_GET_OFF: u16 = 124;
 pub const MSG_PLAYER_STOP: u16 = 43;
 pub const MSG_CANMOVE_TRUE: u16 = 42;
 pub const MSG_POSITION: u16 = 15;
@@ -47,7 +47,7 @@ pub const MSG_MUSIC_CHANGE: u16 = 22;
 pub const MSG_SERVER_CLOSE: u16 = 24;
 pub const MSG_PING_REQ: u16 = 117;
 pub const MSG_SERVER_TIME: u16 = 118;
-pub const MSG_SERVER_TIME_RESET: u16 = 119;
+pub const MSG_SERVER_TIME_RESET: u16 = 125;
 
 // Items & Inventory (11)
 pub const MSG_USE_ITEM: u16 = 31;
@@ -143,10 +143,10 @@ pub const MSG_CANNON_SET_POWER: u16 = 100;
 pub const MSG_CANNON_SHOOT: u16 = 101;
 
 // Racing System (4)
-pub const MSG_RACE_INFO: u16 = 120;
-pub const MSG_RACE_START: u16 = 121;
-pub const MSG_RACE_CHECKPOINT: u16 = 122;
-pub const MSG_RACE_END: u16 = 123;
+pub const MSG_RACE_INFO: u16 = 119;
+pub const MSG_RACE_START: u16 = 120;
+pub const MSG_RACE_CHECKPOINT: u16 = 121;
+pub const MSG_RACE_END: u16 = 122;
 
 // Misc (remaining)
 pub const MSG_POINT: u16 = 18;

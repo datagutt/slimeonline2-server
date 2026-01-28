@@ -4,19 +4,28 @@
 
 ## Cannon System
 
-- MSG_CANNON_ENTER (123)
-- MSG_CANNON_MOVE (124)
-- MSG_CANNON_SHOOT (125)
+- MSG_CANNON_ENTER (99)
+- MSG_CANNON_MOVE (100)
+- MSG_CANNON_SET_POWER (101)
+- MSG_CANNON_SHOOT (102)
 
 Launch players across maps.
 
 ## Racing System
 
-- MSG_RACE_START (126)
-- MSG_RACE_FINISH (127)
-- MSG_RACE_CHECKPOINT (128)
+- MSG_RACE_INFO (119)
+- MSG_RACE_START (120)
+- MSG_RACE_CHECKPOINT (121)
+- MSG_RACE_END (122)
 
 Timed races with checkpoints.
+
+## Moving Platforms
+
+- MSG_MOVE_GET_ON (123)
+- MSG_MOVE_GET_OFF (124)
+
+Sync player position on moving platforms.
 
 ## Building System
 

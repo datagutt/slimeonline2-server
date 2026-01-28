@@ -8,7 +8,7 @@ This document catalogs all 141 message types in the Slime Online 2 protocol, org
 
 - [Authentication](#authentication-messages-7-10) (2 messages)
 - [Player Management](#player-management-messages-1-6-11) (6 messages)
-- [Movement & Physics](#movement--physics-messages-2-14-43-124-125) (5 messages)
+- [Movement & Physics](#movement--physics-messages-2-14-43-123-124) (5 messages)
 - [Communication](#communication-messages-17-133) (2 messages)
 - [Items & Inventory](#items--inventory-messages-31-41) (11 messages)
 - [Shop & Economy](#shop--economy-messages-27-30-53-55) (5 messages)
@@ -222,7 +222,7 @@ struct PlayerLeft {
 
 ---
 
-## Movement & Physics Messages (2, 14, 43, 124, 125)
+## Movement & Physics Messages (2, 14, 43, 123, 124)
 
 ### MSG_MOVE_PLAYER (2)
 
