@@ -21,7 +21,8 @@ use crate::protocol::{MessageType, MessageWriter, describe_message, write_player
 
 use super::{
     appearance, auth, bank, bbs, building, cannon, chat, clan, collectibles, gameplay, items, mail,
-    movement, music, one_time, planting, quest, racing, shop, storage, upgrader, vending, warp,
+    movement, music, one_time, planting, quest, racing, shop, storage, switches, upgrader, vending,
+    warp,
 };
 
 /// Handle a client connection.
@@ -682,6 +683,9 @@ async fn handle_message(
 
         MessageType::BuySoda => vending::handle_buy_soda(payload, server, session).await,
 
+        // Switches (co-op puzzles)
+        MessageType::SwitchSet => switches::handle_switch_set(payload, server, session).await,
+
         // One-Time Items
         MessageType::OneTimeGet => one_time::handle_one_time_take(payload, server, session).await,
 
@@ -788,6 +792,9 @@ async fn cleanup_session(
             // Use SessionHandle's queue_message which also notifies
             other_handle.queue_message(logout_msg.clone()).await;
         }
+
+        // Handle switch deactivation before removing from room
+        switches::handle_player_leave_room(server, player_id, room_id).await;
 
         // Remove from room and active players
         server

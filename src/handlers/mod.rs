@@ -21,6 +21,7 @@ pub mod quest;
 pub mod racing;
 pub mod shop;
 pub mod storage;
+pub mod switches;
 pub mod upgrader;
 pub mod vending;
 pub mod warp;

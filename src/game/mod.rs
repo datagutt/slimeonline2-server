@@ -69,6 +69,9 @@ pub struct Room {
     pub players: RwLock<HashSet<u16>>,
     /// Collectibles in this room (spawn points with their current state)
     pub collectibles: RwLock<HashMap<u8, ActiveCollectible>>,
+    /// Switch activations: switch_id -> set of player_ids who activated it
+    /// The count determines the switch status (0=off, 1=on, 2+=special)
+    pub switch_activations: RwLock<HashMap<u8, HashSet<u16>>>,
 }
 
 impl Room {
@@ -77,6 +80,7 @@ impl Room {
             id,
             players: RwLock::new(HashSet::new()),
             collectibles: RwLock::new(HashMap::new()),
+            switch_activations: RwLock::new(HashMap::new()),
         }
     }
 
@@ -208,6 +212,47 @@ impl Room {
         } else {
             None
         }
+    }
+
+    /// Activate a switch for a player. Returns the new activation count (status).
+    /// If player already activated this switch, returns None.
+    pub async fn activate_switch(&self, switch_id: u8, player_id: u16) -> Option<u8> {
+        let mut switches = self.switch_activations.write().await;
+        let activators = switches.entry(switch_id).or_insert_with(HashSet::new);
+
+        // Only count if player hasn't already activated this switch
+        if activators.insert(player_id) {
+            // New activation - return the count (capped at 255)
+            Some(activators.len().min(255) as u8)
+        } else {
+            // Already activated by this player
+            None
+        }
+    }
+
+    /// Remove a player from all switch activations (called when player leaves room).
+    /// Returns list of (switch_id, new_count) for switches that were affected.
+    pub async fn deactivate_player_switches(&self, player_id: u16) -> Vec<(u8, u8)> {
+        let mut switches = self.switch_activations.write().await;
+        let mut affected = Vec::new();
+
+        for (&switch_id, activators) in switches.iter_mut() {
+            if activators.remove(&player_id) {
+                // Player was on this switch, now removed
+                let new_count = activators.len().min(255) as u8;
+                affected.push((switch_id, new_count));
+            }
+        }
+
+        // Clean up empty switch entries
+        switches.retain(|_, v| !v.is_empty());
+
+        affected
+    }
+
+    /// Reset all switches in the room (called when room becomes empty)
+    pub async fn reset_switches(&self) {
+        self.switch_activations.write().await.clear();
     }
 }
 

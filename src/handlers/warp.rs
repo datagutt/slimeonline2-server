@@ -98,6 +98,11 @@ pub async fn handle_warp(
         .add_player_to_room(player_id, new_room_id, session_id)
         .await;
 
+    // Handle switch deactivation when leaving old room
+    if old_room_id != new_room_id {
+        super::switches::handle_player_leave_room(server, player_id, old_room_id).await;
+    }
+
     // Broadcast to OLD room: player left (case 2)
     if old_room_id != new_room_id {
         let old_room_players = server.game_state.get_room_players(old_room_id).await;
