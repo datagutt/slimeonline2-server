@@ -25,3 +25,11 @@ port = 8080
 api_key = "change-me-in-production-use-openssl-rand-hex-32"
 # Bind address (use 127.0.0.1 for local-only, 0.0.0.0 for remote access)
 host = "127.0.0.1"
+
+# Web Landing Page Configuration
+# Serves static files and public API endpoints
+[web]
+enabled = true
+port = 3000
+# Bind address (use 127.0.0.1 for local-only, 0.0.0.0 for remote access)
+host = "0.0.0.0"

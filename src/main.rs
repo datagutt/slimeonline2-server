@@ -24,6 +24,7 @@ mod handlers;
 mod protocol;
 mod rate_limit;
 mod validation;
+mod web;
 
 use admin::{AdminAction, AdminState, InventoryCategory, PointsMode};
 use config::GameConfig;
@@ -243,6 +244,23 @@ async fn main() -> Result<()> {
 
         // Spawn admin action handler
         spawn_admin_action_handler(server.clone(), action_rx);
+    }
+
+    // Start web server if enabled
+    let web_config = &game_config.server.web;
+    if web_config.enabled {
+        let web_state = Arc::new(web::WebState {
+            sessions: server.sessions.clone(),
+            game_state: server.game_state.clone(),
+        });
+
+        let web_host = web_config.host.clone();
+        let web_port = web_config.port;
+        tokio::spawn(async move {
+            if let Err(e) = web::start_server(&web_host, web_port, web_state).await {
+                error!("Web server error: {}", e);
+            }
+        });
     }
 
     // Setup shutdown signal handler

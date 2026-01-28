@@ -56,6 +56,8 @@ pub struct ServerConfig {
     pub network: NetworkConfig,
     #[serde(default)]
     pub admin: AdminConfig,
+    #[serde(default)]
+    pub web: WebConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -125,6 +127,33 @@ impl Default for AdminConfig {
             api_key: String::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WebConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_web_port")]
+    pub port: u16,
+    #[serde(default = "default_web_host")]
+    pub host: String,
+}
+
+impl Default for WebConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            port: default_web_port(),
+            host: default_web_host(),
+        }
+    }
+}
+
+fn default_web_port() -> u16 {
+    3000
+}
+fn default_web_host() -> String {
+    "0.0.0.0".to_string()
 }
 
 fn default_admin_port() -> u16 {
