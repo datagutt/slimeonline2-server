@@ -28,6 +28,12 @@ pub async fn handle_connection(
     addr: SocketAddr,
     server: Arc<Server>,
 ) -> Result<()> {
+    // Disable Nagle's algorithm for lower latency on small packets (like pings)
+    // This can reduce round-trip latency by 20-40ms for small messages
+    if let Err(e) = socket.set_nodelay(true) {
+        warn!("Failed to set TCP_NODELAY for {}: {}", addr, e);
+    }
+
     let ip = addr.ip().to_string();
     info!("New connection from {}", addr);
 
