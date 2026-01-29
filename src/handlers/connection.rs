@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 #[cfg(target_os = "linux")]
 use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
 use bytes::BytesMut;
@@ -253,7 +253,12 @@ async fn handle_client_messages(
                                     trace!("Fast-path PingReq response");
                                     let mut writer = MessageWriter::new();
                                     crate::protocol::write_ping_req(&mut writer);
+                                    let start = Instant::now();
                                     send_message(socket, writer.into_bytes()).await?;
+                                    let elapsed = start.elapsed();
+                                    if elapsed > Duration::from_millis(50) {
+                                        debug!("Slow ping_req send to {}: {:?}", addr, elapsed);
+                                    }
                                     continue;
                                 }
                                 MessageType::Ping => {
