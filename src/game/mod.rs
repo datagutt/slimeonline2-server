@@ -254,6 +254,17 @@ impl Room {
     pub async fn reset_switches(&self) {
         self.switch_activations.write().await.clear();
     }
+
+    /// Get all active switch states in the room.
+    /// Returns list of (switch_id, activation_count) for switches with at least one activator.
+    pub async fn get_switch_states(&self) -> Vec<(u8, u8)> {
+        let switches = self.switch_activations.read().await;
+        switches
+            .iter()
+            .filter(|(_, activators)| !activators.is_empty())
+            .map(|(&switch_id, activators)| (switch_id, activators.len().min(255) as u8))
+            .collect()
+    }
 }
 
 /// Pending clan invite

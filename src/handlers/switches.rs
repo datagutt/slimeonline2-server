@@ -93,6 +93,29 @@ pub async fn broadcast_switch_status(server: &Server, room_id: u16, switch_id: u
     }
 }
 
+/// Build switch state messages for a player entering a room.
+/// Returns messages for all currently active switches in the room.
+pub async fn write_room_switch_states(server: &Server, room_id: u16) -> Vec<Vec<u8>> {
+    let Some(room) = server.game_state.get_room(room_id) else {
+        return vec![];
+    };
+
+    let switch_states = room.get_switch_states().await;
+    let mut messages = Vec::with_capacity(switch_states.len());
+
+    for (switch_id, status) in switch_states {
+        let mut writer = MessageWriter::new();
+        writer
+            .write_u16(MessageType::SwitchSet.id())
+            .write_u16(room_id)
+            .write_u8(switch_id)
+            .write_u8(status);
+        messages.push(writer.into_bytes());
+    }
+
+    messages
+}
+
 /// Handle player leaving a room - deactivate their switches and broadcast updates
 ///
 /// This should be called when a player warps or disconnects.
