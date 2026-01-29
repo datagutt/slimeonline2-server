@@ -115,15 +115,38 @@ pub async fn handle_login(
         Ok(None) => {
             // Create new character for this account
             match db::create_character(&server.db, account.id, &login.username).await {
-                Ok(_char_id) => match db::find_character_by_account(&server.db, account.id).await {
-                    Ok(Some(char)) => char,
-                    _ => {
-                        error!("Failed to retrieve newly created character");
-                        let mut writer = MessageWriter::new();
-                        write_login_failure(&mut writer, LOGIN_NO_ACCOUNT);
-                        return Ok(vec![writer.into_bytes()]);
+                Ok(char_id) => {
+                    // Send welcome mail from config
+                    let welcome = &server.game_config.game.welcome_mail;
+                    if let Err(e) = db::send_mail(
+                        &server.db,
+                        db::SendMailParams {
+                            from_character_id: None, // System mail
+                            to_character_id: char_id,
+                            sender_name: &welcome.sender,
+                            message: &welcome.text,
+                            item_id: 0,
+                            item_cat: 0,
+                            points: welcome.points as i64,
+                            paper: welcome.paper as i64,
+                            font_color: welcome.font as i64,
+                        },
+                    )
+                    .await
+                    {
+                        error!("Failed to send welcome mail: {}", e);
                     }
-                },
+
+                    match db::find_character_by_account(&server.db, account.id).await {
+                        Ok(Some(char)) => char,
+                        _ => {
+                            error!("Failed to retrieve newly created character");
+                            let mut writer = MessageWriter::new();
+                            write_login_failure(&mut writer, LOGIN_NO_ACCOUNT);
+                            return Ok(vec![writer.into_bytes()]);
+                        }
+                    }
+                }
                 Err(e) => {
                     error!("Failed to create character: {}", e);
                     let mut writer = MessageWriter::new();
@@ -421,7 +444,28 @@ pub async fn handle_register(
         Ok(account_id) => {
             // Create a character for the account
             match db::create_character(&server.db, account_id, &register.username).await {
-                Ok(_) => {
+                Ok(char_id) => {
+                    // Send welcome mail from config
+                    let welcome = &server.game_config.game.welcome_mail;
+                    if let Err(e) = db::send_mail(
+                        &server.db,
+                        db::SendMailParams {
+                            from_character_id: None, // System mail
+                            to_character_id: char_id,
+                            sender_name: &welcome.sender,
+                            message: &welcome.text,
+                            item_id: 0,
+                            item_cat: 0,
+                            points: welcome.points as i64,
+                            paper: welcome.paper as i64,
+                            font_color: welcome.font as i64,
+                        },
+                    )
+                    .await
+                    {
+                        error!("Failed to send welcome mail: {}", e);
+                    }
+
                     info!("New account registered: {}", register.username);
                     let mut writer = MessageWriter::new();
                     write_register_response(&mut writer, REGISTER_SUCCESS);
