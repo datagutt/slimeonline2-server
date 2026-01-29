@@ -186,12 +186,11 @@ async fn handle_client_messages(
     let mut temp_buf = [0u8; 4096];
 
     loop {
-        // Use biased select! to prioritize socket reads (most common and latency-sensitive)
-        // This reduces overhead by checking branches in order rather than randomly
+        // Use unbiased select! to avoid starving worker output or notifications under sustained reads
+        // (ordering is for readability, not strict priority)
         tokio::select! {
-            biased;
 
-            // PRIORITY 1: Data available to read - most common case, check first
+            // BRANCH 1: Data available to read - most common case
             read_result = socket.read(&mut temp_buf) => {
                 match read_result {
                     Ok(0) => {
@@ -297,7 +296,7 @@ async fn handle_client_messages(
                 }
             }
 
-            // PRIORITY 2: Worker responses (avoid waiting on slow handlers)
+            // BRANCH 2: Worker responses (avoid waiting on slow handlers)
             output = out_rx.recv() => {
                 match output {
                     Some(WorkerOutput::Send(msg)) => {
@@ -322,7 +321,7 @@ async fn handle_client_messages(
                 }
             }
 
-            // PRIORITY 3: Queued messages notification - respond to broadcasts quickly
+            // BRANCH 3: Queued messages notification - respond to broadcasts quickly
             _ = notify.notified() => {
                 let queued_messages = session.write().await.drain_messages();
                 for msg in queued_messages {
@@ -333,7 +332,7 @@ async fn handle_client_messages(
                 }
             }
 
-            // PRIORITY 4: Ping timer - least urgent, only every 20 seconds
+            // BRANCH 4: Ping timer - least urgent, only every 20 seconds
             _ = ping_interval.tick() => {
                 // Check for timeout on ping tick (reduces lock contention vs checking every loop)
                 {
