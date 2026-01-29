@@ -16,7 +16,7 @@ use crate::protocol::{
     write_login_failure, write_register_response,
 };
 
-use super::{building, collectibles, music, shop};
+use super::{building, collectibles, music, shop, switches};
 
 /// Handle login request
 pub async fn handle_login(
@@ -323,6 +323,10 @@ pub async fn handle_login(
     // Send building state for the spawn room (if any building spots exist)
     let building_msgs = building::send_room_buildings(server, character.room_id as u16).await;
     responses.extend(building_msgs);
+
+    // Send switch states for the spawn room (co-op puzzles)
+    let switch_msgs = switches::write_room_switch_states(server, character.room_id as u16).await;
+    responses.extend(switch_msgs);
 
     // Send music for the spawn room
     if let Some(music_msg) = music::build_room_music_message(server, character.room_id as u16) {
