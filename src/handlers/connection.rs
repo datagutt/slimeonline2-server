@@ -6,11 +6,11 @@ use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use bytes::BytesMut;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, error, info, trace, warn};
 
 use crate::Server;
@@ -82,6 +82,12 @@ pub async fn handle_connection(
 /// Server-initiated ping interval (20 seconds, client times out at 30)
 const PING_INTERVAL: Duration = Duration::from_secs(20);
 
+enum WorkerOutput {
+    Send(Vec<u8>),
+    Disconnect { reason: Option<String> },
+    Fatal(String),
+}
+
 /// Main message loop for a client.
 ///
 /// Message format from 39dll (format=0, the default):
@@ -99,6 +105,9 @@ async fn handle_client_messages(
 ) -> Result<()> {
     let mut recv_buffer = BytesMut::with_capacity(MAX_MESSAGE_SIZE);
 
+    let (msg_tx, mut msg_rx) = mpsc::channel::<(MessageType, Vec<u8>)>(256);
+    let (out_tx, mut out_rx) = mpsc::channel::<WorkerOutput>(256);
+
     // Create ping interval timer - client expects server to send pings to keep alive
     let mut ping_interval = tokio::time::interval(PING_INTERVAL);
     ping_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -109,6 +118,69 @@ async fn handle_client_messages(
     // Get references to session and notify for the select loop
     let session = &session_handle.session;
     let notify = &session_handle.notify;
+
+    // Background worker to handle non-latency-critical messages without blocking IO
+    let server_for_worker = Arc::clone(server);
+    let session_for_worker = session.clone();
+    let out_tx_worker = out_tx.clone();
+    tokio::spawn(async move {
+        while let Some((msg_type, payload)) = msg_rx.recv().await {
+            let responses = match handle_message(
+                msg_type,
+                &payload,
+                &server_for_worker,
+                session_for_worker.clone(),
+            )
+            .await
+            {
+                Ok(responses) => responses,
+                Err(e) => {
+                    let _ = out_tx_worker
+                        .send(WorkerOutput::Fatal(format!("Handler error: {}", e)))
+                        .await;
+                    break;
+                }
+            };
+
+            for response in responses {
+                if out_tx_worker.send(WorkerOutput::Send(response)).await.is_err() {
+                    break;
+                }
+            }
+
+            // Send any queued messages after handling the request
+            let queued_messages = session_for_worker.write().await.drain_messages();
+            for msg in queued_messages {
+                if out_tx_worker.send(WorkerOutput::Send(msg)).await.is_err() {
+                    break;
+                }
+            }
+
+            if matches!(msg_type, MessageType::Logout) {
+                let _ = out_tx_worker
+                    .send(WorkerOutput::Disconnect { reason: None })
+                    .await;
+                break;
+            }
+
+            let (should_disconnect, disconnect_reason) = {
+                let session_guard = session_for_worker.read().await;
+                (
+                    session_guard.should_disconnect,
+                    session_guard.disconnect_reason.clone(),
+                )
+            };
+
+            if should_disconnect {
+                let _ = out_tx_worker
+                    .send(WorkerOutput::Disconnect {
+                        reason: disconnect_reason,
+                    })
+                    .await;
+                break;
+            }
+        }
+    });
 
     // Pre-allocate read buffer outside the loop to avoid repeated stack allocation
     let mut temp_buf = [0u8; 4096];
@@ -204,39 +276,9 @@ async fn handle_client_messages(
                                 trace!("Message: {}", msg_type);
                             }
 
-                            // Handle the message (payload includes message type)
-                            let responses = handle_message(
-                                msg_type,
-                                &payload[2..], // Skip message type bytes
-                                server,
-                                session.clone(),
-                            ).await?;
-
-                            // Send all direct responses from the handler
-                            for response in responses {
-                                send_message(socket, response).await?;
-                            }
-
-                            // Also send any queued messages (from broadcasts, etc.)
-                            let queued_messages = session.write().await.drain_messages();
-                            for msg in queued_messages {
-                                send_message(socket, msg).await?;
-                            }
-
-                            // Check if we should disconnect (logout)
-                            if matches!(msg_type, MessageType::Logout) {
+                            // Queue the message for the worker to avoid blocking IO on slow handlers
+                            if msg_tx.send((msg_type, payload[2..].to_vec())).await.is_err() {
                                 return Ok(());
-                            }
-
-                            // Check if session was marked for disconnection (by anti-cheat, etc.)
-                            {
-                                let session_guard = session.read().await;
-                                if session_guard.should_disconnect {
-                                    if let Some(reason) = &session_guard.disconnect_reason {
-                                        warn!("Kicking {} - reason: {}", addr, reason);
-                                    }
-                                    return Ok(());
-                                }
                             }
 
                         }
@@ -255,7 +297,32 @@ async fn handle_client_messages(
                 }
             }
 
-            // PRIORITY 2: Queued messages notification - respond to broadcasts quickly
+            // PRIORITY 2: Worker responses (avoid waiting on slow handlers)
+            output = out_rx.recv() => {
+                match output {
+                    Some(WorkerOutput::Send(msg)) => {
+                        if let Err(e) = send_message(socket, msg).await {
+                            error!("Failed to send worker response to {}: {}", addr, e);
+                            return Err(e);
+                        }
+                    }
+                    Some(WorkerOutput::Disconnect { reason }) => {
+                        if let Some(reason) = reason {
+                            warn!("Kicking {} - reason: {}", addr, reason);
+                        }
+                        return Ok(());
+                    }
+                    Some(WorkerOutput::Fatal(reason)) => {
+                        error!("Worker error for {}: {}", addr, reason);
+                        return Err(anyhow!(reason));
+                    }
+                    None => {
+                        return Ok(());
+                    }
+                }
+            }
+
+            // PRIORITY 3: Queued messages notification - respond to broadcasts quickly
             _ = notify.notified() => {
                 let queued_messages = session.write().await.drain_messages();
                 for msg in queued_messages {
@@ -266,7 +333,7 @@ async fn handle_client_messages(
                 }
             }
 
-            // PRIORITY 3: Ping timer - least urgent, only every 20 seconds
+            // PRIORITY 4: Ping timer - least urgent, only every 20 seconds
             _ = ping_interval.tick() => {
                 // Check for timeout on ping tick (reduces lock contention vs checking every loop)
                 {
