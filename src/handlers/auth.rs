@@ -91,8 +91,24 @@ pub async fn handle_login(
         return Ok(vec![writer.into_bytes()]);
     }
 
-    // Verify password
-    let password_valid = bcrypt::verify(&login.password, &account.password_hash).unwrap_or(false);
+    // Verify password (bcrypt is CPU-bound; offload to blocking thread)
+    let password = login.password.clone();
+    let password_hash = account.password_hash.clone();
+    let password_valid = match tokio::task::spawn_blocking(move || {
+        bcrypt::verify(&password, &password_hash)
+    })
+    .await
+    {
+        Ok(Ok(valid)) => valid,
+        Ok(Err(e)) => {
+            error!("Failed to verify password: {}", e);
+            false
+        }
+        Err(e) => {
+            error!("Password verification task failed: {}", e);
+            false
+        }
+    };
 
     if !password_valid {
         debug!("Wrong password for: {}", login.username);
@@ -421,11 +437,22 @@ pub async fn handle_register(
         return Ok(vec![writer.into_bytes()]);
     }
 
-    // Hash the password
-    let password_hash = match bcrypt::hash(&register.password, bcrypt::DEFAULT_COST) {
-        Ok(hash) => hash,
-        Err(e) => {
+    // Hash the password (bcrypt is CPU-bound; offload to blocking thread)
+    let register_password = register.password.clone();
+    let password_hash = match tokio::task::spawn_blocking(move || {
+        bcrypt::hash(&register_password, bcrypt::DEFAULT_COST)
+    })
+    .await
+    {
+        Ok(Ok(hash)) => hash,
+        Ok(Err(e)) => {
             error!("Failed to hash password: {}", e);
+            let mut writer = MessageWriter::new();
+            write_register_response(&mut writer, REGISTER_EXISTS);
+            return Ok(vec![writer.into_bytes()]);
+        }
+        Err(e) => {
+            error!("Password hashing task failed: {}", e);
             let mut writer = MessageWriter::new();
             write_register_response(&mut writer, REGISTER_EXISTS);
             return Ok(vec![writer.into_bytes()]);
