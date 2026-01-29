@@ -28,17 +28,19 @@ pub struct BbsPostSummary {
 pub async fn create_bbs_post(
     pool: &DbPool,
     character_id: i64,
+    room_id: i64,
     category_id: i64,
     title: &str,
     content: &str,
 ) -> Result<i64, sqlx::Error> {
     let result = sqlx::query(
         r#"
-        INSERT INTO bbs_posts (character_id, category_id, title, content)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO bbs_posts (character_id, room_id, category_id, title, content)
+        VALUES (?, ?, ?, ?, ?)
         "#,
     )
     .bind(character_id)
+    .bind(room_id)
     .bind(category_id)
     .bind(title)
     .bind(content)
@@ -59,10 +61,11 @@ pub async fn create_bbs_post(
     Ok(result.last_insert_rowid())
 }
 
-/// Get BBS posts for a category (paginated, newest first)
+/// Get BBS posts for a room and category (paginated, newest first)
 /// Returns up to 4 posts per page (client displays 4 message slots)
 pub async fn get_bbs_posts(
     pool: &DbPool,
+    room_id: i64,
     category_id: i64,
     page: i64,
 ) -> Result<Vec<BbsPostSummary>, sqlx::Error> {
@@ -73,25 +76,31 @@ pub async fn get_bbs_posts(
         r#"
         SELECT id, title, created_at
         FROM bbs_posts
-        WHERE category_id = ? AND is_reported = 0
+        WHERE room_id = ? AND category_id = ? AND is_reported = 0
         ORDER BY created_at DESC
         LIMIT 4 OFFSET ?
         "#,
     )
+    .bind(room_id)
     .bind(category_id)
     .bind(offset)
     .fetch_all(pool)
     .await
 }
 
-/// Get total page count for a category
+/// Get total page count for a room and category
 /// 4 posts per page
-pub async fn get_bbs_page_count(pool: &DbPool, category_id: i64) -> Result<i64, sqlx::Error> {
+pub async fn get_bbs_page_count(
+    pool: &DbPool,
+    room_id: i64,
+    category_id: i64,
+) -> Result<i64, sqlx::Error> {
     let result: (i64,) = sqlx::query_as(
         r#"
-        SELECT COUNT(*) FROM bbs_posts WHERE category_id = ? AND is_reported = 0
+        SELECT COUNT(*) FROM bbs_posts WHERE room_id = ? AND category_id = ? AND is_reported = 0
         "#,
     )
+    .bind(room_id)
     .bind(category_id)
     .fetch_one(pool)
     .await?;

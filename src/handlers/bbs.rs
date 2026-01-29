@@ -74,12 +74,15 @@ pub async fn handle_bbs_request_categories(
 pub async fn handle_bbs_request_max_pages(
     payload: &[u8],
     server: &Arc<Server>,
-    _session: Arc<RwLock<PlayerSession>>,
+    session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let category_id = reader.read_u8()? as i64;
 
-    let page_count = db::get_bbs_page_count(&server.db, category_id)
+    // Get player's current room for per-room BBS
+    let room_id = session.read().await.room_id as i64;
+
+    let page_count = db::get_bbs_page_count(&server.db, room_id, category_id)
         .await
         .unwrap_or(0);
 
@@ -88,7 +91,10 @@ pub async fn handle_bbs_request_max_pages(
         .write_u16(MessageType::BbsRequestMaxPages.id())
         .write_u16(page_count as u16);
 
-    debug!("BBS category {} has {} pages", category_id, page_count);
+    debug!(
+        "BBS room {} category {} has {} pages",
+        room_id, category_id, page_count
+    );
 
     Ok(vec![writer.into_bytes()])
 }
@@ -109,13 +115,16 @@ pub async fn handle_bbs_request_max_pages(
 pub async fn handle_bbs_request_messages(
     payload: &[u8],
     server: &Arc<Server>,
-    _session: Arc<RwLock<PlayerSession>>,
+    session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
     let mut reader = MessageReader::new(payload);
     let category_id = reader.read_u8()? as i64;
     let page = reader.read_u16()? as i64;
 
-    let posts = db::get_bbs_posts(&server.db, category_id, page)
+    // Get player's current room for per-room BBS
+    let room_id = session.read().await.room_id as i64;
+
+    let posts = db::get_bbs_posts(&server.db, room_id, category_id, page)
         .await
         .unwrap_or_default();
 
@@ -312,7 +321,11 @@ pub async fn handle_bbs_post(
     let title = reader.read_string()?;
     let content = reader.read_string()?;
 
-    let character_id = session.read().await.character_id;
+    // Get player's current room and character_id for per-room BBS
+    let (character_id, room_id) = {
+        let session_guard = session.read().await;
+        (session_guard.character_id, session_guard.room_id as i64)
+    };
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
@@ -349,11 +362,11 @@ pub async fn handle_bbs_post(
     }
 
     // Create the post
-    match db::create_bbs_post(&server.db, char_id, category_id, &title, &content).await {
+    match db::create_bbs_post(&server.db, char_id, room_id, category_id, &title, &content).await {
         Ok(post_id) => {
             debug!(
-                "Created BBS post {} in category {} by character {}",
-                post_id, category_id, char_id
+                "Created BBS post {} in room {} category {} by character {}",
+                post_id, room_id, category_id, char_id
             );
 
             // Success - send response to return to browse mode
