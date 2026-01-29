@@ -1,0 +1,43 @@
+# Warp Center Configuration
+# Defines the warp destinations available at each warp center
+# Categories: 1 = City, 2 = Fields, 3 = Dungeon
+
+# =============================================================================
+# New City Warp Center (Room 51)
+# =============================================================================
+
+[[warp_centers]]
+room_id = 51
+
+# Fields destinations (category 2)
+[[warp_centers.destinations]]
+category = 2  # Fields
+slot = 1
+target_room = 56
+target_x = 158
+target_y = 295
+price = 150
+
+[[warp_centers.destinations]]
+category = 2  # Fields
+slot = 2
+target_room = 64
+target_x = 407
+target_y = 167
+price = 250
+
+# =============================================================================
+# Old City Warp Center (Room 127)
+# =============================================================================
+
+[[warp_centers]]
+room_id = 127
+
+# Fields destinations (category 2)
+[[warp_centers.destinations]]
+category = 2  # Fields
+slot = 1
+target_room = 114
+target_x = 320
+target_y = 231
+price = 150

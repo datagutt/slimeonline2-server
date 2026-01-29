@@ -246,3 +246,173 @@ async fn build_top_points_message(server: &Arc<Server>) -> Option<Vec<u8>> {
         }
     }
 }
+
+/// Handle GetWarpInfo (76)
+/// Player clicked on City/Fields/Dungeon in a warp center
+/// Returns available warp slots for the selected category
+///
+/// Client sends: warp_category (1 byte): 1=City, 2=Fields, 3=Dungeon
+/// Server responds: MSG_GET_WARP_INFO (76) + 7 slots of (slot_index: u8, price: u16)
+pub async fn handle_get_warp_info(
+    payload: &[u8],
+    server: &Arc<Server>,
+    session: Arc<RwLock<PlayerSession>>,
+) -> Result<Vec<Vec<u8>>> {
+    if payload.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let mut reader = MessageReader::new(payload);
+    let warp_category = reader.read_u8()?;
+
+    // Get player's current room (the warp center they're in)
+    let room_id = {
+        let session_guard = session.read().await;
+        if !session_guard.is_authenticated {
+            return Ok(vec![]);
+        }
+        session_guard.room_id
+    };
+
+    let category_name = match warp_category {
+        1 => "City",
+        2 => "Fields",
+        3 => "Dungeon",
+        _ => "Unknown",
+    };
+    info!(
+        "GetWarpInfo: room={}, category={} ({})",
+        room_id, warp_category, category_name
+    );
+
+    // Build response with 7 slots
+    let mut writer = MessageWriter::new();
+    writer.write_u16(MessageType::GetWarpInfo.id());
+
+    // Get all destinations for this warp center and category from config
+    let destinations = server
+        .game_config
+        .warp_centers
+        .get_destinations(room_id, warp_category);
+
+    // For each of the 7 slots, check if unlocked and return slot/price
+    for slot in 1..=7u8 {
+        if let Some(dest) = destinations.iter().find(|d| d.slot == slot) {
+            // Check if this slot is unlocked in the database
+            let is_unlocked =
+                crate::db::is_warp_unlocked(&server.db, room_id, slot, warp_category)
+                    .await
+                    .unwrap_or(false);
+
+            if is_unlocked {
+                info!(
+                    "  Slot {}: unlocked, target_room={}, price={}",
+                    dest.slot, dest.target_room, dest.price
+                );
+                writer.write_u8(dest.slot);
+                writer.write_u16(dest.price);
+            } else {
+                info!("  Slot {}: locked (exists in config but not unlocked)", slot);
+                writer.write_u8(0);
+                writer.write_u16(0);
+            }
+        } else {
+            // No destination configured for this slot
+            writer.write_u8(0);
+            writer.write_u16(0);
+        }
+    }
+
+    Ok(vec![writer.into_bytes()])
+}
+
+/// Handle WarpCenterUseSlot (77)
+/// Player wants to use a warp slot to teleport
+///
+/// Client sends: warp_category (1 byte) + slot (1 byte)
+/// Server responds: MSG_WARP_CENTER_USE_SLOT (77) + room (u16) + x (u16) + y (u16)
+pub async fn handle_warp_center_use_slot(
+    payload: &[u8],
+    server: &Arc<Server>,
+    session: Arc<RwLock<PlayerSession>>,
+) -> Result<Vec<Vec<u8>>> {
+    if payload.len() < 2 {
+        return Ok(vec![]);
+    }
+
+    let mut reader = MessageReader::new(payload);
+    let warp_category = reader.read_u8()?;
+    let slot = reader.read_u8()?;
+
+    // Get player's current room and points
+    let (room_id, points, character_id) = {
+        let session_guard = session.read().await;
+        if !session_guard.is_authenticated {
+            return Ok(vec![]);
+        }
+        (
+            session_guard.room_id,
+            session_guard.points,
+            session_guard.character_id,
+        )
+    };
+
+    // Check if destination exists in config
+    let destination = match server.game_config.warp_centers.get_destination(room_id, warp_category, slot)
+    {
+        Some(d) => d,
+        None => {
+            info!(
+                "Player tried to use non-existent warp slot {} category {} in room {}",
+                slot, warp_category, room_id
+            );
+            return Ok(vec![]);
+        }
+    };
+
+    // Check if slot is unlocked
+    let is_unlocked = crate::db::is_warp_unlocked(&server.db, room_id, slot, warp_category)
+        .await
+        .unwrap_or(false);
+
+    if !is_unlocked {
+        info!(
+            "Player tried to use locked warp slot {} category {} in room {}",
+            slot, warp_category, room_id
+        );
+        return Ok(vec![]);
+    }
+
+    // Check if player has enough points
+    if points < destination.price as u32 {
+        info!(
+            "Player doesn't have enough points ({}) for warp (costs {})",
+            points, destination.price
+        );
+        return Ok(vec![]);
+    }
+
+    // Deduct points
+    {
+        let mut session_guard = session.write().await;
+        session_guard.points -= destination.price as u32;
+    }
+
+    // Save points to database
+    if let Some(char_id) = character_id {
+        let new_points = session.read().await.points;
+        if let Err(e) = crate::db::update_points(&server.db, char_id, new_points as i64).await {
+            error!("Failed to save points after warp: {}", e);
+        }
+    }
+
+    // Send warp response with destination
+    let mut writer = MessageWriter::new();
+    writer
+        .write_u16(MessageType::WarpCenterUseSlot.id())
+        .write_u16(destination.target_room)
+        .write_u16(destination.target_x)
+        .write_u16(destination.target_y);
+
+    Ok(vec![writer.into_bytes()])
+}

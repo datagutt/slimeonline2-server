@@ -698,6 +698,13 @@ async fn handle_message(
             music::handle_music_changer_set(payload, server, session).await
         }
 
+        // Warp Center
+        MessageType::GetWarpInfo => warp::handle_get_warp_info(payload, server, session).await,
+
+        MessageType::WarpCenterUseSlot => {
+            warp::handle_warp_center_use_slot(payload, server, session).await
+        }
+
         _ => {
             debug!("Unhandled: [{}] {}", msg_type.category(), msg_type);
             Ok(vec![])

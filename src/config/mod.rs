@@ -41,6 +41,7 @@ pub struct GameConfig {
     pub onetimes: OneTimesConfig,
     pub buildings: BuildingsConfig,
     pub rooms: RoomsConfig,
+    pub warp_centers: WarpCentersConfig,
 }
 
 // =============================================================================
@@ -1006,6 +1007,81 @@ impl RoomsConfig {
 }
 
 // =============================================================================
+// warp_centers.toml - Warp center destinations
+// =============================================================================
+
+#[derive(Debug, Clone, Deserialize)]
+struct WarpCentersConfigRaw {
+    #[serde(default)]
+    warp_centers: Vec<WarpCenterRaw>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct WarpCenterRaw {
+    room_id: u16,
+    #[serde(default)]
+    destinations: Vec<WarpDestination>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WarpDestination {
+    pub category: u8,
+    pub slot: u8,
+    pub target_room: u16,
+    pub target_x: u16,
+    pub target_y: u16,
+    pub price: u16,
+}
+
+/// Processed warp centers config with easy lookups
+#[derive(Debug, Clone, Default)]
+pub struct WarpCentersConfig {
+    /// Map from warp center room_id -> (category, slot) -> destination
+    pub centers: HashMap<u16, HashMap<(u8, u8), WarpDestination>>,
+}
+
+impl From<WarpCentersConfigRaw> for WarpCentersConfig {
+    fn from(raw: WarpCentersConfigRaw) -> Self {
+        let centers = raw
+            .warp_centers
+            .into_iter()
+            .map(|center| {
+                let destinations = center
+                    .destinations
+                    .into_iter()
+                    .map(|d| ((d.category, d.slot), d))
+                    .collect();
+                (center.room_id, destinations)
+            })
+            .collect();
+        Self { centers }
+    }
+}
+
+impl WarpCentersConfig {
+    /// Get all destinations for a warp center room and category
+    pub fn get_destinations(&self, room_id: u16, category: u8) -> Vec<&WarpDestination> {
+        self.centers
+            .get(&room_id)
+            .map(|dests| {
+                dests
+                    .iter()
+                    .filter(|((cat, _), _)| *cat == category)
+                    .map(|(_, d)| d)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get a specific destination by room, category, and slot
+    pub fn get_destination(&self, room_id: u16, category: u8, slot: u8) -> Option<&WarpDestination> {
+        self.centers
+            .get(&room_id)
+            .and_then(|dests| dests.get(&(category, slot)))
+    }
+}
+
+// =============================================================================
 // Config Loading
 // =============================================================================
 
@@ -1032,6 +1108,9 @@ impl GameConfig {
         let buildings: BuildingsConfig = buildings_raw.into();
         let rooms_raw = load_toml::<RoomsConfigRaw>(&dir.join("rooms.toml"))?;
         let rooms: RoomsConfig = rooms_raw.into();
+        let warp_centers_raw =
+            load_toml::<WarpCentersConfigRaw>(&dir.join("warp_centers.toml"))?;
+        let warp_centers: WarpCentersConfig = warp_centers_raw.into();
 
         Ok(Self {
             server,
@@ -1045,6 +1124,7 @@ impl GameConfig {
             onetimes,
             buildings,
             rooms,
+            warp_centers,
         })
     }
 }
