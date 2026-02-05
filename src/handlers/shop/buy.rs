@@ -576,24 +576,3 @@ pub async fn build_room_shop_info(server: &Arc<Server>, room_id: u16) -> Result<
     Ok(Some(writer.into_bytes()))
 }
 
-/// Restock all shops (called daily or on demand)
-/// Resets current_stock to max_stock for all items with limited stock
-pub async fn restock_all_shops(pool: &DbPool) -> Result<(), sqlx::Error> {
-    // Delete all entries from shop_stock table
-    // This effectively resets stock to config values (which are used as defaults)
-    sqlx::query("DELETE FROM shop_stock").execute(pool).await?;
-
-    info!("All shop stock has been reset");
-    Ok(())
-}
-
-/// Restock a specific room's shop
-pub async fn restock_room_shop(pool: &DbPool, room_id: u16) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM shop_stock WHERE room_id = ?")
-        .bind(room_id as i64)
-        .execute(pool)
-        .await?;
-
-    info!("Shop stock for room {} has been reset", room_id);
-    Ok(())
-}
