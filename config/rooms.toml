@@ -208,6 +208,8 @@ night_music = 85
 [room.33]
 day_music = 18
 night_music = 85
+# Puzzle room: requires switch 1 in room 129 to be activated
+switch_checks = [{ room = 129, switch = 1 }]
 
 [room.34]
 day_music = 18
@@ -224,6 +226,8 @@ night_music = 85
 [room.37]
 day_music = 35
 night_music = 85
+# Puzzle room: requires switch 1 in room 129 to be activated
+switch_checks = [{ room = 129, switch = 1 }]
 
 [room.38]
 day_music = 57
@@ -440,6 +444,8 @@ night_music = 85
 [room.91]
 day_music = 23
 night_music = 23
+# Puzzle room: requires switch 1 in room 92 to be activated
+switch_checks = [{ room = 92, switch = 1 }]
 
 [room.92]
 day_music = 23
