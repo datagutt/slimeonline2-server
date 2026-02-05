@@ -9,15 +9,10 @@ use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::validation::validate_bbs_post;
 
 /// Cooldown between posts in seconds (prevent spam)
 const BBS_POST_COOLDOWN_SECONDS: i64 = 60;
-
-/// Maximum title length
-const MAX_TITLE_LENGTH: usize = 50;
-
-/// Maximum content length  
-const MAX_CONTENT_LENGTH: usize = 5000;
 
 /// Handle MSG_BBS_REQUEST_GUI (135)
 /// Client clicked on a bulletin board NPC/object
@@ -331,17 +326,9 @@ pub async fn handle_bbs_post(
         None => return Ok(vec![]),
     };
 
-    // Validate inputs
-    if title.is_empty() || title.len() > MAX_TITLE_LENGTH {
-        warn!("BBS post rejected: invalid title length {}", title.len());
-        return Ok(vec![]); // Silent failure
-    }
-
-    if content.is_empty() || content.len() > MAX_CONTENT_LENGTH {
-        warn!(
-            "BBS post rejected: invalid content length {}",
-            content.len()
-        );
+    // Validate inputs using validation module
+    if let Err(e) = validate_bbs_post(&title, &content) {
+        warn!("BBS post rejected: {} - {}", e.field, e.message);
         return Ok(vec![]); // Silent failure
     }
 
