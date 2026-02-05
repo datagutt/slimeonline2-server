@@ -1000,10 +1000,48 @@ async fn handle_admin_give_item(
         return;
     }
 
-    // Note: Client would need to relog to see inventory changes
-    // There's no simple "refresh inventory" message in the protocol
+    // Try to notify the player if they're online (fake a shop buy so item appears instantly)
+    // Map InventoryCategory to shop category byte (Emote is not supported by shop protocol)
+    let shop_category: Option<u8> = match category {
+        InventoryCategory::Outfit => Some(1),
+        InventoryCategory::Item => Some(2),
+        InventoryCategory::Accessory => Some(3),
+        InventoryCategory::Tool => Some(4),
+        InventoryCategory::Emote => None, // Emotes don't use shop buy protocol
+    };
+
+    if let Some(cat_byte) = shop_category {
+        // Find the player's session by username
+        for entry in server.sessions.iter() {
+            let handle = entry.value();
+            let session_guard = handle.session.read().await;
+            if session_guard.is_authenticated {
+                if let Some(ref session_username) = session_guard.username {
+                    if session_username.to_lowercase() == username_lower {
+                        // Found the player - send fake shop buy message
+                        drop(session_guard); // Release read lock before queueing message
+                        let mut writer = protocol::MessageWriter::new();
+                        writer
+                            .write_u16(protocol::MessageType::ShopBuy.id())
+                            .write_u8(cat_byte)
+                            .write_u8(slot)
+                            .write_u16(item_id)
+                            .write_u16(0); // price = 0 (admin give)
+                        handle.queue_message(writer.into_bytes()).await;
+                        info!(
+                            "Admin gave {:?} slot {} = {} to {} (notified online player)",
+                            category, slot, item_id, username
+                        );
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    // Player not online or emote category
     info!(
-        "Admin gave {:?} slot {} = {} to {}",
+        "Admin gave {:?} slot {} = {} to {} (offline or emote)",
         category, slot, item_id, username
     );
 }
