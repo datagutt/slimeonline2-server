@@ -117,6 +117,9 @@ pub async fn write_room_switch_states(server: &Server, room_id: u16) -> Vec<Vec<
 
     // Second, check cross-room switch checks (from [Switch Check] in original .rom files)
     // These allow switches in OTHER rooms to affect barriers/doors in THIS room
+    // NOTE: Only send if switch is active (status > 0), matching original server behavior.
+    // The original server only sends if the switch key exists in the .rom file.
+    // Sending status=0 would trigger switch_trigger_off which may have tile manipulation bugs.
     let switch_checks = server.game_config.rooms.get_switch_checks(room_id);
     for check in switch_checks {
         // Get the switch status from the other room
@@ -127,26 +130,28 @@ pub async fn write_room_switch_states(server: &Server, room_id: u16) -> Vec<Vec<
                 .into_iter()
                 .find(|(id, _)| *id == check.switch)
                 .map(|(_, status)| status)
-                .unwrap_or(0)
         } else {
-            0
+            None
         };
 
-        // Send the switch status for the target room (the room being entered)
-        // The client expects room_id to be the current room, but switch_id matches
-        // the switch in the other room. This tells the client "switch X is at status Y"
-        let mut writer = MessageWriter::new();
-        writer
-            .write_u16(MessageType::SwitchSet.id())
-            .write_u16(room_id)
-            .write_u8(check.switch)
-            .write_u8(status);
-        messages.push(writer.into_bytes());
+        // Only send if switch is active (matches original behavior)
+        if let Some(status) = status {
+            // Send the switch status for the target room (the room being entered)
+            // The client expects room_id to be the current room, but switch_id matches
+            // the switch in the other room. This tells the client "switch X is at status Y"
+            let mut writer = MessageWriter::new();
+            writer
+                .write_u16(MessageType::SwitchSet.id())
+                .write_u16(room_id)
+                .write_u8(check.switch)
+                .write_u8(status);
+            messages.push(writer.into_bytes());
 
-        debug!(
-            "Cross-room switch check: room {} checking switch {} in room {} = {}",
-            room_id, check.switch, check.room, status
-        );
+            debug!(
+                "Cross-room switch check: room {} checking switch {} in room {} = {}",
+                room_id, check.switch, check.room, status
+            );
+        }
     }
 
     messages
