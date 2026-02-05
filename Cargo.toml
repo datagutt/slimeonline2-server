@@ -1,6 +1,6 @@
 [package]
 name = "slime2_server"
-version = "1.2.0"
+version = "1.3.0"
 edition = "2024"
 authors = ["Thomas Lekanger"]
 description = "Private server implementation for Slime Online 2 (v0.106 client)"
