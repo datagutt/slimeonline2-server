@@ -19,7 +19,7 @@ use crate::Server;
 use crate::db;
 use crate::game::{PendingClanInvite, PlayerSession};
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::validation::validate_clan_name;
+use crate::validation::{validate_clan_name, validate_clan_creation_requirements};
 
 /// Clan invite cooldown in seconds (15s between invites to the same player)
 const CLAN_INVITE_COOLDOWN_SECS: u64 = 15;
@@ -84,17 +84,7 @@ pub async fn handle_clan_create(
         return Ok(vec![build_clan_create_error(1)]); // 1 = name in use
     }
 
-    // Check player has enough points
-    let creation_cost = config.creation.cost;
-    if points < creation_cost {
-        debug!(
-            "Clan create failed: player {} has {} points, need {}",
-            char_id, points, creation_cost
-        );
-        return Ok(vec![]);
-    }
-
-    // Check player has required items (Proof of Nature + Proof of Earth)
+    // Load inventory to check requirements
     let inventory = match db::get_inventory(&server.db, char_id).await {
         Ok(Some(inv)) => inv,
         Ok(None) => {
@@ -109,38 +99,38 @@ pub async fn handle_clan_create(
 
     let items = inventory.items();
 
-    // Find slots with required items
-    let mut item_slots: Vec<(usize, u16)> = Vec::new(); // (slot_index, item_id)
-    for required_item in &config.creation.required_items {
-        let mut found = false;
-        for (slot_idx, &item_id) in items.iter().enumerate() {
-            // Skip already used slots
-            if item_slots.iter().any(|(s, _)| *s == slot_idx) {
-                continue;
-            }
-            if item_id == *required_item {
-                item_slots.push((slot_idx, *required_item));
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            debug!(
-                "Clan create failed: player {} missing required item {}",
-                char_id, required_item
-            );
-            return Ok(vec![]);
-        }
+    // Validate clan creation requirements (items + points)
+    let requirements = validate_clan_creation_requirements(
+        &items,
+        points,
+        &config.creation.required_items,
+        config.creation.cost,
+    );
+
+    if !requirements.has_enough_points {
+        debug!(
+            "Clan create failed: player {} has {} points, need {}",
+            char_id, points, config.creation.cost
+        );
+        return Ok(vec![]);
+    }
+
+    if !requirements.has_all_items {
+        debug!(
+            "Clan create failed: player {} missing required items: {:?}",
+            char_id, requirements.missing_items
+        );
+        return Ok(vec![]);
     }
 
     // All checks passed - create the clan!
-    // Convert item_slots to the format expected by create_clan_with_cost (1-indexed slot numbers)
-    let slots_to_clear: Vec<(u8, u16)> = item_slots
+    // Convert found item slots to the format expected by create_clan_with_cost (1-indexed slot numbers)
+    let slots_to_clear: Vec<(u8, u16)> = requirements.found_item_slots
         .iter()
         .map(|(slot_idx, item_id)| ((*slot_idx + 1) as u8, *item_id))
         .collect();
 
-    let new_points = points - creation_cost;
+    let new_points = points - config.creation.cost;
 
     // Create clan with all operations in a single transaction
     // If any step fails, everything is rolled back automatically

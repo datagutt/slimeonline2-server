@@ -597,50 +597,61 @@ pub fn handle_points_overflow(
 /// Result of clan creation requirements check
 #[derive(Debug, Clone)]
 pub struct ClanCreationCheck {
-    /// Has Proof of Nature (item 51)
-    pub has_proof_of_nature: bool,
-    /// Has Proof of Earth (item 52)
-    pub has_proof_of_earth: bool,
+    /// All required items are present
+    pub has_all_items: bool,
     /// Has enough points for creation cost
     pub has_enough_points: bool,
     /// All requirements met
     pub is_valid: bool,
-    /// List of missing requirements (human-readable)
-    pub missing: Vec<&'static str>,
+    /// List of missing item IDs
+    pub missing_items: Vec<u16>,
+    /// Slots containing required items (slot_index, item_id) - 0-indexed
+    pub found_item_slots: Vec<(usize, u16)>,
 }
 
 /// Validate clan creation requirements
 ///
-/// Based on GML case_msg_clan_create.gml:21 - requires items 51 (Proof of Nature),
-/// 52 (Proof of Earth), and sufficient points.
+/// Checks that the player has all required items and sufficient points.
+/// Returns which items are present/missing and their slot positions.
+///
+/// Based on GML case_msg_clan_create.gml - requires specific items and points.
 pub fn validate_clan_creation_requirements(
     inventory_items: &[u16; 9],
     points: u32,
     required_items: &[u16],
     creation_cost: u32,
 ) -> ClanCreationCheck {
-    // Check for required items properly
-    let has_pon = required_items.iter().filter(|&&r| r == 51).count() <= inventory_items.iter().filter(|&&i| i == 51).count();
-    let has_poe = required_items.iter().filter(|&&r| r == 52).count() <= inventory_items.iter().filter(|&&i| i == 52).count();
-    let has_points = points >= creation_cost;
+    let mut found_slots: Vec<(usize, u16)> = Vec::new();
+    let mut missing_items: Vec<u16> = Vec::new();
 
-    let mut missing = Vec::new();
-    if !has_pon {
-        missing.push("Proof of Nature");
+    // Check each required item
+    for &required_item in required_items {
+        let mut found = false;
+        for (slot_idx, &item_id) in inventory_items.iter().enumerate() {
+            // Skip already used slots
+            if found_slots.iter().any(|(s, _)| *s == slot_idx) {
+                continue;
+            }
+            if item_id == required_item {
+                found_slots.push((slot_idx, required_item));
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            missing_items.push(required_item);
+        }
     }
-    if !has_poe {
-        missing.push("Proof of Earth");
-    }
-    if !has_points {
-        missing.push("Sufficient Slime Points");
-    }
+
+    let has_all_items = missing_items.is_empty();
+    let has_enough_points = points >= creation_cost;
 
     ClanCreationCheck {
-        has_proof_of_nature: has_pon,
-        has_proof_of_earth: has_poe,
-        has_enough_points: has_points,
-        is_valid: has_pon && has_poe && has_points,
-        missing,
+        has_all_items,
+        has_enough_points,
+        is_valid: has_all_items && has_enough_points,
+        missing_items,
+        found_item_slots: found_slots,
     }
 }
 
@@ -648,20 +659,36 @@ pub fn validate_clan_creation_requirements(
 // Storage & Mailbox Slot Validation
 // =============================================================================
 
-/// Storage slot count (per category)
-const STORAGE_SLOTS: u16 = 180;
+/// Storage pages (per category)
+const STORAGE_PAGES: u8 = 20;
+
+/// Slots per storage page
+const STORAGE_SLOTS_PER_PAGE: u8 = 9;
 
 /// Mailbox slot count
 const MAILBOX_SLOTS: u8 = 50;
 
-/// Validate storage slot (1-180)
+/// Validate storage page (1-20)
+pub fn validate_storage_page(page: u8) -> ValidationResult<u8> {
+    if page < 1 || page > STORAGE_PAGES {
+        return Err(ValidationError::new(
+            "storage_page",
+            format!("Invalid storage page: {} (must be 1-{})", page, STORAGE_PAGES),
+            Severity::Medium,
+        ));
+    }
+    Ok(page)
+}
+
+/// Validate storage move slots
 ///
-/// Storage uses slots 1-180 per category based on GML behavior.
-pub fn validate_storage_slot(slot: u16) -> ValidationResult<u16> {
-    if slot < 1 || slot > STORAGE_SLOTS {
+/// Storage move uses slots 1-9 for storage slots on current page,
+/// and slots 10-18 for inventory slots.
+pub fn validate_storage_move_slot(slot: u8) -> ValidationResult<u8> {
+    if slot < 1 || slot > 18 {
         return Err(ValidationError::new(
             "storage_slot",
-            format!("Invalid storage slot: {} (must be 1-{})", slot, STORAGE_SLOTS),
+            format!("Invalid storage move slot: {} (must be 1-18)", slot),
             Severity::Medium,
         ));
     }

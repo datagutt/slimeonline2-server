@@ -15,6 +15,7 @@ use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::validation::{validate_storage_page, validate_storage_move_slot};
 
 /// Storage categories
 const CAT_OUTFITS: u8 = 1;
@@ -54,7 +55,7 @@ pub async fn handle_storage_req(
     );
 
     // Validate page (1-20)
-    if page < 1 || page > TOTAL_PAGES as u8 {
+    if validate_storage_page(page).is_err() {
         warn!("Invalid storage page: {}", page);
         return Ok(vec![]);
     }
@@ -167,6 +168,20 @@ pub async fn handle_storage_move(
         "Storage move: category={}, page={}, first={}, second={}, char_id={}",
         category, page, slot_first, slot_second, char_id
     );
+
+    // Validate page and slots
+    if validate_storage_page(page).is_err() {
+        warn!("Invalid storage page: {}", page);
+        return Ok(vec![]);
+    }
+    if validate_storage_move_slot(slot_first).is_err() {
+        warn!("Invalid storage move slot: {}", slot_first);
+        return Ok(vec![]);
+    }
+    if validate_storage_move_slot(slot_second).is_err() {
+        warn!("Invalid storage move slot: {}", slot_second);
+        return Ok(vec![]);
+    }
 
     // Slots 1-9 = storage on current page
     // Slots 10-18 = inventory slots
