@@ -4,11 +4,12 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::sync::RwLock;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::Server;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::validation::{validate_room_id, validate_position};
 
 use super::{building, collectibles, items, music, one_time, shop, switches, upgrader};
 
@@ -34,6 +35,18 @@ pub async fn handle_warp(
     let new_room_id = reader.read_u16()?;
     let new_x = reader.read_u16()?;
     let new_y = reader.read_u16()?;
+
+    // Validate room ID
+    if let Err(e) = validate_room_id(new_room_id) {
+        warn!("Invalid warp room_id {}: {}", new_room_id, e.message);
+        return Ok(vec![]);
+    }
+
+    // Validate position coordinates
+    if let Err(e) = validate_position(new_x, new_y) {
+        warn!("Invalid warp position ({}, {}): {}", new_x, new_y, e.message);
+        return Ok(vec![]);
+    }
 
     let (player_id, old_room_id, character_id, _body_id, _acs1_id, _acs2_id, _username) = {
         let mut session_guard = session.write().await;
