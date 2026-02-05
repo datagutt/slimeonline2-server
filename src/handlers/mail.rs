@@ -9,7 +9,7 @@ use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::validation::handle_points_overflow;
+use crate::validation::{handle_points_overflow, validate_mailbox_slot};
 
 /// Handle MSG_MAILBOX (47)
 /// Client requests mailbox contents (paginated)
@@ -56,28 +56,48 @@ pub async fn handle_mailbox(
         }
         4 => {
             // Delete mail
-            let mail_slot = reader.read_u8()? as i64;
-            delete_mail(server, char_id, mail_slot).await
+            let mail_slot = reader.read_u8()?;
+            if validate_mailbox_slot(mail_slot).is_err() {
+                warn!("Invalid mailbox slot: {}", mail_slot);
+                return Ok(vec![]);
+            }
+            delete_mail(server, char_id, mail_slot as i64).await
         }
         5 => {
             // Get specific mail content
-            let mail_slot = reader.read_u8()? as i64;
-            get_mail_content(server, char_id, mail_slot).await
+            let mail_slot = reader.read_u8()?;
+            if validate_mailbox_slot(mail_slot).is_err() {
+                warn!("Invalid mailbox slot: {}", mail_slot);
+                return Ok(vec![]);
+            }
+            get_mail_content(server, char_id, mail_slot as i64).await
         }
         6 => {
             // Claim mail points (take to wallet)
-            let mail_slot = reader.read_u8()? as i64;
-            claim_mail_points(server, char_id, mail_slot, session.clone()).await
+            let mail_slot = reader.read_u8()?;
+            if validate_mailbox_slot(mail_slot).is_err() {
+                warn!("Invalid mailbox slot: {}", mail_slot);
+                return Ok(vec![]);
+            }
+            claim_mail_points(server, char_id, mail_slot as i64, session.clone()).await
         }
         7 => {
             // Claim mail points (send to bank)
-            let mail_slot = reader.read_u8()? as i64;
-            claim_mail_points_to_bank(server, char_id, mail_slot, session).await
+            let mail_slot = reader.read_u8()?;
+            if validate_mailbox_slot(mail_slot).is_err() {
+                warn!("Invalid mailbox slot: {}", mail_slot);
+                return Ok(vec![]);
+            }
+            claim_mail_points_to_bank(server, char_id, mail_slot as i64, session).await
         }
         8 => {
             // Claim mail item attachment
-            let mail_slot = reader.read_u8()? as i64;
-            claim_mail_item(server, char_id, mail_slot, session).await
+            let mail_slot = reader.read_u8()?;
+            if validate_mailbox_slot(mail_slot).is_err() {
+                warn!("Invalid mailbox slot: {}", mail_slot);
+                return Ok(vec![]);
+            }
+            claim_mail_item(server, char_id, mail_slot as i64, session).await
         }
         _ => {
             debug!("Unknown mailbox case: {}", case);
