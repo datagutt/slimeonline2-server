@@ -9,6 +9,7 @@ use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::validation::handle_points_overflow;
 
 /// Handle MSG_MAILBOX (47)
 /// Client requests mailbox contents (paginated)
@@ -277,19 +278,36 @@ async fn claim_mail_points(
     let current_points = session.read().await.points;
     let points_to_add = mail.points as u32;
     let max_points = server.game_config.game.limits.max_points;
-    let new_points = (current_points as u64 + points_to_add as u64).min(max_points as u64) as u32;
-    let actually_added = new_points - current_points;
+
+    // Use overflow handling - excess goes to bank automatically
+    let overflow_result = handle_points_overflow(current_points, points_to_add, max_points);
 
     // Update points in database
-    if let Err(e) = db::update_points(&server.db, character_id, new_points as i64).await {
+    if let Err(e) = db::update_points(&server.db, character_id, overflow_result.new_points as i64).await {
         warn!("Failed to add points from mail: {}", e);
         return Ok(vec![]);
+    }
+
+    // If there's overflow, deposit to bank
+    if overflow_result.to_bank > 0 {
+        let current_bank = db::get_bank_balance(&server.db, character_id)
+            .await
+            .unwrap_or(0);
+        let new_bank = current_bank + overflow_result.to_bank as i64;
+        if let Err(e) = db::update_bank_balance(&server.db, character_id, new_bank).await {
+            warn!("Failed to deposit overflow to bank: {}", e);
+        } else {
+            debug!(
+                "Points overflow: deposited {} to bank (new balance: {})",
+                overflow_result.to_bank, new_bank
+            );
+        }
     }
 
     // Update session
     {
         let mut session_guard = session.write().await;
-        session_guard.points = new_points;
+        session_guard.points = overflow_result.new_points;
     }
 
     // Clear points from mail
@@ -297,16 +315,19 @@ async fn claim_mail_points(
         warn!("Failed to clear mail points: {}", e);
     }
 
+    // Calculate how much was actually added to wallet
+    let added_to_wallet = overflow_result.new_points - current_points;
+
     // Response case 6 = points added directly (with amount), case 7 = points to bank
     let mut writer = MessageWriter::new();
     writer
         .write_u16(MessageType::Mailbox.id())
         .write_u8(6) // case 6 = points added
-        .write_u16(actually_added as u16);
+        .write_u16(added_to_wallet as u16);
 
     debug!(
-        "Claimed {} points from mail (added {} to wallet)",
-        points_to_add, actually_added
+        "Claimed {} points from mail (added {} to wallet, {} to bank)",
+        points_to_add, added_to_wallet, overflow_result.to_bank
     );
 
     Ok(vec![writer.into_bytes()])
