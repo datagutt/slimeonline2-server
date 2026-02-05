@@ -13,10 +13,10 @@ use tracing::{debug, info, warn};
 
 use crate::Server;
 use crate::anticheat::validate_position_bounds;
-use crate::constants::ITEM_SLOTS;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
+use crate::validation::validate_item_slot;
 
 use super::database::{ItemType, get_item_info};
 
@@ -34,8 +34,8 @@ pub async fn handle_use_item(
     let slot = reader.read_u8()?;
 
     // Validate slot
-    if slot < 1 || slot > ITEM_SLOTS as u8 {
-        warn!("Invalid item slot: {}", slot);
+    if let Err(e) = validate_item_slot(slot) {
+        warn!("Invalid item slot {}: {}", slot, e.message);
         return Ok(vec![]);
     }
 
