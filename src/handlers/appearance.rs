@@ -4,11 +4,12 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::sync::RwLock;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::Server;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageType, MessageWriter};
+use crate::validation::{validate_outfit_slot, validate_accessory_slot};
 
 /// Handle outfit change (MSG_CHANGE_OUT)
 /// Client sends: slot (1 byte) - the inventory slot of the outfit to equip
@@ -23,9 +24,12 @@ pub async fn handle_change_outfit(
 
     let slot = payload[0];
 
-    // Validate slot (1-9, or 0 to unequip)
-    if slot > 9 {
-        return Ok(vec![]);
+    // Validate slot (1-9 for equip, 0 to unequip)
+    if slot != 0 {
+        if let Err(e) = validate_outfit_slot(slot) {
+            warn!("Invalid outfit slot {}: {}", slot, e.message);
+            return Ok(vec![]);
+        }
     }
 
     let (player_id, room_id, character_id, _new_body_id) = {
@@ -111,9 +115,12 @@ pub async fn handle_change_accessory1(
 
     let slot = payload[0];
 
-    // Validate slot (1-9, or 0 to unequip)
-    if slot > 9 {
-        return Ok(vec![]);
+    // Validate slot (1-9 for equip, 0 to unequip)
+    if slot != 0 {
+        if let Err(e) = validate_accessory_slot(slot) {
+            warn!("Invalid accessory1 slot {}: {}", slot, e.message);
+            return Ok(vec![]);
+        }
     }
 
     let (player_id, room_id, character_id) = {
@@ -199,9 +206,12 @@ pub async fn handle_change_accessory2(
 
     let slot = payload[0];
 
-    // Validate slot (1-9, or 0 to unequip)
-    if slot > 9 {
-        return Ok(vec![]);
+    // Validate slot (1-9 for equip, 0 to unequip)
+    if slot != 0 {
+        if let Err(e) = validate_accessory_slot(slot) {
+            warn!("Invalid accessory2 slot {}: {}", slot, e.message);
+            return Ok(vec![]);
+        }
     }
 
     let (player_id, room_id, character_id) = {
