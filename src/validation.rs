@@ -552,6 +552,137 @@ pub fn validate_mac_address(mac: &str) -> ValidationResult<()> {
 }
 
 // =============================================================================
+// Points Overflow Handling
+// =============================================================================
+
+/// Result of handling points that would exceed the maximum
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PointsOverflowResult {
+    /// New points value (capped at max)
+    pub new_points: u32,
+    /// Amount that overflowed to bank
+    pub to_bank: u32,
+}
+
+/// Handle points overflow - excess goes to bank automatically
+///
+/// Based on GML behavior from case_msg_sell.gml and case_msg_mailbox.gml:
+/// When gaining points would exceed max_points, excess is auto-deposited to bank.
+///
+/// Returns (new_points, overflow_to_bank)
+pub fn handle_points_overflow(
+    current_points: u32,
+    points_to_add: u32,
+    max_points: u32,
+) -> PointsOverflowResult {
+    let total = current_points.saturating_add(points_to_add);
+    if total > max_points {
+        let to_bank = total - max_points;
+        PointsOverflowResult {
+            new_points: max_points,
+            to_bank,
+        }
+    } else {
+        PointsOverflowResult {
+            new_points: total,
+            to_bank: 0,
+        }
+    }
+}
+
+// =============================================================================
+// Clan Creation Requirements
+// =============================================================================
+
+/// Result of clan creation requirements check
+#[derive(Debug, Clone)]
+pub struct ClanCreationCheck {
+    /// Has Proof of Nature (item 51)
+    pub has_proof_of_nature: bool,
+    /// Has Proof of Earth (item 52)
+    pub has_proof_of_earth: bool,
+    /// Has enough points for creation cost
+    pub has_enough_points: bool,
+    /// All requirements met
+    pub is_valid: bool,
+    /// List of missing requirements (human-readable)
+    pub missing: Vec<&'static str>,
+}
+
+/// Validate clan creation requirements
+///
+/// Based on GML case_msg_clan_create.gml:21 - requires items 51 (Proof of Nature),
+/// 52 (Proof of Earth), and sufficient points.
+pub fn validate_clan_creation_requirements(
+    inventory_items: &[u16; 9],
+    points: u32,
+    required_items: &[u16],
+    creation_cost: u32,
+) -> ClanCreationCheck {
+    // Check for required items properly
+    let has_pon = required_items.iter().filter(|&&r| r == 51).count() <= inventory_items.iter().filter(|&&i| i == 51).count();
+    let has_poe = required_items.iter().filter(|&&r| r == 52).count() <= inventory_items.iter().filter(|&&i| i == 52).count();
+    let has_points = points >= creation_cost;
+
+    let mut missing = Vec::new();
+    if !has_pon {
+        missing.push("Proof of Nature");
+    }
+    if !has_poe {
+        missing.push("Proof of Earth");
+    }
+    if !has_points {
+        missing.push("Sufficient Slime Points");
+    }
+
+    ClanCreationCheck {
+        has_proof_of_nature: has_pon,
+        has_proof_of_earth: has_poe,
+        has_enough_points: has_points,
+        is_valid: has_pon && has_poe && has_points,
+        missing,
+    }
+}
+
+// =============================================================================
+// Storage & Mailbox Slot Validation
+// =============================================================================
+
+/// Storage slot count (per category)
+const STORAGE_SLOTS: u16 = 180;
+
+/// Mailbox slot count
+const MAILBOX_SLOTS: u8 = 50;
+
+/// Validate storage slot (1-180)
+///
+/// Storage uses slots 1-180 per category based on GML behavior.
+pub fn validate_storage_slot(slot: u16) -> ValidationResult<u16> {
+    if slot < 1 || slot > STORAGE_SLOTS {
+        return Err(ValidationError::new(
+            "storage_slot",
+            format!("Invalid storage slot: {} (must be 1-{})", slot, STORAGE_SLOTS),
+            Severity::Medium,
+        ));
+    }
+    Ok(slot)
+}
+
+/// Validate mailbox slot (1-50)
+///
+/// Mailbox uses slots 1-50 based on GML behavior.
+pub fn validate_mailbox_slot(slot: u8) -> ValidationResult<u8> {
+    if slot < 1 || slot > MAILBOX_SLOTS {
+        return Err(ValidationError::new(
+            "mailbox_slot",
+            format!("Invalid mailbox slot: {} (must be 1-{})", slot, MAILBOX_SLOTS),
+            Severity::Medium,
+        ));
+    }
+    Ok(slot)
+}
+
+// =============================================================================
 // Sanitizers
 // =============================================================================
 
@@ -614,5 +745,63 @@ mod tests {
         assert!(validate_bank_amount(100, 1000, max_bank).is_ok());
         assert!(validate_bank_amount(0, 1000, max_bank).is_err()); // zero not allowed
         assert!(validate_bank_amount(2000, 1000, max_bank).is_err()); // exceeds balance
+    }
+
+    #[test]
+    fn test_points_overflow() {
+        // No overflow
+        let result = handle_points_overflow(500_000, 100_000, 10_000_000);
+        assert_eq!(result.new_points, 600_000);
+        assert_eq!(result.to_bank, 0);
+
+        // Overflow
+        let result = handle_points_overflow(9_500_000, 1_000_000, 10_000_000);
+        assert_eq!(result.new_points, 10_000_000);
+        assert_eq!(result.to_bank, 500_000);
+
+        // Already at max
+        let result = handle_points_overflow(10_000_000, 100_000, 10_000_000);
+        assert_eq!(result.new_points, 10_000_000);
+        assert_eq!(result.to_bank, 100_000);
+    }
+
+    #[test]
+    fn test_storage_slot_validation() {
+        assert!(validate_storage_slot(1).is_ok());
+        assert!(validate_storage_slot(180).is_ok());
+        assert!(validate_storage_slot(0).is_err());
+        assert!(validate_storage_slot(181).is_err());
+    }
+
+    #[test]
+    fn test_mailbox_slot_validation() {
+        assert!(validate_mailbox_slot(1).is_ok());
+        assert!(validate_mailbox_slot(50).is_ok());
+        assert!(validate_mailbox_slot(0).is_err());
+        assert!(validate_mailbox_slot(51).is_err());
+    }
+
+    #[test]
+    fn test_clan_creation_requirements() {
+        let required_items = vec![51u16, 52u16]; // Proof of Nature & Earth
+        let creation_cost = 10000u32;
+
+        // Has everything
+        let inventory = [51, 52, 0, 0, 0, 0, 0, 0, 0];
+        let check = validate_clan_creation_requirements(&inventory, 15000, &required_items, creation_cost);
+        assert!(check.is_valid);
+        assert!(check.missing.is_empty());
+
+        // Missing Proof of Nature
+        let inventory = [0, 52, 0, 0, 0, 0, 0, 0, 0];
+        let check = validate_clan_creation_requirements(&inventory, 15000, &required_items, creation_cost);
+        assert!(!check.is_valid);
+        assert!(!check.has_proof_of_nature);
+
+        // Not enough points
+        let inventory = [51, 52, 0, 0, 0, 0, 0, 0, 0];
+        let check = validate_clan_creation_requirements(&inventory, 5000, &required_items, creation_cost);
+        assert!(!check.is_valid);
+        assert!(!check.has_enough_points);
     }
 }
