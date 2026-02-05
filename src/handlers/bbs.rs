@@ -326,8 +326,10 @@ pub async fn handle_bbs_post(
         None => return Ok(vec![]),
     };
 
-    // Validate inputs using validation module
-    if let Err(e) = validate_bbs_post(&title, &content) {
+    // Validate inputs using validation module with config limits
+    let limits = &server.game_config.game.limits;
+    if let Err(e) = validate_bbs_post(&title, &content, limits.max_bbs_title, limits.max_bbs_content)
+    {
         warn!("BBS post rejected: {} - {}", e.field, e.message);
         return Ok(vec![]); // Silent failure
     }

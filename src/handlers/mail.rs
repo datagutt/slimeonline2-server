@@ -6,7 +6,6 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::Server;
-use crate::constants::{MAX_MAIL_BODY, MAX_POINTS};
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
@@ -277,7 +276,8 @@ async fn claim_mail_points(
 
     let current_points = session.read().await.points;
     let points_to_add = mail.points as u32;
-    let new_points = (current_points as u64 + points_to_add as u64).min(MAX_POINTS as u64) as u32;
+    let max_points = server.game_config.game.limits.max_points;
+    let new_points = (current_points as u64 + points_to_add as u64).min(max_points as u64) as u32;
     let actually_added = new_points - current_points;
 
     // Update points in database
@@ -446,7 +446,8 @@ pub async fn handle_mail_send(
     let sender_name = username.unwrap_or_else(|| "Unknown".to_string());
 
     // Validate message length
-    if message.len() > MAX_MAIL_BODY {
+    let max_mail_body = server.game_config.game.limits.max_mail_body;
+    if message.len() > max_mail_body {
         return Ok(vec![build_mail_send_response(false)]);
     }
 

@@ -6,7 +6,6 @@ use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
 use crate::Server;
-use crate::constants::{MAX_BANK_BALANCE, MAX_POINTS};
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
@@ -161,8 +160,9 @@ async fn handle_deposit(
     }
 
     // Validate: bank won't exceed max
+    let max_bank_balance = server.game_config.game.limits.max_bank_balance;
     let new_bank = current_bank + amount as i64;
-    if new_bank > MAX_BANK_BALANCE as i64 {
+    if new_bank > max_bank_balance as i64 {
         warn!("Deposit failed: would exceed max bank balance");
         // Send current values back to reset UI
         return Ok(vec![build_deposit_response(current_points, current_bank)]);
@@ -223,8 +223,9 @@ async fn handle_withdraw(
     }
 
     // Validate: wallet won't exceed max (client checks sl_points <= 1000000)
+    let max_points = server.game_config.game.limits.max_points;
     let new_points = current_points.saturating_add(amount);
-    if new_points > MAX_POINTS {
+    if new_points > max_points {
         warn!("Withdraw failed: would exceed max points");
         // Send current values back to reset UI
         return Ok(vec![build_withdraw_response(current_points, current_bank)]);
@@ -309,8 +310,9 @@ async fn handle_transfer(
     }
 
     // Check receiver's bank won't exceed max
+    let max_bank_balance = server.game_config.game.limits.max_bank_balance;
     let receiver_new_bank = receiver.bank_balance + amount as i64;
-    if receiver_new_bank > MAX_BANK_BALANCE as i64 {
+    if receiver_new_bank > max_bank_balance as i64 {
         warn!("Transfer failed: receiver bank would exceed max");
         // Send current balance back to reset UI
         return Ok(vec![build_transfer_response(sender_bank)]);

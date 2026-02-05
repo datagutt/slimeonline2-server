@@ -7,7 +7,6 @@ use tokio::sync::RwLock;
 use tracing::debug;
 
 use crate::Server;
-use crate::constants::MAX_POINTS;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageType, MessageWriter};
 
@@ -40,8 +39,9 @@ pub async fn handle_point_collection(
             None => return Ok(vec![]),
         };
 
-        // Increment points (cap at MAX_POINTS)
-        if session_guard.points < MAX_POINTS {
+        // Increment points (cap at max_points from config)
+        let max_points = server.game_config.game.limits.max_points;
+        if session_guard.points < max_points {
             session_guard.points += 1;
         }
 

@@ -255,8 +255,8 @@ pub async fn handle_sell(
         }
     }
 
-    // Calculate new points - excess over MAX_POINTS goes to bank automatically
-    let max_points = crate::constants::MAX_POINTS as u64;
+    // Calculate new points - excess over max_points goes to bank automatically
+    let max_points = server.game_config.game.limits.max_points as u64;
     let potential_points = current_points as u64 + total_earned;
 
     let (new_points, overflow_to_bank) = if potential_points > max_points {
@@ -270,8 +270,8 @@ pub async fn handle_sell(
     // Get current bank balance if we have overflow
     if overflow_to_bank > 0 {
         let current_bank = crate::db::get_bank_balance(&server.db, char_id).await?;
-        let new_bank = (current_bank as u64 + overflow_to_bank)
-            .min(crate::constants::MAX_BANK_BALANCE as u64) as i64;
+        let max_bank_balance = server.game_config.game.limits.max_bank_balance as u64;
+        let new_bank = (current_bank as u64 + overflow_to_bank).min(max_bank_balance) as i64;
 
         // Update both points and bank atomically
         crate::db::update_points_and_bank(&server.db, char_id, new_points as i64, new_bank).await?;

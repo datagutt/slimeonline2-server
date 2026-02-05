@@ -7,11 +7,10 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use crate::Server;
-use crate::constants::MAX_CHAT_LENGTH;
 use crate::game::PlayerSession;
 use crate::protocol::{ChatMessage, MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
-use crate::validation::{sanitize_chat, validate_chat_message};
+use crate::validation::{sanitize_string, validate_chat_message};
 
 /// Handle chat message
 pub async fn handle_chat(
@@ -54,14 +53,17 @@ pub async fn handle_chat(
         return Ok(vec![]);
     }
 
+    // Get max chat length from config
+    let max_chat_length = server.game_config.game.limits.max_chat_length;
+
     // Validate and sanitize message
-    let message = match validate_chat_message(&chat.message) {
+    let message = match validate_chat_message(&chat.message, max_chat_length) {
         Ok(msg) => msg.to_string(),
         Err(e) => {
             warn!("Invalid chat message from {}: {}", username, e.message);
             // Sanitize and use anyway if it's just too long
-            if chat.message.len() > MAX_CHAT_LENGTH {
-                sanitize_chat(&chat.message)
+            if chat.message.len() > max_chat_length {
+                sanitize_string(&chat.message, max_chat_length)
             } else {
                 return Ok(vec![]);
             }

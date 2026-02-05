@@ -296,7 +296,8 @@ async fn handle_slimebag(
     let character = crate::db::find_character_by_account(&server.db, account_id).await?;
 
     if let Some(char) = character {
-        let new_points = (char.points + points_to_add).min(crate::constants::MAX_POINTS as i64);
+        let max_points = server.game_config.game.limits.max_points as i64;
+        let new_points = (char.points + points_to_add).min(max_points);
         crate::db::update_points(&server.db, character_id, new_points).await?;
         session.write().await.points = new_points as u32;
     }

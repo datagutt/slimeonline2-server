@@ -216,6 +216,29 @@ pub struct LimitsConfig {
     pub max_chat_length: usize,
     pub max_points: u32,
     pub max_bank_balance: u32,
+    // BBS limits
+    #[serde(default = "default_max_bbs_title")]
+    pub max_bbs_title: usize,
+    #[serde(default = "default_max_bbs_content")]
+    pub max_bbs_content: usize,
+    // Mail limits
+    #[serde(default = "default_max_mail_subject")]
+    pub max_mail_subject: usize,
+    #[serde(default = "default_max_mail_body")]
+    pub max_mail_body: usize,
+}
+
+fn default_max_bbs_title() -> usize {
+    100
+}
+fn default_max_bbs_content() -> usize {
+    5000
+}
+fn default_max_mail_subject() -> usize {
+    50
+}
+fn default_max_mail_body() -> usize {
+    1000
 }
 
 #[derive(Debug, Clone, Deserialize)]

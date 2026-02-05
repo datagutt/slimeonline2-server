@@ -6,8 +6,13 @@
 //! - Exploits (speed hacks, item duplication, etc.)
 //!
 //! Note: SQL injection is NOT a concern here because SQLx uses parameterized queries.
+//!
+//! ## Usage
+//!
+//! Validation functions take config-derived limits as parameters. Create a `Validator`
+//! from `GameConfig` for convenient access to all validation methods with proper limits.
 
-use crate::constants::*;
+use crate::config::{ClanLimitsConfig, GameConfig, LimitsConfig};
 
 /// Validation result with detailed error message
 #[derive(Debug)]
@@ -40,23 +45,107 @@ impl ValidationError {
 pub type ValidationResult<T> = Result<T, ValidationError>;
 
 // =============================================================================
-// String Validators
+// Validator - wraps config and provides validation methods
 // =============================================================================
 
-/// Validate username format
-pub fn validate_username(username: &str) -> ValidationResult<()> {
-    if username.len() < MIN_USERNAME_LENGTH {
+/// Validator that uses game config for limits
+///
+/// Create from `GameConfig` and use for all validation needs:
+/// ```ignore
+/// let validator = Validator::new(&game_config);
+/// validator.username("player123")?;
+/// validator.chat_message("hello world")?;
+/// ```
+#[derive(Debug, Clone)]
+pub struct Validator {
+    pub limits: LimitsConfig,
+    pub clan_limits: ClanLimitsConfig,
+}
+
+impl Validator {
+    /// Create a new validator from game config
+    pub fn new(config: &GameConfig) -> Self {
+        Self {
+            limits: config.game.limits.clone(),
+            clan_limits: config.clans.limits.clone(),
+        }
+    }
+
+    /// Validate username format
+    pub fn username(&self, username: &str) -> ValidationResult<()> {
+        validate_username(
+            username,
+            self.limits.min_username_length,
+            self.limits.max_username_length,
+        )
+    }
+
+    /// Validate password format
+    pub fn password(&self, password: &str) -> ValidationResult<()> {
+        validate_password(
+            password,
+            self.limits.min_password_length,
+            self.limits.max_password_length,
+        )
+    }
+
+    /// Validate chat message
+    pub fn chat_message<'a>(&self, message: &'a str) -> ValidationResult<&'a str> {
+        validate_chat_message(message, self.limits.max_chat_length)
+    }
+
+    /// Validate clan name
+    pub fn clan_name(&self, name: &str) -> ValidationResult<()> {
+        validate_clan_name(
+            name,
+            self.clan_limits.min_name_length,
+            self.clan_limits.max_name_length,
+        )
+    }
+
+    /// Validate point amounts
+    pub fn points(&self, points: u32) -> ValidationResult<u32> {
+        validate_points(points, self.limits.max_points)
+    }
+
+    /// Validate bank amount
+    pub fn bank_amount(&self, amount: u32, current_balance: u32) -> ValidationResult<u32> {
+        validate_bank_amount(amount, current_balance, self.limits.max_bank_balance)
+    }
+
+    /// Sanitize username - keep only safe characters
+    pub fn sanitize_username(&self, input: &str) -> String {
+        sanitize_username(input, self.limits.max_username_length)
+    }
+
+    /// Sanitize chat message
+    pub fn sanitize_chat(&self, input: &str) -> String {
+        sanitize_string(input, self.limits.max_chat_length)
+    }
+}
+
+// =============================================================================
+// String Validators (parameterized)
+// =============================================================================
+
+/// Validate username format with configurable limits
+pub fn validate_username(
+    username: &str,
+    min_length: usize,
+    max_length: usize,
+) -> ValidationResult<()> {
+    if username.len() < min_length {
         return Err(ValidationError::new(
             "username",
-            format!("Username too short (min {} chars)", MIN_USERNAME_LENGTH),
+            format!("Username too short (min {} chars)", min_length),
             Severity::Low,
         ));
     }
 
-    if username.len() > MAX_USERNAME_LENGTH {
+    if username.len() > max_length {
         return Err(ValidationError::new(
             "username",
-            format!("Username too long (max {} chars)", MAX_USERNAME_LENGTH),
+            format!("Username too long (max {} chars)", max_length),
             Severity::Medium,
         ));
     }
@@ -76,20 +165,24 @@ pub fn validate_username(username: &str) -> ValidationResult<()> {
     Ok(())
 }
 
-/// Validate password format
-pub fn validate_password(password: &str) -> ValidationResult<()> {
-    if password.len() < MIN_PASSWORD_LENGTH {
+/// Validate password format with configurable limits
+pub fn validate_password(
+    password: &str,
+    min_length: usize,
+    max_length: usize,
+) -> ValidationResult<()> {
+    if password.len() < min_length {
         return Err(ValidationError::new(
             "password",
-            format!("Password too short (min {} chars)", MIN_PASSWORD_LENGTH),
+            format!("Password too short (min {} chars)", min_length),
             Severity::Low,
         ));
     }
 
-    if password.len() > MAX_PASSWORD_LENGTH {
+    if password.len() > max_length {
         return Err(ValidationError::new(
             "password",
-            format!("Password too long (max {} chars)", MAX_PASSWORD_LENGTH),
+            format!("Password too long (max {} chars)", max_length),
             Severity::Medium,
         ));
     }
@@ -97,8 +190,8 @@ pub fn validate_password(password: &str) -> ValidationResult<()> {
     Ok(())
 }
 
-/// Validate chat message
-pub fn validate_chat_message(message: &str) -> ValidationResult<&str> {
+/// Validate chat message with configurable max length
+pub fn validate_chat_message(message: &str, max_length: usize) -> ValidationResult<&str> {
     if message.is_empty() {
         return Err(ValidationError::new(
             "message",
@@ -107,7 +200,7 @@ pub fn validate_chat_message(message: &str) -> ValidationResult<&str> {
         ));
     }
 
-    if message.len() > MAX_CHAT_LENGTH {
+    if message.len() > max_length {
         return Err(ValidationError::new(
             "message",
             "Chat message too long",
@@ -116,7 +209,6 @@ pub fn validate_chat_message(message: &str) -> ValidationResult<&str> {
     }
 
     // Strip control characters except newline
-    // Note: We return the original message but validation passes if OK
     if message
         .chars()
         .any(|c| c.is_control() && c != '\n' && c != '\r')
@@ -131,20 +223,24 @@ pub fn validate_chat_message(message: &str) -> ValidationResult<&str> {
     Ok(message)
 }
 
-/// Validate clan name
-pub fn validate_clan_name(name: &str) -> ValidationResult<()> {
-    if name.len() < MIN_CLAN_NAME_LENGTH {
+/// Validate clan name with configurable limits
+pub fn validate_clan_name(
+    name: &str,
+    min_length: usize,
+    max_length: usize,
+) -> ValidationResult<()> {
+    if name.len() < min_length {
         return Err(ValidationError::new(
             "clan_name",
-            format!("Clan name too short (min {} chars)", MIN_CLAN_NAME_LENGTH),
+            format!("Clan name too short (min {} chars)", min_length),
             Severity::Low,
         ));
     }
 
-    if name.len() > MAX_CLAN_NAME_LENGTH {
+    if name.len() > max_length {
         return Err(ValidationError::new(
             "clan_name",
-            format!("Clan name too long (max {} chars)", MAX_CLAN_NAME_LENGTH),
+            format!("Clan name too long (max {} chars)", max_length),
             Severity::Medium,
         ));
     }
@@ -153,10 +249,11 @@ pub fn validate_clan_name(name: &str) -> ValidationResult<()> {
 }
 
 // =============================================================================
-// Numeric Validators
+// Numeric Validators (parameterized)
 // =============================================================================
 
 /// Validate position coordinates
+/// Uses hardcoded limits as these are engine constraints, not configurable
 pub fn validate_position(x: u16, y: u16) -> ValidationResult<(u16, u16)> {
     // Room dimensions vary, but a reasonable maximum is ~10000 pixels
     // Based on client code: coordinates are u16 (0-65535)
@@ -184,7 +281,10 @@ pub fn validate_position(x: u16, y: u16) -> ValidationResult<(u16, u16)> {
 }
 
 /// Validate room ID
+/// Uses hardcoded limit as this is an engine constraint
 pub fn validate_room_id(room_id: u16) -> ValidationResult<u16> {
+    const MAX_ROOM_ID: u16 = 1000;
+
     if room_id > MAX_ROOM_ID {
         return Err(ValidationError::new(
             "room_id",
@@ -197,8 +297,11 @@ pub fn validate_room_id(room_id: u16) -> ValidationResult<u16> {
 }
 
 /// Validate inventory slot (1-based, items are slots 1-9)
+/// Uses hardcoded limit as inventory size is engine constraint
 pub fn validate_item_slot(slot: u8) -> ValidationResult<u8> {
-    if slot < 1 || slot > ITEM_SLOTS as u8 {
+    const ITEM_SLOTS: u8 = 9;
+
+    if slot < 1 || slot > ITEM_SLOTS {
         return Err(ValidationError::new(
             "slot",
             format!("Invalid item slot: {} (must be 1-{})", slot, ITEM_SLOTS),
@@ -209,8 +312,11 @@ pub fn validate_item_slot(slot: u8) -> ValidationResult<u8> {
 }
 
 /// Validate outfit slot (1-based)
+/// Uses hardcoded limit as inventory size is engine constraint
 pub fn validate_outfit_slot(slot: u8) -> ValidationResult<u8> {
-    if slot < 1 || slot > OUTFIT_SLOTS as u8 {
+    const OUTFIT_SLOTS: u8 = 9;
+
+    if slot < 1 || slot > OUTFIT_SLOTS {
         return Err(ValidationError::new(
             "slot",
             format!("Invalid outfit slot: {} (must be 1-{})", slot, OUTFIT_SLOTS),
@@ -221,8 +327,11 @@ pub fn validate_outfit_slot(slot: u8) -> ValidationResult<u8> {
 }
 
 /// Validate accessory slot (1-based)
+/// Uses hardcoded limit as inventory size is engine constraint
 pub fn validate_accessory_slot(slot: u8) -> ValidationResult<u8> {
-    if slot < 1 || slot > ACCESSORY_SLOTS as u8 {
+    const ACCESSORY_SLOTS: u8 = 9;
+
+    if slot < 1 || slot > ACCESSORY_SLOTS {
         return Err(ValidationError::new(
             "slot",
             format!(
@@ -236,8 +345,11 @@ pub fn validate_accessory_slot(slot: u8) -> ValidationResult<u8> {
 }
 
 /// Validate tool slot (1-based)
+/// Uses hardcoded limit as inventory size is engine constraint
 pub fn validate_tool_slot(slot: u8) -> ValidationResult<u8> {
-    if slot < 1 || slot > TOOL_SLOTS as u8 {
+    const TOOL_SLOTS: u8 = 9;
+
+    if slot < 1 || slot > TOOL_SLOTS {
         return Err(ValidationError::new(
             "slot",
             format!("Invalid tool slot: {} (must be 1-{})", slot, TOOL_SLOTS),
@@ -247,36 +359,39 @@ pub fn validate_tool_slot(slot: u8) -> ValidationResult<u8> {
     Ok(slot)
 }
 
-/// Validate emote slot (0-based in array, but we validate count)
+/// Validate emote slot (0-based in array)
+/// Uses hardcoded limit as emote slots are engine constraint
 pub fn validate_emote_slot(slot: u8) -> ValidationResult<u8> {
-    if slot >= EMOTE_SLOTS as u8 {
+    const EMOTE_SLOTS: u8 = 5;
+
+    if slot >= EMOTE_SLOTS {
         return Err(ValidationError::new(
             "slot",
-            format!(
-                "Invalid emote slot: {} (must be 0-{})",
-                slot,
-                EMOTE_SLOTS - 1
-            ),
+            format!("Invalid emote slot: {} (must be 0-{})", slot, EMOTE_SLOTS - 1),
             Severity::Medium,
         ));
     }
     Ok(slot)
 }
 
-/// Validate point amounts
-pub fn validate_points(points: u32) -> ValidationResult<u32> {
-    if points > MAX_POINTS {
+/// Validate point amounts with configurable max
+pub fn validate_points(points: u32, max_points: u32) -> ValidationResult<u32> {
+    if points > max_points {
         return Err(ValidationError::new(
             "points",
-            format!("Points exceed maximum: {} > {}", points, MAX_POINTS),
+            format!("Points exceed maximum: {} > {}", points, max_points),
             Severity::High,
         ));
     }
     Ok(points)
 }
 
-/// Validate bank transfer/deposit/withdraw amount
-pub fn validate_bank_amount(amount: u32, current_balance: u32) -> ValidationResult<u32> {
+/// Validate bank transfer/deposit/withdraw amount with configurable max
+pub fn validate_bank_amount(
+    amount: u32,
+    current_balance: u32,
+    max_bank_balance: u32,
+) -> ValidationResult<u32> {
     if amount == 0 {
         return Err(ValidationError::new(
             "amount",
@@ -289,11 +404,11 @@ pub fn validate_bank_amount(amount: u32, current_balance: u32) -> ValidationResu
         return Err(ValidationError::new(
             "amount",
             format!("Insufficient balance: {} > {}", amount, current_balance),
-            Severity::Medium, // Could be exploit attempt
+            Severity::Medium,
         ));
     }
 
-    if amount > MAX_BANK_BALANCE {
+    if amount > max_bank_balance {
         return Err(ValidationError::new(
             "amount",
             "Amount exceeds maximum bank balance",
@@ -305,6 +420,7 @@ pub fn validate_bank_amount(amount: u32, current_balance: u32) -> ValidationResu
 }
 
 /// Validate item ID (based on db_items.gml from client)
+/// Uses hardcoded limit as this is determined by client data
 pub fn validate_item_id(item_id: u16) -> ValidationResult<u16> {
     // Items 1-61 are defined in the client
     // 0 = empty slot
@@ -322,6 +438,7 @@ pub fn validate_item_id(item_id: u16) -> ValidationResult<u16> {
 }
 
 /// Validate direction byte for movement
+/// Uses hardcoded limit as this is determined by client protocol
 pub fn validate_direction(direction: u8) -> ValidationResult<u8> {
     // Based on case_msg_move_player.gml:
     // 1-13 are valid direction codes
@@ -340,8 +457,13 @@ pub fn validate_direction(direction: u8) -> ValidationResult<u8> {
 // Complex Validators
 // =============================================================================
 
-/// Validate mail content
-pub fn validate_mail(subject: &str, body: &str) -> ValidationResult<()> {
+/// Validate mail content with configurable limits
+pub fn validate_mail(
+    subject: &str,
+    body: &str,
+    max_subject: usize,
+    max_body: usize,
+) -> ValidationResult<()> {
     if subject.is_empty() {
         return Err(ValidationError::new(
             "subject",
@@ -350,7 +472,7 @@ pub fn validate_mail(subject: &str, body: &str) -> ValidationResult<()> {
         ));
     }
 
-    if subject.len() > MAX_MAIL_SUBJECT {
+    if subject.len() > max_subject {
         return Err(ValidationError::new(
             "subject",
             "Mail subject too long",
@@ -358,7 +480,7 @@ pub fn validate_mail(subject: &str, body: &str) -> ValidationResult<()> {
         ));
     }
 
-    if body.len() > MAX_MAIL_BODY {
+    if body.len() > max_body {
         return Err(ValidationError::new(
             "body",
             "Mail body too long",
@@ -369,8 +491,13 @@ pub fn validate_mail(subject: &str, body: &str) -> ValidationResult<()> {
     Ok(())
 }
 
-/// Validate BBS post
-pub fn validate_bbs_post(title: &str, content: &str) -> ValidationResult<()> {
+/// Validate BBS post with configurable limits
+pub fn validate_bbs_post(
+    title: &str,
+    content: &str,
+    max_title: usize,
+    max_content: usize,
+) -> ValidationResult<()> {
     if title.is_empty() {
         return Err(ValidationError::new(
             "title",
@@ -379,7 +506,7 @@ pub fn validate_bbs_post(title: &str, content: &str) -> ValidationResult<()> {
         ));
     }
 
-    if title.len() > MAX_BBS_TITLE {
+    if title.len() > max_title {
         return Err(ValidationError::new(
             "title",
             "BBS title too long",
@@ -387,7 +514,7 @@ pub fn validate_bbs_post(title: &str, content: &str) -> ValidationResult<()> {
         ));
     }
 
-    if content.len() > MAX_BBS_CONTENT {
+    if content.len() > max_content {
         return Err(ValidationError::new(
             "content",
             "BBS content too long",
@@ -399,6 +526,7 @@ pub fn validate_bbs_post(title: &str, content: &str) -> ValidationResult<()> {
 }
 
 /// Validate MAC address format
+/// Uses no config as MAC format is universal
 pub fn validate_mac_address(mac: &str) -> ValidationResult<()> {
     // MAC address should be 12 hex characters (without separators) or 17 with separators
     if mac.is_empty() {
@@ -437,17 +565,12 @@ pub fn sanitize_string(input: &str, max_len: usize) -> String {
 }
 
 /// Sanitize username - keep only safe characters
-pub fn sanitize_username(input: &str) -> String {
+pub fn sanitize_username(input: &str, max_len: usize) -> String {
     input
         .chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
-        .take(MAX_USERNAME_LENGTH)
+        .take(max_len)
         .collect()
-}
-
-/// Sanitize chat message
-pub fn sanitize_chat(input: &str) -> String {
-    sanitize_string(input, MAX_CHAT_LENGTH)
 }
 
 #[cfg(test)]
@@ -456,13 +579,17 @@ mod tests {
 
     #[test]
     fn test_username_validation() {
-        assert!(validate_username("validuser").is_ok());
-        assert!(validate_username("user_123").is_ok());
-        assert!(validate_username("user-name").is_ok());
-        assert!(validate_username("ab").is_err()); // too short
-        assert!(validate_username(&"a".repeat(50)).is_err()); // too long
-        assert!(validate_username("user name").is_err()); // spaces not allowed
-        assert!(validate_username("user@name").is_err()); // special chars not allowed
+        // Using typical config values
+        let min = 3;
+        let max = 20;
+
+        assert!(validate_username("validuser", min, max).is_ok());
+        assert!(validate_username("user_123", min, max).is_ok());
+        assert!(validate_username("user-name", min, max).is_ok());
+        assert!(validate_username("ab", min, max).is_err()); // too short
+        assert!(validate_username(&"a".repeat(50), min, max).is_err()); // too long
+        assert!(validate_username("user name", min, max).is_err()); // spaces not allowed
+        assert!(validate_username("user@name", min, max).is_err()); // special chars not allowed
     }
 
     #[test]
@@ -483,8 +610,9 @@ mod tests {
 
     #[test]
     fn test_bank_amount_validation() {
-        assert!(validate_bank_amount(100, 1000).is_ok());
-        assert!(validate_bank_amount(0, 1000).is_err()); // zero not allowed
-        assert!(validate_bank_amount(2000, 1000).is_err()); // exceeds balance
+        let max_bank = 100_000_000;
+        assert!(validate_bank_amount(100, 1000, max_bank).is_ok());
+        assert!(validate_bank_amount(0, 1000, max_bank).is_err()); // zero not allowed
+        assert!(validate_bank_amount(2000, 1000, max_bank).is_err()); // exceeds balance
     }
 }

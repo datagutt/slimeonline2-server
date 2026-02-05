@@ -8,6 +8,13 @@ use super::{MessageReader, MessageType, MessageWriter};
 use crate::constants::{Direction, LOGIN_SUCCESS, PROTOCOL_VERSION};
 use crate::validation::{validate_password, validate_username};
 
+// Default limits for protocol-level validation (before config is available)
+// These match typical config values and provide a sanity check
+const DEFAULT_MIN_USERNAME: usize = 3;
+const DEFAULT_MAX_USERNAME: usize = 20;
+const DEFAULT_MIN_PASSWORD: usize = 6;
+const DEFAULT_MAX_PASSWORD: usize = 50;
+
 // =============================================================================
 // LOGIN / REGISTER MESSAGES
 // =============================================================================
@@ -38,16 +45,21 @@ impl LoginRequest {
         if self.version != PROTOCOL_VERSION {
             return Err("Invalid client version");
         }
-        if let Err(e) = validate_username(&self.username) {
-            return Err(match e.field {
-                "username" => "Invalid username",
-                _ => "Validation failed",
-            });
+        if let Err(_) = validate_username(
+            &self.username,
+            DEFAULT_MIN_USERNAME,
+            DEFAULT_MAX_USERNAME,
+        ) {
+            return Err("Invalid username");
         }
         // Login allows empty password (for existing accounts with empty password)
         // but still validate max length
         if !self.password.is_empty() {
-            if let Err(_) = validate_password(&self.password) {
+            if let Err(_) = validate_password(
+                &self.password,
+                DEFAULT_MIN_PASSWORD,
+                DEFAULT_MAX_PASSWORD,
+            ) {
                 return Err("Invalid password");
             }
         }
@@ -167,10 +179,18 @@ impl RegisterRequest {
 
     /// Validate the registration request fields.
     pub fn validate(&self) -> Result<(), &'static str> {
-        if let Err(_) = validate_username(&self.username) {
+        if let Err(_) = validate_username(
+            &self.username,
+            DEFAULT_MIN_USERNAME,
+            DEFAULT_MAX_USERNAME,
+        ) {
             return Err("Invalid username");
         }
-        if let Err(_) = validate_password(&self.password) {
+        if let Err(_) = validate_password(
+            &self.password,
+            DEFAULT_MIN_PASSWORD,
+            DEFAULT_MAX_PASSWORD,
+        ) {
             return Err("Invalid password");
         }
         Ok(())
