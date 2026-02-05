@@ -11,7 +11,7 @@ use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::validation::{validate_room_id, validate_position};
 
-use super::{building, collectibles, items, music, one_time, shop, switches, upgrader};
+use super::{building, collectibles, items, music, one_time, planting, shop, switches, upgrader};
 
 /// Handle warp/room change
 ///
@@ -228,6 +228,10 @@ pub async fn handle_warp(
     // Send switch states for the new room (co-op puzzles)
     let switch_msgs = switches::write_room_switch_states(server, new_room_id).await;
     responses.extend(switch_msgs);
+
+    // Send plant states for the new room
+    let plant_msgs = planting::send_room_plants(server, new_room_id).await;
+    responses.extend(plant_msgs);
 
     // Send music for the new room (from room_check_music in original)
     if let Some(music_msg) = music::build_room_music_message(server, new_room_id) {
