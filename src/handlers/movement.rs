@@ -11,6 +11,7 @@ use crate::anticheat::{CheatResult, validate_position_bounds};
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageWriter, MovementUpdate};
 use crate::rate_limit::ActionType;
+use crate::validation::validate_direction;
 
 /// Handle movement message
 pub async fn handle_movement(
@@ -50,6 +51,12 @@ pub async fn handle_movement(
         .is_allowed()
     {
         // Just silently drop excessive movement packets
+        return Ok(vec![]);
+    }
+
+    // Validate direction code (1-13 are valid)
+    if let Err(e) = validate_direction(movement.direction) {
+        warn!("Player {} sent invalid direction {}: {}", player_id, movement.direction, e.message);
         return Ok(vec![]);
     }
 
