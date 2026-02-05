@@ -94,23 +94,59 @@ pub async fn broadcast_switch_status(server: &Server, room_id: u16, switch_id: u
 }
 
 /// Build switch state messages for a player entering a room.
-/// Returns messages for all currently active switches in the room.
+/// Returns messages for:
+/// 1. All currently active switches in the room itself
+/// 2. Cross-room switch checks (switches in other rooms that affect this room)
 pub async fn write_room_switch_states(server: &Server, room_id: u16) -> Vec<Vec<u8>> {
-    let Some(room) = server.game_state.get_room(room_id) else {
-        return vec![];
-    };
+    let mut messages = Vec::new();
 
-    let switch_states = room.get_switch_states().await;
-    let mut messages = Vec::with_capacity(switch_states.len());
+    // First, send switches active in this room
+    if let Some(room) = server.game_state.get_room(room_id) {
+        let switch_states = room.get_switch_states().await;
 
-    for (switch_id, status) in switch_states {
+        for (switch_id, status) in switch_states {
+            let mut writer = MessageWriter::new();
+            writer
+                .write_u16(MessageType::SwitchSet.id())
+                .write_u16(room_id)
+                .write_u8(switch_id)
+                .write_u8(status);
+            messages.push(writer.into_bytes());
+        }
+    }
+
+    // Second, check cross-room switch checks (from [Switch Check] in original .rom files)
+    // These allow switches in OTHER rooms to affect barriers/doors in THIS room
+    let switch_checks = server.game_config.rooms.get_switch_checks(room_id);
+    for check in switch_checks {
+        // Get the switch status from the other room
+        let status = if let Some(other_room) = server.game_state.get_room(check.room) {
+            other_room
+                .get_switch_states()
+                .await
+                .into_iter()
+                .find(|(id, _)| *id == check.switch)
+                .map(|(_, status)| status)
+                .unwrap_or(0)
+        } else {
+            0
+        };
+
+        // Send the switch status for the target room (the room being entered)
+        // The client expects room_id to be the current room, but switch_id matches
+        // the switch in the other room. This tells the client "switch X is at status Y"
         let mut writer = MessageWriter::new();
         writer
             .write_u16(MessageType::SwitchSet.id())
             .write_u16(room_id)
-            .write_u8(switch_id)
+            .write_u8(check.switch)
             .write_u8(status);
         messages.push(writer.into_bytes());
+
+        debug!(
+            "Cross-room switch check: room {} checking switch {} in room {} = {}",
+            room_id, check.switch, check.room, status
+        );
     }
 
     messages
