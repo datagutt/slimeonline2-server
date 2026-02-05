@@ -13,10 +13,10 @@ use chrono::{Duration, Utc};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
+use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::Server;
 
 /// Handle MSG_BUILD_OBJECT (105) - Player wants to place a building
 pub async fn handle_build_object(
@@ -107,8 +107,10 @@ pub async fn handle_build_object(
     let expires_at = Utc::now() + Duration::hours(build_config.duration_hours as i64);
 
     // Place the building in database
-    if let Err(e) =
-        db::place_building(&server.db, room_id, build_spot, char_id, item_id, expires_at).await
+    if let Err(e) = db::place_building(
+        &server.db, room_id, build_spot, char_id, item_id, expires_at,
+    )
+    .await
     {
         warn!("Failed to place building: {}", e);
         return Ok(vec![]);

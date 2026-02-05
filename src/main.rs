@@ -707,7 +707,7 @@ fn spawn_background_tasks(server: Arc<Server>) {
     // Hourly one-time item availability check
     let onetime_server = server.clone();
     tokio::spawn(async move {
-        use chrono::{Utc, Timelike};
+        use chrono::{Timelike, Utc};
 
         // Track the last hour we checked
         let mut last_hour: Option<u8> = None;
@@ -722,11 +722,14 @@ fn spawn_background_tasks(server: Arc<Server>) {
 
             // Only process if hour changed
             if last_hour != Some(current_hour) {
-                info!("Hour changed to {}, checking one-time item availability", current_hour);
-                
+                info!(
+                    "Hour changed to {}, checking one-time item availability",
+                    current_hour
+                );
+
                 // Check all rooms for one-time items that should appear/disappear
                 handlers::one_time::check_hourly_onetimes(&onetime_server).await;
-                
+
                 last_hour = Some(current_hour);
             }
         }

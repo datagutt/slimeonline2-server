@@ -143,7 +143,11 @@ async fn handle_client_messages(
             };
 
             for response in responses {
-                if out_tx_worker.send(WorkerOutput::Send(response)).await.is_err() {
+                if out_tx_worker
+                    .send(WorkerOutput::Send(response))
+                    .await
+                    .is_err()
+                {
                     break;
                 }
             }

@@ -150,7 +150,10 @@ pub async fn write_room_onetimes(
     let current_hour = now.hour() as u8;
 
     // Get available items from config
-    let available_items = server.game_config.onetimes.get_available_items(room_id, current_hour);
+    let available_items = server
+        .game_config
+        .onetimes
+        .get_available_items(room_id, current_hour);
 
     if available_items.is_empty() {
         return messages;
@@ -207,7 +210,10 @@ pub async fn check_hourly_onetimes(server: &Arc<Server>) {
     let now = chrono::Utc::now();
     let current_hour = now.hour() as u8;
 
-    debug!("Checking one-time item availability at hour {}", current_hour);
+    debug!(
+        "Checking one-time item availability at hour {}",
+        current_hour
+    );
 
     // For each room with one-time items
     for (room_id, room_config) in &server.game_config.onetimes.rooms {

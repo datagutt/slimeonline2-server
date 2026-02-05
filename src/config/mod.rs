@@ -710,13 +710,13 @@ pub struct RoomOneTimesConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct OneTimeItemConfig {
-    pub real_id: u8,     // Unique ID within the room
-    pub category: u8,    // 1=outfit, 2=item, 3=accessory
-    pub item_id: u16,    // Actual item/outfit/accessory ID
+    pub real_id: u8,  // Unique ID within the room
+    pub category: u8, // 1=outfit, 2=item, 3=accessory
+    pub item_id: u16, // Actual item/outfit/accessory ID
     pub x: u16,
     pub y: u16,
-    pub start_hour: u8,  // 0-23, use 0 for always available
-    pub end_hour: u8,    // 0-23, use 0 for always available
+    pub start_hour: u8, // 0-23, use 0 for always available
+    pub end_hour: u8,   // 0-23, use 0 for always available
 }
 
 impl OneTimeItemConfig {
@@ -745,11 +745,7 @@ impl OneTimeItemConfig {
 impl From<OneTimesConfigRaw> for OneTimesConfig {
     fn from(raw: OneTimesConfigRaw) -> Self {
         Self {
-            rooms: raw
-                .room
-                .into_iter()
-                .map(|r| (r.id, r))
-                .collect(),
+            rooms: raw.room.into_iter().map(|r| (r.id, r)).collect(),
         }
     }
 }
@@ -1074,7 +1070,12 @@ impl WarpCentersConfig {
     }
 
     /// Get a specific destination by room, category, and slot
-    pub fn get_destination(&self, room_id: u16, category: u8, slot: u8) -> Option<&WarpDestination> {
+    pub fn get_destination(
+        &self,
+        room_id: u16,
+        category: u8,
+        slot: u8,
+    ) -> Option<&WarpDestination> {
         self.centers
             .get(&room_id)
             .and_then(|dests| dests.get(&(category, slot)))
@@ -1108,8 +1109,7 @@ impl GameConfig {
         let buildings: BuildingsConfig = buildings_raw.into();
         let rooms_raw = load_toml::<RoomsConfigRaw>(&dir.join("rooms.toml"))?;
         let rooms: RoomsConfig = rooms_raw.into();
-        let warp_centers_raw =
-            load_toml::<WarpCentersConfigRaw>(&dir.join("warp_centers.toml"))?;
+        let warp_centers_raw = load_toml::<WarpCentersConfigRaw>(&dir.join("warp_centers.toml"))?;
         let warp_centers: WarpCentersConfig = warp_centers_raw.into();
 
         Ok(Self {

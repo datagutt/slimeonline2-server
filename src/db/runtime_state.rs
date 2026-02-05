@@ -1094,11 +1094,7 @@ pub async fn place_building(
 }
 
 /// Remove a building from a spot (free the spot)
-pub async fn remove_building(
-    pool: &DbPool,
-    room_id: u16,
-    spot_id: u8,
-) -> Result<(), sqlx::Error> {
+pub async fn remove_building(pool: &DbPool, room_id: u16, spot_id: u8) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         DELETE FROM building_state

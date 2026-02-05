@@ -299,10 +299,9 @@ pub async fn handle_get_warp_info(
     for slot in 1..=7u8 {
         if let Some(dest) = destinations.iter().find(|d| d.slot == slot) {
             // Check if this slot is unlocked in the database
-            let is_unlocked =
-                crate::db::is_warp_unlocked(&server.db, room_id, slot, warp_category)
-                    .await
-                    .unwrap_or(false);
+            let is_unlocked = crate::db::is_warp_unlocked(&server.db, room_id, slot, warp_category)
+                .await
+                .unwrap_or(false);
 
             if is_unlocked {
                 info!(
@@ -312,7 +311,10 @@ pub async fn handle_get_warp_info(
                 writer.write_u8(dest.slot);
                 writer.write_u16(dest.price);
             } else {
-                info!("  Slot {}: locked (exists in config but not unlocked)", slot);
+                info!(
+                    "  Slot {}: locked (exists in config but not unlocked)",
+                    slot
+                );
                 writer.write_u8(0);
                 writer.write_u16(0);
             }
@@ -358,17 +360,21 @@ pub async fn handle_warp_center_use_slot(
     };
 
     // Check if destination exists in config
-    let destination = match server.game_config.warp_centers.get_destination(room_id, warp_category, slot)
-    {
-        Some(d) => d,
-        None => {
-            info!(
-                "Player tried to use non-existent warp slot {} category {} in room {}",
-                slot, warp_category, room_id
-            );
-            return Ok(vec![]);
-        }
-    };
+    let destination =
+        match server
+            .game_config
+            .warp_centers
+            .get_destination(room_id, warp_category, slot)
+        {
+            Some(d) => d,
+            None => {
+                info!(
+                    "Player tried to use non-existent warp slot {} category {} in room {}",
+                    slot, warp_category, room_id
+                );
+                return Ok(vec![]);
+            }
+        };
 
     // Check if slot is unlocked
     let is_unlocked = crate::db::is_warp_unlocked(&server.db, room_id, slot, warp_category)
