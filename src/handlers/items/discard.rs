@@ -13,9 +13,9 @@ use tracing::{debug, info, warn};
 
 use crate::Server;
 use crate::anticheat::validate_position_bounds;
-use crate::constants::ITEM_SLOTS;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::validation::validate_item_slot;
 
 use super::database::can_discard_item;
 
@@ -35,8 +35,8 @@ pub async fn handle_discard_item(
     let drop_y = reader.read_u16()?;
 
     // Validate slot
-    if slot < 1 || slot > ITEM_SLOTS as u8 {
-        warn!("Invalid discard slot: {}", slot);
+    if let Err(e) = validate_item_slot(slot) {
+        warn!("Invalid discard slot {}: {}", slot, e.message);
         return Ok(vec![]);
     }
 
