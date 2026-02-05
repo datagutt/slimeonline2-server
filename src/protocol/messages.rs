@@ -5,10 +5,8 @@
 
 use super::reader::ReadResult;
 use super::{MessageReader, MessageType, MessageWriter};
-use crate::constants::{
-    Direction, LOGIN_SUCCESS, MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, MIN_PASSWORD_LENGTH,
-    MIN_USERNAME_LENGTH, PROTOCOL_VERSION,
-};
+use crate::constants::{Direction, LOGIN_SUCCESS, PROTOCOL_VERSION};
+use crate::validation::{validate_password, validate_username};
 
 // =============================================================================
 // LOGIN / REGISTER MESSAGES
@@ -40,19 +38,18 @@ impl LoginRequest {
         if self.version != PROTOCOL_VERSION {
             return Err("Invalid client version");
         }
-        if self.username.len() < MIN_USERNAME_LENGTH || self.username.len() > MAX_USERNAME_LENGTH {
-            return Err("Invalid username length");
+        if let Err(e) = validate_username(&self.username) {
+            return Err(match e.field {
+                "username" => "Invalid username",
+                _ => "Validation failed",
+            });
         }
-        if self.password.is_empty() || self.password.len() > MAX_PASSWORD_LENGTH {
-            return Err("Invalid password length");
-        }
-        // Validate username contains only allowed characters
-        if !self
-            .username
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_')
-        {
-            return Err("Invalid characters in username");
+        // Login allows empty password (for existing accounts with empty password)
+        // but still validate max length
+        if !self.password.is_empty() {
+            if let Err(_) = validate_password(&self.password) {
+                return Err("Invalid password");
+            }
         }
         Ok(())
     }
@@ -170,19 +167,11 @@ impl RegisterRequest {
 
     /// Validate the registration request fields.
     pub fn validate(&self) -> Result<(), &'static str> {
-        if self.username.len() < MIN_USERNAME_LENGTH || self.username.len() > MAX_USERNAME_LENGTH {
-            return Err("Invalid username length");
+        if let Err(_) = validate_username(&self.username) {
+            return Err("Invalid username");
         }
-        if self.password.len() < MIN_PASSWORD_LENGTH || self.password.len() > MAX_PASSWORD_LENGTH {
-            return Err("Invalid password length");
-        }
-        // Validate username contains only allowed characters
-        if !self
-            .username
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_')
-        {
-            return Err("Invalid characters in username");
+        if let Err(_) = validate_password(&self.password) {
+            return Err("Invalid password");
         }
         Ok(())
     }
