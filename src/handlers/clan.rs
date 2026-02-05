@@ -19,6 +19,7 @@ use crate::Server;
 use crate::db;
 use crate::game::{PendingClanInvite, PlayerSession};
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
+use crate::validation::validate_clan_name;
 
 /// Clan invite cooldown in seconds (15s between invites to the same player)
 const CLAN_INVITE_COOLDOWN_SECS: u64 = 15;
@@ -63,15 +64,14 @@ pub async fn handle_clan_create(
         return Ok(vec![]);
     }
 
-    // Validate clan name length
+    // Validate clan name
     let config = &server.game_config.clans;
-    if clan_name.len() < config.limits.min_name_length
-        || clan_name.len() > config.limits.max_name_length
-    {
-        debug!(
-            "Clan create failed: name '{}' invalid length (need {}-{})",
-            clan_name, config.limits.min_name_length, config.limits.max_name_length
-        );
+    if let Err(e) = validate_clan_name(
+        &clan_name,
+        config.limits.min_name_length,
+        config.limits.max_name_length,
+    ) {
+        debug!("Clan create failed: {} - {}", e.field, e.message);
         return Ok(vec![build_clan_create_error(1)]); // 1 = name error
     }
 
