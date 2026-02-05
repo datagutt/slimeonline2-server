@@ -16,7 +16,7 @@ use crate::anticheat::{validate_position_bounds, HackType};
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
-use crate::validation::validate_item_slot;
+use crate::validation::{validate_item_slot, handle_points_overflow};
 
 use super::database::{ItemType, get_item_info};
 
@@ -312,7 +312,7 @@ async fn handle_warp_wing(
     Ok(())
 }
 
-/// Handle slimebag usage - add points
+/// Handle slimebag usage - add points with overflow to bank
 async fn handle_slimebag(
     item_type: &ItemType,
     server: &Arc<Server>,
@@ -320,21 +320,37 @@ async fn handle_slimebag(
     character_id: i64,
     slot: u8,
 ) -> Result<()> {
-    let points_to_add: i64 = match item_type {
+    let points_to_add: u32 = match item_type {
         ItemType::Slimebag50 => 50,
         ItemType::Slimebag200 => 200,
         ItemType::Slimebag500 => 500,
         _ => 0,
     };
 
-    let account_id = session.read().await.account_id.unwrap_or(0);
-    let character = crate::db::find_character_by_account(&server.db, account_id).await?;
+    let current_points = session.read().await.points;
+    let max_points = server.game_config.game.limits.max_points;
 
-    if let Some(char) = character {
-        let max_points = server.game_config.game.limits.max_points as i64;
-        let new_points = (char.points + points_to_add).min(max_points);
-        crate::db::update_points(&server.db, character_id, new_points).await?;
-        session.write().await.points = new_points as u32;
+    // Use overflow handling - excess goes to bank automatically
+    let overflow_result = handle_points_overflow(current_points, points_to_add, max_points);
+
+    // Update points in database
+    crate::db::update_points(&server.db, character_id, overflow_result.new_points as i64).await?;
+    session.write().await.points = overflow_result.new_points;
+
+    // If there's overflow, deposit to bank
+    if overflow_result.to_bank > 0 {
+        let current_bank = crate::db::get_bank_balance(&server.db, character_id)
+            .await
+            .unwrap_or(0);
+        let new_bank = current_bank + overflow_result.to_bank as i64;
+        if let Err(e) = crate::db::update_bank_balance(&server.db, character_id, new_bank).await {
+            warn!("Failed to deposit slimebag overflow to bank: {}", e);
+        } else {
+            debug!(
+                "Slimebag overflow: deposited {} to bank (new balance: {})",
+                overflow_result.to_bank, new_bank
+            );
+        }
     }
 
     crate::db::update_item_slot(&server.db, character_id, slot, 0).await?;
