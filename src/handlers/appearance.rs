@@ -32,7 +32,7 @@ pub async fn handle_change_outfit(
         }
     }
 
-    let (player_id, room_id, character_id, _new_body_id) = {
+    let (player_id, room_id, character_id, old_body_id) = {
         let session_guard = session.read().await;
 
         if !session_guard.is_authenticated {
@@ -49,7 +49,7 @@ pub async fn handle_change_outfit(
             None => return Ok(vec![]),
         };
 
-        (player_id, session_guard.room_id, character_id, 0u16)
+        (player_id, session_guard.room_id, character_id, session_guard.body_id)
     };
 
     // Get the outfit ID from the inventory slot
@@ -71,8 +71,12 @@ pub async fn handle_change_outfit(
         session_guard.body_id = new_body_id;
     }
 
-    // Save to database
+    // Save to database - swap: put old outfit into inventory slot, equip new outfit
     crate::db::update_body_id(&server.db, character_id, new_body_id as i16).await?;
+    if slot != 0 {
+        // Put the previously equipped outfit into the inventory slot
+        crate::db::update_outfit_slot(&server.db, character_id, slot, old_body_id as i16).await?;
+    }
 
     debug!(
         "Player {} changed outfit to {} (slot {})",
@@ -123,7 +127,7 @@ pub async fn handle_change_accessory1(
         }
     }
 
-    let (player_id, room_id, character_id) = {
+    let (player_id, room_id, character_id, old_acs1_id) = {
         let session_guard = session.read().await;
 
         if !session_guard.is_authenticated {
@@ -140,7 +144,7 @@ pub async fn handle_change_accessory1(
             None => return Ok(vec![]),
         };
 
-        (player_id, session_guard.room_id, character_id)
+        (player_id, session_guard.room_id, character_id, session_guard.acs1_id)
     };
 
     // Get the accessory ID from the inventory slot
@@ -162,8 +166,12 @@ pub async fn handle_change_accessory1(
         session_guard.acs1_id = new_acs_id;
     }
 
-    // Save to database
+    // Save to database - swap: put old accessory into inventory slot, equip new accessory
     crate::db::update_accessory1_id(&server.db, character_id, new_acs_id as i16).await?;
+    if slot != 0 {
+        // Put the previously equipped accessory into the inventory slot
+        crate::db::update_accessory_slot(&server.db, character_id, slot, old_acs1_id as i16).await?;
+    }
 
     debug!(
         "Player {} changed accessory1 to {} (slot {})",
@@ -214,7 +222,7 @@ pub async fn handle_change_accessory2(
         }
     }
 
-    let (player_id, room_id, character_id) = {
+    let (player_id, room_id, character_id, old_acs2_id) = {
         let session_guard = session.read().await;
 
         if !session_guard.is_authenticated {
@@ -231,7 +239,7 @@ pub async fn handle_change_accessory2(
             None => return Ok(vec![]),
         };
 
-        (player_id, session_guard.room_id, character_id)
+        (player_id, session_guard.room_id, character_id, session_guard.acs2_id)
     };
 
     // Get the accessory ID from the inventory slot
@@ -253,8 +261,12 @@ pub async fn handle_change_accessory2(
         session_guard.acs2_id = new_acs_id;
     }
 
-    // Save to database
+    // Save to database - swap: put old accessory into inventory slot, equip new accessory
     crate::db::update_accessory2_id(&server.db, character_id, new_acs_id as i16).await?;
+    if slot != 0 {
+        // Put the previously equipped accessory into the inventory slot
+        crate::db::update_accessory_slot(&server.db, character_id, slot, old_acs2_id as i16).await?;
+    }
 
     debug!(
         "Player {} changed accessory2 to {} (slot {})",
