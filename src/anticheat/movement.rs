@@ -1,41 +1,18 @@
-//! Anti-cheat module for detecting game exploits
+//! Movement validation for anti-cheat
 //!
-//! Focuses on actual exploits possible in this game:
-//! - Teleportation (moving faster than physics allow)
-//! - Speed hacking
-//! - Position spoofing
+//! Detects teleportation, speed hacking, and position spoofing.
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::debug;
 
 use crate::constants::{
-    CHEAT_FLAGS_TO_BAN, CHEAT_FLAGS_TO_KICK, CHEAT_VIOLATION_THRESHOLD,
-    CHEAT_VIOLATION_WINDOW_SECS, MAX_MOVEMENT_DISTANCE_PER_UPDATE, MAX_PLAYER_SPEED, MAX_ROOM_X,
-    MAX_ROOM_Y,
+    CHEAT_VIOLATION_THRESHOLD, CHEAT_VIOLATION_WINDOW_SECS, MAX_MOVEMENT_DISTANCE_PER_UPDATE,
+    MAX_PLAYER_SPEED, MAX_ROOM_X, MAX_ROOM_Y,
 };
 
-/// Cheat detection result
-#[derive(Debug, Clone)]
-pub enum CheatResult {
-    /// No cheating detected
-    Clean,
-    /// Suspicious but not definitive
-    Suspicious { reason: String, severity: u8 },
-    /// Definite cheat detected
-    Cheating { reason: String },
-}
-
-impl CheatResult {
-    pub fn is_clean(&self) -> bool {
-        matches!(self, CheatResult::Clean)
-    }
-
-    pub fn is_cheating(&self) -> bool {
-        matches!(self, CheatResult::Cheating { .. })
-    }
-}
+use super::types::CheatResult;
 
 /// Player position history for movement analysis
 #[derive(Debug, Clone)]
@@ -112,10 +89,7 @@ impl PositionHistory {
                     if self.violation_count() >= CHEAT_VIOLATION_THRESHOLD {
                         return CheatResult::Cheating { reason };
                     }
-                    return CheatResult::Suspicious {
-                        reason,
-                        severity: 3,
-                    };
+                    return CheatResult::Suspicious { reason, severity: 3 };
                 }
             }
 
@@ -134,10 +108,7 @@ impl PositionHistory {
                     if self.violation_count() >= CHEAT_VIOLATION_THRESHOLD {
                         return CheatResult::Cheating { reason };
                     }
-                    return CheatResult::Suspicious {
-                        reason,
-                        severity: 2,
-                    };
+                    return CheatResult::Suspicious { reason, severity: 2 };
                 }
             }
         }
@@ -171,19 +142,16 @@ impl PositionHistory {
     }
 }
 
-/// Anti-cheat system
-pub struct AntiCheat {
+/// Movement validation checker
+pub struct MovementChecker {
     /// Position tracking per player (session_id -> history)
     players: RwLock<HashMap<u64, PositionHistory>>,
-    /// Flagged players (session_id -> flag count)
-    flagged: RwLock<HashMap<u64, u32>>,
 }
 
-impl AntiCheat {
+impl MovementChecker {
     pub fn new() -> Self {
         Self {
             players: RwLock::new(HashMap::new()),
-            flagged: RwLock::new(HashMap::new()),
         }
     }
 
@@ -191,7 +159,7 @@ impl AntiCheat {
     pub async fn init_player(&self, session_id: u64, x: u16, y: u16, room_id: u16) {
         let mut players = self.players.write().await;
         players.insert(session_id, PositionHistory::new(x, y, room_id));
-        debug!("Initialized anti-cheat tracking for session {}", session_id);
+        debug!("Initialized movement tracking for session {}", session_id);
     }
 
     /// Check a movement update
@@ -213,25 +181,7 @@ impl AntiCheat {
             }
         };
 
-        let result = history.update(new_x, new_y, room_id);
-
-        // Log and flag if cheating detected
-        match &result {
-            CheatResult::Suspicious { reason, severity } => {
-                debug!(
-                    "Suspicious activity from session {}: {} (severity: {})",
-                    session_id, reason, severity
-                );
-            }
-            CheatResult::Cheating { reason } => {
-                warn!("Cheat detected from session {}: {}", session_id, reason);
-                drop(players);
-                self.flag_player(session_id).await;
-            }
-            CheatResult::Clean => {}
-        }
-
-        result
+        history.update(new_x, new_y, room_id)
     }
 
     /// Mark that a player is about to warp (legitimate teleport)
@@ -253,62 +203,30 @@ impl AntiCheat {
         }
     }
 
-    /// Flag a player for cheating
-    async fn flag_player(&self, session_id: u64) {
-        let mut flagged = self.flagged.write().await;
-        let count = flagged.entry(session_id).or_insert(0);
-        *count += 1;
-        info!(
-            "Session {} flagged for cheating (count: {})",
-            session_id, *count
-        );
-    }
-
-    /// Check if player should be kicked
-    pub async fn should_kick(&self, session_id: u64) -> bool {
-        let flagged = self.flagged.read().await;
-        flagged
+    /// Get violation count for a player
+    pub async fn get_violations(&self, session_id: u64) -> u32 {
+        let players = self.players.read().await;
+        players
             .get(&session_id)
-            .map(|&c| c >= CHEAT_FLAGS_TO_KICK)
-            .unwrap_or(false)
-    }
-
-    /// Check if player should be banned
-    pub async fn should_ban(&self, session_id: u64) -> bool {
-        let flagged = self.flagged.read().await;
-        flagged
-            .get(&session_id)
-            .map(|&c| c >= CHEAT_FLAGS_TO_BAN)
-            .unwrap_or(false)
-    }
-
-    /// Get flag count for a player
-    pub async fn get_flags(&self, session_id: u64) -> u32 {
-        let flagged = self.flagged.read().await;
-        flagged.get(&session_id).copied().unwrap_or(0)
+            .map(|h| h.violation_count())
+            .unwrap_or(0)
     }
 
     /// Remove player tracking (on disconnect)
     pub async fn remove_player(&self, session_id: u64) {
         let mut players = self.players.write().await;
         players.remove(&session_id);
-        debug!("Removed anti-cheat tracking for session {}", session_id);
+        debug!("Removed movement tracking for session {}", session_id);
     }
 
     /// Clean up stale entries
     pub async fn cleanup(&self) {
-        // For now, just log stats
         let players = self.players.read().await;
-        let flagged = self.flagged.read().await;
-        debug!(
-            "Anti-cheat stats: {} tracked players, {} flagged",
-            players.len(),
-            flagged.len()
-        );
+        debug!("Movement checker stats: {} tracked players", players.len());
     }
 }
 
-impl Default for AntiCheat {
+impl Default for MovementChecker {
     fn default() -> Self {
         Self::new()
     }
@@ -343,44 +261,44 @@ mod tests {
 
     #[tokio::test]
     async fn test_normal_movement() {
-        let ac = AntiCheat::new();
-        ac.init_player(1, 100, 100, 1).await;
+        let checker = MovementChecker::new();
+        checker.init_player(1, 100, 100, 1).await;
 
         // Small movement should be clean
-        let result = ac.check_movement(1, 110, 100, 1).await;
+        let result = checker.check_movement(1, 110, 100, 1).await;
         assert!(result.is_clean());
     }
 
     #[tokio::test]
     async fn test_teleport_detection() {
-        let ac = AntiCheat::new();
-        ac.init_player(1, 100, 100, 1).await;
+        let checker = MovementChecker::new();
+        checker.init_player(1, 100, 100, 1).await;
 
         // Large instant movement should be suspicious
-        let result = ac.check_movement(1, 5000, 100, 1).await;
+        let result = checker.check_movement(1, 5000, 100, 1).await;
         assert!(!result.is_clean());
     }
 
     #[tokio::test]
     async fn test_legitimate_warp() {
-        let ac = AntiCheat::new();
-        ac.init_player(1, 100, 100, 1).await;
+        let checker = MovementChecker::new();
+        checker.init_player(1, 100, 100, 1).await;
 
         // Mark warp as allowed
-        ac.allow_warp(1).await;
+        checker.allow_warp(1).await;
 
         // Large movement after warp should be clean
-        let result = ac.check_movement(1, 5000, 100, 1).await;
+        let result = checker.check_movement(1, 5000, 100, 1).await;
         assert!(result.is_clean());
     }
 
     #[tokio::test]
     async fn test_room_change() {
-        let ac = AntiCheat::new();
-        ac.init_player(1, 100, 100, 1).await;
+        let checker = MovementChecker::new();
+        checker.init_player(1, 100, 100, 1).await;
 
         // Room change resets position tracking
-        let result = ac.check_movement(1, 500, 200, 2).await;
+        let result = checker.check_movement(1, 500, 200, 2).await;
         assert!(result.is_clean());
     }
 

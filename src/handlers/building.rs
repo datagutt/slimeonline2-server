@@ -14,6 +14,7 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use crate::Server;
+use crate::anticheat::HackType;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
@@ -28,12 +29,14 @@ pub async fn handle_build_object(
     let item_slot = reader.read_u8()?;
     let build_spot = reader.read_u8()?;
 
-    let (char_id, player_id, room_id) = {
+    let (char_id, player_id, room_id, account_id, ip_address) = {
         let session_guard = session.read().await;
         (
             session_guard.character_id,
             session_guard.player_id,
             session_guard.room_id,
+            session_guard.account_id,
+            session_guard.ip_address.clone(),
         )
     };
 
@@ -55,8 +58,27 @@ pub async fn handle_build_object(
 
     // Check if this room has the specified building spot
     if !server.game_config.buildings.has_spot(room_id, build_spot) {
+        // Report hack - invalid building spot
+        if let Some(acc_id) = account_id {
+            let _ = server
+                .anticheat
+                .report_hack(
+                    &server.db,
+                    acc_id,
+                    Some(char_id),
+                    HackType::InvalidBuildSpot,
+                    &format!(
+                        "Room {} does not have building spot {}",
+                        room_id, build_spot
+                    ),
+                    Some(&ip_address),
+                    None,
+                    &server.game_config.game.anticheat,
+                )
+                .await;
+        }
         warn!(
-            "Room {} does not have building spot {}",
+            "HACK: Room {} does not have building spot {}",
             room_id, build_spot
         );
         return Ok(vec![]);

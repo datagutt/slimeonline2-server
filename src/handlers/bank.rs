@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
 use crate::Server;
+use crate::anticheat::HackType;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
@@ -139,8 +140,11 @@ async fn handle_deposit(
 ) -> Result<Vec<Vec<u8>>> {
     let amount = reader.read_u32()?;
 
-    // Get current balances
-    let current_points = session.read().await.points;
+    // Get current balances and session info for potential hack reporting
+    let (current_points, account_id, ip_address) = {
+        let s = session.read().await;
+        (s.points, s.account_id, s.ip_address.clone())
+    };
     let current_bank = db::get_bank_balance(&server.db, char_id).await.unwrap_or(0);
 
     // Validate: amount must be positive
@@ -151,8 +155,27 @@ async fn handle_deposit(
 
     // Validate: player has enough points
     if amount > current_points {
+        // Report hack attempt - trying to deposit more than they have
+        if let Some(acc_id) = account_id {
+            let _ = server
+                .anticheat
+                .report_hack(
+                    &server.db,
+                    acc_id,
+                    Some(char_id),
+                    HackType::InsufficientFunds,
+                    &format!(
+                        "Deposit {} > balance {} points",
+                        amount, current_points
+                    ),
+                    Some(&ip_address),
+                    None,
+                    &server.game_config.game.anticheat,
+                )
+                .await;
+        }
         warn!(
-            "Deposit failed: player {} tried to deposit {} but only has {} points",
+            "HACK: player {} tried to deposit {} but only has {} points",
             char_id, amount, current_points
         );
         // Send current values back to reset UI
@@ -202,8 +225,11 @@ async fn handle_withdraw(
 ) -> Result<Vec<Vec<u8>>> {
     let amount = reader.read_u32()?;
 
-    // Get current balances
-    let current_points = session.read().await.points;
+    // Get current balances and session info for potential hack reporting
+    let (current_points, account_id, ip_address) = {
+        let s = session.read().await;
+        (s.points, s.account_id, s.ip_address.clone())
+    };
     let current_bank = db::get_bank_balance(&server.db, char_id).await.unwrap_or(0);
 
     // Validate: amount must be positive
@@ -214,8 +240,27 @@ async fn handle_withdraw(
 
     // Validate: bank has enough
     if (amount as i64) > current_bank {
+        // Report hack attempt - trying to withdraw more than they have
+        if let Some(acc_id) = account_id {
+            let _ = server
+                .anticheat
+                .report_hack(
+                    &server.db,
+                    acc_id,
+                    Some(char_id),
+                    HackType::InsufficientFunds,
+                    &format!(
+                        "Withdraw {} > bank balance {}",
+                        amount, current_bank
+                    ),
+                    Some(&ip_address),
+                    None,
+                    &server.game_config.game.anticheat,
+                )
+                .await;
+        }
         warn!(
-            "Withdraw failed: player {} tried to withdraw {} but only has {} in bank",
+            "HACK: player {} tried to withdraw {} but only has {} in bank",
             char_id, amount, current_bank
         );
         // Send current values back to reset UI

@@ -49,3 +49,13 @@ font = 0
 
 [bbs]
 categories = ["Hints", "Events", "Trade", "Adventures", "Jokes", "Other"]
+
+# Anti-cheat configuration
+# Based on GML hack_alert.gml behavior
+[anticheat]
+# Maximum hack attempts before permanent ban (GML default: 8)
+max_hacks = 8
+# Whether to log hacks to file (in addition to database)
+log_to_file = true
+# Directory for hack log files
+log_directory = "logs/hacks"

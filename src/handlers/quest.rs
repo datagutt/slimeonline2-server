@@ -5,7 +5,7 @@
 //!
 //! Messages:
 //! - MSG_QUEST_BEGIN (83) - Start a quest
-//! - MSG_QUEST_CLEAR (84) - Complete a quest  
+//! - MSG_QUEST_CLEAR (84) - Complete a quest
 //! - MSG_QUEST_STEP_INC (85) - Advance quest step
 //! - MSG_QUEST_CANCEL (86) - Cancel current quest
 //! - MSG_QUEST_NPC_REQ (87) - Check if quest is cleared
@@ -18,6 +18,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
 use crate::Server;
+use crate::anticheat::HackType;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
@@ -37,7 +38,10 @@ pub async fn handle_quest_begin(
     let mut reader = MessageReader::new(payload);
     let quest_id = reader.read_u8()? as i16;
 
-    let character_id = session.read().await.character_id;
+    let (character_id, account_id, ip_address) = {
+        let s = session.read().await;
+        (s.character_id, s.account_id, s.ip_address.clone())
+    };
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
@@ -48,6 +52,22 @@ pub async fn handle_quest_begin(
         .await
         .unwrap_or(false)
     {
+        // Report hack - trying to start already cleared quest
+        if let Some(acc_id) = account_id {
+            let _ = server
+                .anticheat
+                .report_hack(
+                    &server.db,
+                    acc_id,
+                    Some(char_id),
+                    HackType::QuestAlreadyCleared,
+                    &format!("Tried to start already-cleared quest {}", quest_id),
+                    Some(&ip_address),
+                    None,
+                    &server.game_config.game.anticheat,
+                )
+                .await;
+        }
         warn!(
             "HACK: Player {} tried to start already-cleared quest {}",
             char_id, quest_id
@@ -121,7 +141,10 @@ pub async fn handle_quest_clear(
     let mut reader = MessageReader::new(payload);
     let quest_id = reader.read_u8()? as i16;
 
-    let character_id = session.read().await.character_id;
+    let (character_id, account_id, ip_address) = {
+        let s = session.read().await;
+        (s.character_id, s.account_id, s.ip_address.clone())
+    };
     let char_id = match character_id {
         Some(id) => id,
         None => return Ok(vec![]),
@@ -133,6 +156,25 @@ pub async fn handle_quest_clear(
         .unwrap_or((0, 0, 0));
 
     if current_quest_id != quest_id {
+        // Report hack - trying to clear a quest that isn't active
+        if let Some(acc_id) = account_id {
+            let _ = server
+                .anticheat
+                .report_hack(
+                    &server.db,
+                    acc_id,
+                    Some(char_id),
+                    HackType::QuestNotActive,
+                    &format!(
+                        "Tried to clear quest {} but current quest is {}",
+                        quest_id, current_quest_id
+                    ),
+                    Some(&ip_address),
+                    None,
+                    &server.game_config.game.anticheat,
+                )
+                .await;
+        }
         warn!(
             "HACK: Player {} tried to clear quest {} but current quest is {}",
             char_id, quest_id, current_quest_id

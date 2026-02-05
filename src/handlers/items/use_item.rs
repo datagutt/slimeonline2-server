@@ -12,7 +12,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::Server;
-use crate::anticheat::validate_position_bounds;
+use crate::anticheat::{validate_position_bounds, HackType};
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
@@ -33,13 +33,8 @@ pub async fn handle_use_item(
     let mut reader = MessageReader::new(payload);
     let slot = reader.read_u8()?;
 
-    // Validate slot
-    if let Err(e) = validate_item_slot(slot) {
-        warn!("Invalid item slot {}: {}", slot, e.message);
-        return Ok(vec![]);
-    }
-
-    let (character_id, player_id, room_id, session_id, session_x, session_y) = {
+    // Get session info first (needed for hack reporting)
+    let (character_id, player_id, room_id, session_id, session_x, session_y, account_id, ip_address) = {
         let session_guard = session.read().await;
         if !session_guard.is_authenticated {
             return Ok(vec![]);
@@ -51,8 +46,32 @@ pub async fn handle_use_item(
             session_guard.session_id,
             session_guard.x,
             session_guard.y,
+            session_guard.account_id,
+            session_guard.ip_address.clone(),
         )
     };
+
+    // Validate slot
+    if let Err(e) = validate_item_slot(slot) {
+        // Report hack - invalid slot is a protocol violation
+        if let Some(acc_id) = account_id {
+            let _ = server
+                .anticheat
+                .report_hack(
+                    &server.db,
+                    acc_id,
+                    character_id,
+                    HackType::InvalidSlot,
+                    &format!("Invalid item slot: {} - {}", slot, e.message),
+                    Some(&ip_address),
+                    None,
+                    &server.game_config.game.anticheat,
+                )
+                .await;
+        }
+        warn!("HACK: Invalid item slot {}: {}", slot, e.message);
+        return Ok(vec![]);
+    }
 
     // Rate limit item usage
     if !server
@@ -85,7 +104,23 @@ pub async fn handle_use_item(
     let item_id = items[(slot - 1) as usize];
 
     if item_id == 0 {
-        debug!("Slot {} is empty", slot);
+        // Report hack - trying to use item from empty slot
+        if let Some(acc_id) = account_id {
+            let _ = server
+                .anticheat
+                .report_hack(
+                    &server.db,
+                    acc_id,
+                    Some(character_id),
+                    HackType::ItemNotInSlot,
+                    &format!("Tried to use item from empty slot {}", slot),
+                    Some(&ip_address),
+                    None,
+                    &server.game_config.game.anticheat,
+                )
+                .await;
+        }
+        warn!("HACK: Slot {} is empty", slot);
         return Ok(vec![]);
     }
 

@@ -205,6 +205,8 @@ pub struct GameRulesConfig {
     pub defaults: DefaultsConfig,
     pub welcome_mail: WelcomeMailConfig,
     pub bbs: BbsConfig,
+    #[serde(default)]
+    pub anticheat: AntiCheatConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -277,6 +279,47 @@ pub struct WelcomeMailConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct BbsConfig {
     pub categories: Vec<String>,
+}
+
+// =============================================================================
+// Anti-Cheat Configuration
+// =============================================================================
+
+/// Anti-cheat configuration
+/// Based on GML hack_alert.gml behavior
+#[derive(Debug, Clone, Deserialize)]
+pub struct AntiCheatConfig {
+    /// Maximum hack attempts before permanent ban (GML default: 8)
+    #[serde(default = "default_max_hacks")]
+    pub max_hacks: u32,
+    /// Whether to log hacks to file (in addition to database)
+    #[serde(default = "default_log_to_file")]
+    pub log_to_file: bool,
+    /// Directory for hack log files
+    #[serde(default = "default_hack_log_dir")]
+    pub log_directory: String,
+}
+
+impl Default for AntiCheatConfig {
+    fn default() -> Self {
+        Self {
+            max_hacks: default_max_hacks(),
+            log_to_file: default_log_to_file(),
+            log_directory: default_hack_log_dir(),
+        }
+    }
+}
+
+fn default_max_hacks() -> u32 {
+    8
+}
+
+fn default_log_to_file() -> bool {
+    true
+}
+
+fn default_hack_log_dir() -> String {
+    "logs/hacks".to_string()
 }
 
 // =============================================================================
