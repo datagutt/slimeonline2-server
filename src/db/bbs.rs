@@ -1,4 +1,8 @@
 //! BBS (Bulletin Board System) database operations
+//!
+//! Note: Some fields and functions are infrastructure for admin features.
+
+#![allow(dead_code)]
 
 use super::DbPool;
 use sqlx::FromRow;
