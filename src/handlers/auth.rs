@@ -15,6 +15,7 @@ use crate::protocol::{
     LoginRequest, LoginSuccessData, MessageReader, MessageWriter, RegisterRequest,
     write_login_failure, write_register_response,
 };
+use crate::validation::validate_mac_address;
 
 use super::{building, collectibles, music, shop, switches};
 
@@ -52,6 +53,14 @@ pub async fn handle_login(
         warn!("Login attempt from banned IP: {}", ip);
         let mut writer = MessageWriter::new();
         write_login_failure(&mut writer, LOGIN_IP_BANNED_1);
+        return Ok(vec![writer.into_bytes()]);
+    }
+
+    // Validate MAC address format
+    if let Err(e) = validate_mac_address(&login.mac_address) {
+        warn!("Invalid MAC address format: {} - {}", login.mac_address, e.message);
+        let mut writer = MessageWriter::new();
+        write_login_failure(&mut writer, LOGIN_IP_BANNED_2);
         return Ok(vec![writer.into_bytes()]);
     }
 
@@ -409,6 +418,14 @@ pub async fn handle_register(
         warn!("Registration attempt from banned IP: {}", ip);
         let mut writer = MessageWriter::new();
         write_register_response(&mut writer, REGISTER_IP_BANNED);
+        return Ok(vec![writer.into_bytes()]);
+    }
+
+    // Validate MAC address format
+    if let Err(e) = validate_mac_address(&register.mac_address) {
+        warn!("Invalid MAC address format in registration: {} - {}", register.mac_address, e.message);
+        let mut writer = MessageWriter::new();
+        write_register_response(&mut writer, REGISTER_MAC_BANNED);
         return Ok(vec![writer.into_bytes()]);
     }
 
