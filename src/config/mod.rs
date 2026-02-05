@@ -990,6 +990,20 @@ pub struct RoomsConfig {
 pub struct RoomMusicConfig {
     pub day_music: u8,
     pub night_music: u8,
+    /// Switch checks for cross-room puzzle validation
+    /// When entering this room, check switches in other rooms and send their status
+    #[serde(default)]
+    pub switch_checks: Vec<SwitchCheckConfig>,
+}
+
+/// Cross-room switch check configuration
+/// Mirrors the [Switch Check] section from original .rom files
+#[derive(Debug, Clone, Deserialize)]
+pub struct SwitchCheckConfig {
+    /// Which room contains the switch to check
+    pub room: u16,
+    /// Which switch ID to check in that room
+    pub switch: u8,
 }
 
 impl From<RoomsConfigRaw> for RoomsConfig {
@@ -1022,6 +1036,14 @@ impl RoomsConfig {
     /// Check if it's currently daytime based on the hour
     pub fn is_daytime(&self, hour: u8) -> bool {
         hour >= self.time.day_start_hour && hour < self.time.night_start_hour
+    }
+
+    /// Get switch checks for a room (cross-room puzzle validation)
+    pub fn get_switch_checks(&self, room_id: u16) -> &[SwitchCheckConfig] {
+        self.rooms
+            .get(&room_id)
+            .map(|config| config.switch_checks.as_slice())
+            .unwrap_or(&[])
     }
 }
 
