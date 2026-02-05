@@ -734,6 +734,9 @@ fn spawn_background_tasks(server: Arc<Server>) {
             }
         }
     });
+
+    // Rate limiter cleanup task - remove stale rate limit entries
+    rate_limit::spawn_rate_limit_cleanup(server.rate_limiter.clone());
 }
 
 /// Spawn a task to handle admin actions from the API
