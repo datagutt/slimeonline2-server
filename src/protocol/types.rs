@@ -133,14 +133,15 @@ pub enum MessageType {
 
     // Music & Misc
     MusicChangerList = 95,
-    MusicChangerSet = 96,
-    PlayerThrow = 97,
+    // Note: id 96 is intentionally unused in the original 0.106 protocol.
+    MusicChangerSet = 97,
+    PlayerThrow = 98,
 
     // Cannon
-    CannonEnter = 98,
-    CannonMove = 99,
-    CannonSetPower = 100,
-    CannonShoot = 101,
+    CannonEnter = 99,
+    CannonMove = 100,
+    CannonSetPower = 101,
+    CannonShoot = 102,
 
     // Building
     BuildSpotFree = 103,
@@ -283,12 +284,12 @@ impl MessageType {
             93 => Self::EmoteDice,
             94 => Self::TreePlantedInc,
             95 => Self::MusicChangerList,
-            96 => Self::MusicChangerSet,
-            97 => Self::PlayerThrow,
-            98 => Self::CannonEnter,
-            99 => Self::CannonMove,
-            100 => Self::CannonSetPower,
-            101 => Self::CannonShoot,
+            97 => Self::MusicChangerSet,
+            98 => Self::PlayerThrow,
+            99 => Self::CannonEnter,
+            100 => Self::CannonMove,
+            101 => Self::CannonSetPower,
+            102 => Self::CannonShoot,
             103 => Self::BuildSpotFree,
             104 => Self::BuildSpotUsed,
             105 => Self::BuildObject,
@@ -424,12 +425,12 @@ impl MessageType {
             Self::EmoteDice => 93,
             Self::TreePlantedInc => 94,
             Self::MusicChangerList => 95,
-            Self::MusicChangerSet => 96,
-            Self::PlayerThrow => 97,
-            Self::CannonEnter => 98,
-            Self::CannonMove => 99,
-            Self::CannonSetPower => 100,
-            Self::CannonShoot => 101,
+            Self::MusicChangerSet => 97,
+            Self::PlayerThrow => 98,
+            Self::CannonEnter => 99,
+            Self::CannonMove => 100,
+            Self::CannonSetPower => 101,
+            Self::CannonShoot => 102,
             Self::BuildSpotFree => 103,
             Self::BuildSpotUsed => 104,
             Self::BuildObject => 105,
@@ -1111,5 +1112,44 @@ pub fn describe_message(msg_type_id: u16, payload: &[u8]) -> String {
             msg_type,
             payload.len()
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The music-changer and cannon opcodes must match the original 0.106 client
+    /// (`settings/constants.txt`): id 96 is unused, MSG_MUSIC_CHANGER_SET is 97,
+    /// and MSG_CANNON_SHOOT is 102. This previously regressed by one.
+    #[test]
+    fn music_and_cannon_opcodes_match_original_client() {
+        let expected = [
+            (95u16, MessageType::MusicChangerList),
+            (97, MessageType::MusicChangerSet),
+            (98, MessageType::PlayerThrow),
+            (99, MessageType::CannonEnter),
+            (100, MessageType::CannonMove),
+            (101, MessageType::CannonSetPower),
+            (102, MessageType::CannonShoot),
+        ];
+        for (id, ty) in expected {
+            assert_eq!(ty.id(), id, "{ty:?}.id() should be {id}");
+            assert_eq!(MessageType::from_id(id), ty, "from_id({id}) should be {ty:?}");
+        }
+
+        // Id 96 is a gap in the original protocol and must not resolve to a real type.
+        assert_eq!(MessageType::from_id(96), MessageType::Unknown(96));
+    }
+
+    /// Every non-Unknown opcode must round-trip through `id()` and `from_id()`.
+    #[test]
+    fn opcode_ids_round_trip() {
+        for raw in 0u16..=200 {
+            let ty = MessageType::from_id(raw);
+            if !matches!(ty, MessageType::Unknown(_)) {
+                assert_eq!(ty.id(), raw, "from_id({raw}).id() must equal {raw}");
+            }
+        }
     }
 }
