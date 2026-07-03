@@ -202,37 +202,44 @@ pub async fn handle_emote(
     Ok(vec![])
 }
 
-/// Handle action (sit, etc.)
+/// Handle MSG_ACTION (12, port of `case_msg_action.gml`): the sender got hurt.
+///
+/// Wire: `[u16 x][u16 y][u16 hurtdir][i16 hsp*100][i16 vsp*100]`. The server
+/// stores the position and relays the fields with the sender's pid prefixed to
+/// everyone else in the room (receivers clear that player's inputs and apply
+/// the knockback speeds divided by 100).
 pub async fn handle_action(
     payload: &[u8],
     server: &Arc<Server>,
     session: Arc<RwLock<PlayerSession>>,
 ) -> Result<Vec<Vec<u8>>> {
-    if payload.is_empty() {
+    let mut reader = MessageReader::new(payload);
+    let (Ok(x), Ok(y), Ok(hurtdir), Ok(hsp), Ok(vsp)) = (
+        reader.read_u16(),
+        reader.read_u16(),
+        reader.read_u16(),
+        reader.read_i16(),
+        reader.read_i16(),
+    ) else {
         return Ok(vec![]);
-    }
-
-    let action_id = payload[0];
-
-    // Validate action ID
-    if action_id > 10 {
-        return Ok(vec![]);
-    }
+    };
 
     let (player_id, room_id) = {
-        let session_guard = session.read().await;
+        let mut session_guard = session.write().await;
 
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
 
-        match session_guard.player_id {
-            Some(id) => (id, session_guard.room_id),
-            None => return Ok(vec![]),
-        }
+        let Some(id) = session_guard.player_id else {
+            return Ok(vec![]);
+        };
+        session_guard.x = x;
+        session_guard.y = y;
+        (id, session_guard.room_id)
     };
 
-    // Broadcast action to all players in room
+    // Relay to everyone else in the room.
     let room_players = server.game_state.get_room_players(room_id).await;
 
     for other_player_id in room_players {
@@ -247,7 +254,11 @@ pub async fn handle_action(
             writer
                 .write_u16(MessageType::Action.id())
                 .write_u16(player_id)
-                .write_u8(action_id);
+                .write_u16(x)
+                .write_u16(y)
+                .write_u16(hurtdir)
+                .write_i16(hsp)
+                .write_i16(vsp);
             other_handle.queue_message(writer.into_bytes()).await;
         }
     }
