@@ -426,6 +426,8 @@ async fn handle_message(
 
         MessageType::Point => gameplay::handle_point_collection(payload, server, session).await,
 
+        MessageType::PointsDec => gameplay::handle_points_dec(payload, server, session).await,
+
         MessageType::Warp => warp::handle_warp(payload, server, session).await,
 
         MessageType::UseItem => items::handle_use_item(payload, server, session).await,

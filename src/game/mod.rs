@@ -318,6 +318,10 @@ pub struct PlayerSession {
     pub race_start_time: Option<Instant>,
     /// Checkpoints reached in current race
     pub race_checkpoints: Vec<u16>,
+    /// Slime points collected this session, keyed (point index, room id). The
+    /// original server keeps this per-connection (points respawn on re-entry);
+    /// a repeated key is a hack alert. See `case_msg_point.gml`.
+    pub points_collected: HashSet<(u8, u16)>,
 }
 
 impl PlayerSession {
@@ -353,6 +357,7 @@ impl PlayerSession {
             race_id: None,
             race_start_time: None,
             race_checkpoints: Vec::new(),
+            points_collected: HashSet::new(),
         }
     }
 
