@@ -21,6 +21,7 @@ mod crypto;
 mod db;
 mod game;
 mod handlers;
+mod hazards;
 mod protocol;
 mod rate_limit;
 mod validation;
@@ -74,6 +75,9 @@ pub struct Server {
     next_player_id: Arc<std::sync::atomic::AtomicU16>,
     pub rate_limiter: Arc<rate_limit::RateLimiter>,
     pub anticheat: Arc<anticheat::AntiCheat>,
+    /// Server start instant: the zero of `global.server_time` (MSG_SERVER_TIME)
+    /// and the phase anchor for the hazard controllers.
+    pub started_at: std::time::Instant,
 }
 
 impl Server {
@@ -96,6 +100,7 @@ impl Server {
             next_player_id: Arc::new(std::sync::atomic::AtomicU16::new(1)),
             rate_limiter: Arc::new(rate_limit::RateLimiter::new()),
             anticheat: Arc::new(anticheat::AntiCheat::new()),
+            started_at: std::time::Instant::now(),
         })
     }
 
@@ -342,6 +347,9 @@ async fn main() -> Result<()> {
 
 /// Spawn background maintenance tasks.
 fn spawn_background_tasks(server: Arc<Server>) {
+    // Room hazard controllers (lavaball volleys, fireballs, falling rocks).
+    tokio::spawn(hazards::run(server.clone()));
+
     // Periodic save task - save all player data
     let save_server = server.clone();
     tokio::spawn(async move {

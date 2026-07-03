@@ -251,7 +251,9 @@ pub async fn handle_login(
     // Build success response
     let login_data = LoginSuccessData {
         player_id,
-        server_time: now.timestamp() as u32,
+        // Milliseconds since server start (the original `global.server_time`,
+        // which drives client-side moving-platform phase sync).
+        server_time: server.started_at.elapsed().as_millis() as u32,
         motd: server.config.motd.clone(),
         day,
         hour: now.hour() as u8,

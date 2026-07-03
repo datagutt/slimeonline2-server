@@ -199,6 +199,12 @@ pub async fn handle_warp(
         responses.push(collectible_msg);
     }
 
+    // Server clock (original case_msg_warp sends MSG_SERVER_TIME on every warp;
+    // lag compensation deliberately skipped) + lavaball volley catch-up for the
+    // new room (original room_check_lava_callers).
+    responses.push(crate::hazards::server_time_message(server));
+    responses.extend(crate::hazards::caller_catchup_messages(server, new_room_id));
+
     // Send one-time items info for the new room (if character is authenticated)
     if let Some(char_id) = character_id {
         let onetime_msgs = one_time::write_room_onetimes(server, new_room_id, char_id).await;
