@@ -5,11 +5,11 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
-use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
 use crate::validation::validate_bbs_post;
+use crate::Server;
 
 /// Cooldown between posts in seconds (prevent spam)
 const BBS_POST_COOLDOWN_SECONDS: i64 = 60;
@@ -119,38 +119,27 @@ pub async fn handle_bbs_request_messages(
     // Get player's current room for per-room BBS
     let room_id = session.read().await.room_id as i64;
 
-    let posts = db::get_bbs_posts(&server.db, room_id, category_id, page)
-        .await
-        .unwrap_or_default();
+    // The client sends page=0 when a category is empty (max_pages=0 parks
+    // current_page at 0 but still requests the list). The original server's
+    // ini lookups simply found nothing; our SQL OFFSET (page-1)*4 would clamp
+    // to 0 and wrongly return the first page, so short-circuit to empty.
+    let posts = if page < 1 {
+        Vec::new()
+    } else {
+        db::get_bbs_posts(&server.db, room_id, category_id, page)
+            .await
+            .unwrap_or_default()
+    };
 
     let mut writer = MessageWriter::new();
     writer.write_u16(MessageType::BbsRequestMessages.id());
 
-    // Client loop: for i=0; i<=count; i++
-    // So if we have 4 posts, we write count=3 and client reads 4
-    // If we have 0 posts, we write count=255 (effectively -1) but that's wrong...
-    // Actually looking at the client code more carefully:
-    // _count = readbyte(); for i=0; i<=_count; i++
-    // So count=0 means 1 iteration, count=3 means 4 iterations
-    // If no posts, we should send count that results in 0 iterations
-    // But i<=count with i=0 always runs at least once...
-    // Let's check: if posts.len() == 0, we shouldn't send any data
-    // The safest is to send count = posts.len() - 1 if posts.len() > 0
-    // If posts.len() == 0, we need to handle specially
-
+    // The count byte is `entries - 1` (the client loops i=0..=count); the
+    // original server writes size-1 even for an empty list, i.e. 0xFF with no
+    // records, and GM's zero-default buffer reads absorb it. Keep that exact
+    // encoding: receivers treat 0xFF as "no messages".
     if posts.is_empty() {
-        // No posts - send count that makes client skip the loop
-        // Actually the client code will still run once with count=0
-        // Looking more closely: ds_map_add(messages, string(i)+"_Title", readstring())
-        // It will try to read even with no data...
-        // We need to send a dummy entry or handle this properly
-        // Let's send 0xFF to indicate no messages (client might handle this?)
-        // Actually, looking at the client: if max_pages = 0, current_page = 0
-        // And the click handlers check if current_page = 0 and cancel
-        // So if we return 0 pages in max_pages, the client won't try to load messages
-        // But we're already in this handler so client expects something...
-        // Let's send count=255 which will underflow in the loop condition
-        writer.write_u8(0xFF); // This should make the loop not execute (i <= 255 starting from 0... hmm)
+        writer.write_u8(0xFF);
     } else {
         // Client reads count+1 messages
         writer.write_u8((posts.len() - 1) as u8);
@@ -305,7 +294,10 @@ pub async fn handle_bbs_request_post(
 /// - title (string)
 /// - text (string)
 ///
-/// Server responds with MSG_BBS_POST (no payload = success, goes back to browse)
+/// Server responds with MSG_BBS_POST (no payload = success, goes back to
+/// browse). Any rejection answers MSG_BBS_REQUEST_POST with allow=0 like the
+/// original `case_msg_bbs_post.gml` else-branch, which flips the client to
+/// its "can't post yet" screen instead of leaving the window hidden.
 pub async fn handle_bbs_post(
     payload: &[u8],
     server: &Arc<Server>,
@@ -316,6 +308,14 @@ pub async fn handle_bbs_post(
     let title = reader.read_string()?;
     let content = reader.read_string()?;
 
+    let rejected = || {
+        let mut writer = MessageWriter::new();
+        writer
+            .write_u16(MessageType::BbsRequestPost.id())
+            .write_u8(0);
+        Ok(vec![writer.into_bytes()])
+    };
+
     // Get player's current room and character_id for per-room BBS
     let (character_id, room_id) = {
         let session_guard = session.read().await;
@@ -323,21 +323,25 @@ pub async fn handle_bbs_post(
     };
     let char_id = match character_id {
         Some(id) => id,
-        None => return Ok(vec![]),
+        None => return rejected(),
     };
 
     // Validate inputs using validation module with config limits
     let limits = &server.game_config.game.limits;
-    if let Err(e) = validate_bbs_post(&title, &content, limits.max_bbs_title, limits.max_bbs_content)
-    {
+    if let Err(e) = validate_bbs_post(
+        &title,
+        &content,
+        limits.max_bbs_title,
+        limits.max_bbs_content,
+    ) {
         warn!("BBS post rejected: {} - {}", e.field, e.message);
-        return Ok(vec![]); // Silent failure
+        return rejected();
     }
 
     let num_categories = server.game_config.game.bbs.categories.len();
     if category_id < 0 || category_id >= num_categories as i64 {
         warn!("BBS post rejected: invalid category {}", category_id);
-        return Ok(vec![]);
+        return rejected();
     }
 
     // Check cooldown
@@ -347,7 +351,7 @@ pub async fn handle_bbs_post(
 
     if !can_post {
         warn!("BBS post rejected: on cooldown");
-        return Ok(vec![]);
+        return rejected();
     }
 
     // Create the post
@@ -366,7 +370,7 @@ pub async fn handle_bbs_post(
         }
         Err(e) => {
             warn!("Failed to create BBS post: {}", e);
-            Ok(vec![]) // Silent failure
+            rejected()
         }
     }
 }
