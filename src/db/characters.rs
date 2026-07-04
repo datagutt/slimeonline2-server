@@ -869,12 +869,14 @@ pub async fn update_inventory_accessories(
 pub async fn update_inventory_tools(
     pool: &DbPool,
     character_id: i64,
-    tools: &[u16; 3],
+    tools: &[u16; 9],
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         UPDATE inventories
         SET tool_1 = ?, tool_2 = ?, tool_3 = ?,
+            tool_4 = ?, tool_5 = ?, tool_6 = ?,
+            tool_7 = ?, tool_8 = ?, tool_9 = ?,
             updated_at = datetime('now')
         WHERE character_id = ?
         "#,
@@ -882,6 +884,12 @@ pub async fn update_inventory_tools(
     .bind(tools[0] as i16)
     .bind(tools[1] as i16)
     .bind(tools[2] as i16)
+    .bind(tools[3] as i16)
+    .bind(tools[4] as i16)
+    .bind(tools[5] as i16)
+    .bind(tools[6] as i16)
+    .bind(tools[7] as i16)
+    .bind(tools[8] as i16)
     .bind(character_id)
     .execute(pool)
     .await?;

@@ -11,11 +11,11 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
-use crate::Server;
 use crate::db;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::validation::{validate_storage_page, validate_storage_move_slot};
+use crate::validation::{validate_storage_move_slot, validate_storage_page};
+use crate::Server;
 
 /// Storage categories
 const CAT_OUTFITS: u8 = 1;
@@ -293,9 +293,7 @@ pub async fn handle_storage_move(
         CAT_TOOLS => {
             // Unequip tool if moving tool category
             let _ = db::update_equipped_tool(&server.db, char_id, 0).await;
-            // Tools only have 3 slots
-            let tools: [u16; 3] = [inv_items[0], inv_items[1], inv_items[2]];
-            let _ = db::update_inventory_tools(&server.db, char_id, &tools).await;
+            let _ = db::update_inventory_tools(&server.db, char_id, &inv_items).await;
         }
         _ => {}
     }
@@ -314,7 +312,11 @@ pub async fn handle_storage_move(
                 break;
             }
         }
-        if has_items { 1 } else { 0 }
+        if has_items {
+            1
+        } else {
+            0
+        }
     };
 
     let mut writer = MessageWriter::new();
