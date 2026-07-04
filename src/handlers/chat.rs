@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use crate::Server;
+use crate::anticheat::HackType;
 use crate::game::PlayerSession;
 use crate::protocol::{ChatMessage, MessageReader, MessageType, MessageWriter};
 use crate::rate_limit::ActionType;
@@ -135,7 +136,12 @@ pub async fn handle_typing(
 /// Dice emote ID - server generates random result 1-6
 const DICE_EMOTE_ID: u8 = 13;
 
-/// Handle emote
+/// Handle MSG_EMOTE (23, port of `case_msg_emote.gml`): the client sends the
+/// shortcut SLOT (1-5), never an emote id. The server resolves the slot against
+/// the character's inventory (`emote_1..emote_5`) and broadcasts
+/// `[u16 pid][u8 emote_id]` to the room. The dice emote (13) also carries the
+/// rolled result: the room gets `[pid][13][u8 roll 1-6]` and the sender gets
+/// MSG_EMOTE_DICE (93) `[u8 roll]` to resolve its local waiting state.
 pub async fn handle_emote(
     payload: &[u8],
     server: &Arc<Server>,
@@ -147,46 +153,86 @@ pub async fn handle_emote(
         return Ok(vec![]);
     }
 
-    let mut emote_id = payload[0];
+    let slot = payload[0];
 
-    // Validate emote ID (there are only a handful of valid emotes)
-    if emote_id > 20 {
-        return Ok(vec![]);
-    }
-
-    let (player_id, room_id) = {
+    let (player_id, room_id, character_id, account_id, ip_address) = {
         let session_guard = session.read().await;
 
         if !session_guard.is_authenticated {
             return Ok(vec![]);
         }
 
-        match session_guard.player_id {
-            Some(id) => (id, session_guard.room_id),
+        let player_id = match session_guard.player_id {
+            Some(id) => id,
             None => return Ok(vec![]),
+        };
+        let character_id = match session_guard.character_id {
+            Some(id) => id,
+            None => return Ok(vec![]),
+        };
+
+        (
+            player_id,
+            session_guard.room_id,
+            character_id,
+            session_guard.account_id,
+            session_guard.ip_address.clone(),
+        )
+    };
+
+    let report = |description: &'static str| {
+        let server = Arc::clone(server);
+        let ip_address = ip_address.clone();
+        async move {
+            if let Some(acc_id) = account_id {
+                let _ = server
+                    .anticheat
+                    .report_hack(
+                        &server.db,
+                        acc_id,
+                        Some(character_id),
+                        HackType::SuspiciousActivity,
+                        description,
+                        Some(&ip_address),
+                        None,
+                        &server.game_config.game.anticheat,
+                    )
+                    .await;
+            }
         }
     };
 
-    // Special handling for dice emote (id 13)
-    // Server generates random result 1-6, sends as emote_id 14-19
-    // (Client displays different dice faces based on emote_id)
-    if emote_id == DICE_EMOTE_ID {
-        let mut rng = rand::thread_rng();
-        let dice_roll: u8 = rng.gen_range(1..=6);
-        // Dice results are mapped to emote IDs 14-19 (14=1, 15=2, ..., 19=6)
-        emote_id = 13 + dice_roll;
+    if !(1..=5).contains(&slot) {
+        warn!("HACK: player {} sent emote from slot {}", player_id, slot);
+        report("Tried to send an emote from a Slot smaller then 1 or higher then 5").await;
+        return Ok(vec![]);
     }
 
-    // Broadcast emote to all players in room (including sender for dice)
+    let inventory = match crate::db::get_inventory(&server.db, character_id).await? {
+        Some(inv) => inv,
+        None => return Ok(vec![]),
+    };
+    let emote_id = inventory.emotes()[(slot - 1) as usize];
+
+    if emote_id == 0 {
+        warn!("HACK: player {} sent emote from empty slot {}", player_id, slot);
+        report("Tried to send an emote from a Slot where he doesn't have an emote").await;
+        return Ok(vec![]);
+    }
+
+    let dice_roll = if emote_id == DICE_EMOTE_ID {
+        let mut rng = rand::thread_rng();
+        Some(rng.gen_range(1u8..=6))
+    } else {
+        None
+    };
+
+    // The original sends 'same room' with no sender exclusion; the GM client
+    // ignores its own pid (it is not in p_list), so the echo is harmless and
+    // kept for wire fidelity.
     let room_players = server.game_state.get_room_players(room_id).await;
 
     for other_player_id in room_players {
-        // For dice, we broadcast to everyone including the sender
-        // so they see the server-generated result
-        if other_player_id == player_id && emote_id < 14 {
-            continue;
-        }
-
         if let Some(other_session_id) = server.game_state.players_by_id.get(&other_player_id)
             && let Some(other_handle) = server.sessions.get(&other_session_id)
         {
@@ -195,8 +241,19 @@ pub async fn handle_emote(
                 .write_u16(MessageType::Emote.id())
                 .write_u16(player_id)
                 .write_u8(emote_id);
+            if let Some(roll) = dice_roll {
+                writer.write_u8(roll);
+            }
             other_handle.queue_message(writer.into_bytes()).await;
         }
+    }
+
+    if let Some(roll) = dice_roll {
+        let mut writer = MessageWriter::new();
+        writer
+            .write_u16(MessageType::EmoteDice.id())
+            .write_u8(roll);
+        return Ok(vec![writer.into_bytes()]);
     }
 
     Ok(vec![])
