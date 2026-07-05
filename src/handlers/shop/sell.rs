@@ -37,9 +37,13 @@ fn get_accessory_sell_price(prices: &PriceConfig, accessory_id: u16) -> u16 {
     prices.get_accessory_sell_price(accessory_id).unwrap_or(0) as u16
 }
 
-/// Get sell price for a tool by ID from config (buy_price / 3)
+/// Get sell price for a tool by ID from config (`round(buy/3)` like the rest).
 fn get_tool_sell_price(prices: &PriceConfig, tool_id: u8) -> u16 {
-    prices.tools.get(&tool_id).map(|t| t.price / 3).unwrap_or(0) as u16
+    prices
+        .tools
+        .get(&tool_id)
+        .map(|t| (t.price + 1) / 3)
+        .unwrap_or(0) as u16
 }
 
 /// Handle MSG_SELL_REQ_PRICES (53)
@@ -232,8 +236,11 @@ pub async fn handle_sell(
             }
         }
         4 => {
-            // Sell tools
+            // Sell tools. The original unequips when the equipped tool's slot
+            // is among the sold ones (the client zeroes its tool_eq too).
+            // `equipped_tool` stores the SLOT number, not the tool id.
             let tools = inventory.tools();
+            let equipped_slot = inventory.equipped_tool;
             for &slot in &slots_to_sell {
                 let tool_id = tools[(slot - 1) as usize];
                 if tool_id != 0 {
@@ -241,6 +248,9 @@ pub async fn handle_sell(
                     if price > 0 {
                         total_earned += price as u64;
                         crate::db::update_tool_slot(&server.db, char_id, slot, 0).await?;
+                        if equipped_slot != 0 && slot as i16 == equipped_slot {
+                            let _ = crate::db::update_equipped_tool(&server.db, char_id, 0).await;
+                        }
                         debug!(
                             "Sold tool {} from slot {} for {} points",
                             tool_id, slot, price

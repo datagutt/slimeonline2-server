@@ -9,7 +9,7 @@ use tracing::{error, info, warn};
 use crate::Server;
 use crate::game::PlayerSession;
 use crate::protocol::{MessageReader, MessageType, MessageWriter};
-use crate::validation::{validate_room_id, validate_position};
+use crate::validation::{validate_position, validate_room_id};
 
 use super::{building, collectibles, items, music, one_time, planting, shop, switches, upgrader};
 
@@ -44,7 +44,10 @@ pub async fn handle_warp(
 
     // Validate position coordinates
     if let Err(e) = validate_position(new_x, new_y) {
-        warn!("Invalid warp position ({}, {}): {}", new_x, new_y, e.message);
+        warn!(
+            "Invalid warp position ({}, {}): {}",
+            new_x, new_y, e.message
+        );
         return Ok(vec![]);
     }
 
@@ -193,6 +196,9 @@ pub async fn handle_warp(
             error!("Failed to build shop info for room {}: {}", new_room_id, e);
         }
     }
+
+    // Reveal any unlocked unlockables (vending machines) in the new room.
+    responses.extend(crate::handlers::vending::build_room_unlockables(server, new_room_id).await);
 
     // Send collectible info for the new room (if any collectibles exist)
     if let Some(collectible_msg) = collectibles::write_collectible_info(server, new_room_id).await {

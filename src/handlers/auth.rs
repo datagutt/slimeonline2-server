@@ -58,7 +58,10 @@ pub async fn handle_login(
 
     // Validate MAC address format
     if let Err(e) = validate_mac_address(&login.mac_address) {
-        warn!("Invalid MAC address format: {} - {}", login.mac_address, e.message);
+        warn!(
+            "Invalid MAC address format: {} - {}",
+            login.mac_address, e.message
+        );
         let mut writer = MessageWriter::new();
         write_login_failure(&mut writer, LOGIN_IP_BANNED_2);
         return Ok(vec![writer.into_bytes()]);
@@ -363,6 +366,11 @@ pub async fn handle_login(
         }
     }
 
+    // Reveal any unlocked unlockables (vending machines) in the spawn room.
+    responses.extend(
+        crate::handlers::vending::build_room_unlockables(server, character.room_id as u16).await,
+    );
+
     // Send collectible info for the spawn room (if any collectibles exist)
     if let Some(collectible_msg) =
         collectibles::write_collectible_info(server, character.room_id as u16).await
@@ -425,7 +433,10 @@ pub async fn handle_register(
 
     // Validate MAC address format
     if let Err(e) = validate_mac_address(&register.mac_address) {
-        warn!("Invalid MAC address format in registration: {} - {}", register.mac_address, e.message);
+        warn!(
+            "Invalid MAC address format in registration: {} - {}",
+            register.mac_address, e.message
+        );
         let mut writer = MessageWriter::new();
         write_register_response(&mut writer, REGISTER_MAC_BANNED);
         return Ok(vec![writer.into_bytes()]);

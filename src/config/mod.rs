@@ -407,9 +407,11 @@ impl PriceConfig {
         self.items.get(&item_id).map(|e| e.price)
     }
 
-    /// Get the sell price for an item (buy_price / 3, rounded down)
+    /// Get the sell price for an item. The original computes
+    /// `round(buy_price / 3)`; thirds never land on .5, so nearest-rounding is
+    /// exactly `(price + 1) / 3` in integer math.
     pub fn get_item_sell_price(&self, item_id: u16) -> Option<u32> {
-        self.items.get(&item_id).map(|e| e.price / 3)
+        self.items.get(&item_id).map(|e| (e.price + 1) / 3)
     }
 
     /// Get the buy price for an outfit
@@ -417,9 +419,9 @@ impl PriceConfig {
         self.outfits.get(&outfit_id).copied()
     }
 
-    /// Get the sell price for an outfit
+    /// Get the sell price for an outfit (`round(buy/3)`, see item variant).
     pub fn get_outfit_sell_price(&self, outfit_id: u16) -> Option<u32> {
-        self.outfits.get(&outfit_id).map(|p| p / 3)
+        self.outfits.get(&outfit_id).map(|p| (p + 1) / 3)
     }
 
     /// Get the buy price for an accessory
@@ -427,9 +429,9 @@ impl PriceConfig {
         self.accessories.get(&accessory_id).copied()
     }
 
-    /// Get the sell price for an accessory
+    /// Get the sell price for an accessory (`round(buy/3)`, see item variant).
     pub fn get_accessory_sell_price(&self, accessory_id: u16) -> Option<u32> {
-        self.accessories.get(&accessory_id).map(|p| p / 3)
+        self.accessories.get(&accessory_id).map(|p| (p + 1) / 3)
     }
 
     /// Check if an item can be discarded (dropped on ground)
