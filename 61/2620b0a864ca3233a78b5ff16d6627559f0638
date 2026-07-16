@@ -1,0 +1,19 @@
+config/collectibles.toml
+  s_77b774f29a1247::t_553c33737e2b93 357-368
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "612620b0a864ca3233a78b5ff16d6627559f0638",
+  "prompts": {},
+  "sessions": {
+    "s_77b774f29a1247": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f683d-1194-7740-bcca-8388cfe89a72",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Thomas Lekanger <thomas.lekanger@hotmail.com>"
+    }
+  }
+}
