@@ -355,6 +355,18 @@ spawns = [
 ]
 
 # ============================================
+# FROZEN HOLLOW SECRET CAVERN (Room 154)
+# Sledmium, Penguin Soda, Lucky Coin
+# ============================================
+
+[room.154]
+spawns = [
+    { id = 1, item = 40, x = 144, y = 552, respawn = 180, variance = 120 },
+    { id = 2, item = 36, x = 208, y = 456, respawn = 90, variance = 60 },
+    { id = 3, item = 33, x = 128, y = 408, respawn = 240, variance = 120 },
+]
+
+# ============================================
 # TEST ROOM (Room 14)
 # ============================================
 
